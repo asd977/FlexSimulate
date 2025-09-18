@@ -54,16 +54,6 @@
        </property>
       </spacer>
      </item>
-     <item>
-      <widget class="QPushButton" name="addButton">
-       <property name="toolTip">
-        <string>创建一个新的方案</string>
-       </property>
-       <property name="text">
-        <string>新增方案</string>
-       </property>
-      </widget>
-     </item>
     </layout>
    </item>
    <item>
@@ -77,7 +67,7 @@
         <x>0</x>
         <y>0</y>
         <width>293</width>
-        <height>701</height>
+        <height>715</height>
        </rect>
       </property>
       <layout class="QGridLayout" name="gridLayout">

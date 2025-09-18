@@ -10,9 +10,6 @@ SchemeGalleryWidget::SchemeGalleryWidget(QWidget *parent)
     : QWidget(parent), ui(new Ui::SchemeGalleryWidget)
 {
     ui->setupUi(this);
-
-    connect(ui->addButton, &QPushButton::clicked,
-            this, &SchemeGalleryWidget::addSchemeRequested);
 }
 
 SchemeGalleryWidget::~SchemeGalleryWidget() { delete ui; }

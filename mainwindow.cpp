@@ -1,4 +1,4 @@
-#include "MainWindow.h"
+﻿#include "MainWindow.h"
 #include "ui_MainWindow.h"
 
 #include "JsonPageBuilder.h"
@@ -251,8 +251,6 @@ void MainWindow::setupConnections()
         }
     });
 
-    connect(m_galleryWidget, &SchemeGalleryWidget::addSchemeRequested,
-            this, &MainWindow::onGalleryAddRequested);
     connect(m_galleryWidget, &SchemeGalleryWidget::schemeOpenRequested,
             this, &MainWindow::onGalleryOpenRequested);
     connect(m_galleryWidget, &SchemeGalleryWidget::schemeDeleteRequested,
@@ -484,11 +482,6 @@ void MainWindow::onExternalDrop(const QList<QUrl>& urls, QTreeWidgetItem* target
         ui->stackedWidget->setCurrentWidget(ui->MainPage);
         selectTreeItem(targetSchemeId, addedModels.first());
     }
-}
-
-void MainWindow::onGalleryAddRequested()
-{
-    promptAddScheme();
 }
 
 void MainWindow::onGalleryOpenRequested(const QString& id)

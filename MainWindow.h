@@ -1,4 +1,4 @@
-#pragma once
+﻿#pragma once
 
 #include <QMainWindow>
 #include <QPointer>
@@ -36,7 +36,6 @@ private slots:
     void onTreeContextMenuRequested(const QPoint& pos);
     void onTreeItemsReordered();
     void onExternalDrop(const QList<QUrl>& urls, QTreeWidgetItem* target);
-    void onGalleryAddRequested();
     void onGalleryOpenRequested(const QString& id);
     void onGalleryDeleteRequested(const QString& id);
     void deleteCurrentTreeItem();

@@ -21,7 +21,6 @@ public:
     void removeSchemeById(const QString& id);
 
 signals:
-    void addSchemeRequested();
     void schemeOpenRequested(const QString& id);
     void schemeDeleteRequested(const QString& id);
 
