@@ -12,6 +12,7 @@
 #include <QDateTime>
 #include <QTextStream>
 #include <QFileInfo>
+#include <QDir>
 
 static const char* kBtnQss =
     "QPushButton {"

@@ -1,4 +1,4 @@
-#include "MainWindow.h"
+﻿#include "MainWindow.h"
 #include "ui_MainWindow.h"
 
 #include "JsonPageBuilder.h"
@@ -407,7 +407,9 @@ void MainWindow::selectTreeItem(const QString& schemeId, const QString& modelId)
 {
     if (!modelId.isEmpty())
     {
-        if (auto it = m_modelItems.find(modelId); it != m_modelItems.end())
+        // 如果 m_modelItems 是 QHash
+        QHash<QString, QTreeWidgetItem*>::iterator it = m_modelItems.find(modelId);
+        if (it != m_modelItems.end())
         {
             ui->treeModels->setCurrentItem(it.value());
             return;
@@ -416,7 +418,9 @@ void MainWindow::selectTreeItem(const QString& schemeId, const QString& modelId)
 
     if (!schemeId.isEmpty())
     {
-        if (auto it = m_schemeItems.find(schemeId); it != m_schemeItems.end())
+        // 如果 m_schemeItems 是 QHash
+        QHash<QString, QTreeWidgetItem*>::iterator it = m_schemeItems.find(schemeId);
+        if (it != m_schemeItems.end())
         {
             ui->treeModels->setCurrentItem(it.value());
             return;
@@ -426,6 +430,7 @@ void MainWindow::selectTreeItem(const QString& schemeId, const QString& modelId)
     if (ui->treeModels->topLevelItemCount() > 0)
         ui->treeModels->setCurrentItem(ui->treeModels->topLevelItem(0));
 }
+
 
 void MainWindow::clearDetailWidget()
 {
