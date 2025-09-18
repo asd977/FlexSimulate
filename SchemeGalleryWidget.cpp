@@ -87,11 +87,21 @@ void SchemeGalleryWidget::relayoutCards() {
         delete it;
     }
 
+    grid->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+
     // 计算列数（根据可视宽度自适应换行）
     int viewportW = ui->scrollArea->viewport()->width();
     int hSpacing = grid->horizontalSpacing();
     int contents = grid->contentsMargins().left() + grid->contentsMargins().right();
-    int cols = qMax(1, (viewportW - contents + hSpacing) / (m_cardW + hSpacing));
+    int cardWidth = m_cardW;
+    for (const auto& card : m_cards) {
+        if (card) {
+            cardWidth = qMax(cardWidth, card->sizeHint().width());
+            break;
+        }
+    }
+
+    int cols = qMax(1, (viewportW - contents + hSpacing) / (cardWidth + hSpacing));
 
     int row = 0, col = 0;
     for (QPointer<SchemeCardWidget> card : m_cards) {
