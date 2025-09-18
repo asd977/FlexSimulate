@@ -1,0 +1,18 @@
+[
+  {
+    "title": "气流设置",
+    "data": [
+      { "cn_name": "风速", "value": 12.5 },
+      { "cn_name": "风向角", "value": 15 },
+      { "cn_name": "温度", "value": 22 }
+    ]
+  },
+  {
+    "title": "测试控制",
+    "data": [
+      { "cn_name": "采样频率", "value": 200 },
+      { "cn_name": "持续时间", "value": 60 },
+      { "cn_name": "记录格式", "value": "CSV" }
+    ]
+  }
+]

@@ -50,7 +50,7 @@
          </layout>
         </item>
         <item>
-         <widget class="QTreeWidget" name="treeModels">
+         <widget class="SchemeTreeWidget" name="treeModels">
           <property name="minimumSize">
            <size>
             <width>260</width>
@@ -62,7 +62,7 @@
           </property>
           <column>
            <property name="text">
-            <string> 模型</string>
+            <string>方案 / 模型</string>
            </property>
           </column>
          </widget>
@@ -153,8 +153,15 @@
    <addaction name="menuProject"/>
    <addaction name="menuModel"/>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
- </widget>
+ <widget class="QStatusBar" name="statusbar"/>
+</widget>
+ <customwidgets>
+  <customwidget>
+   <class>SchemeTreeWidget</class>
+   <extends>QTreeWidget</extends>
+   <header>SchemeTreeWidget.h</header>
+  </customwidget>
+ </customwidgets>
  <resources/>
  <connections/>
 </ui>
