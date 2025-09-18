@@ -12,7 +12,21 @@
 #include <QDateTime>
 #include <QTextStream>
 #include <QFileInfo>
+#include <QFileInfoList>
+#include <QStringList>
 #include <QDir>
+
+namespace
+{
+QFileInfo latestStlInfo(const QDir& dir)
+{
+    const QFileInfoList files = dir.entryInfoList(QStringList() << "*.stl" << "*.STL",
+                                                  QDir::Files, QDir::Time | QDir::IgnoreCase);
+    if (!files.isEmpty())
+        return files.first();
+    return QFileInfo();
+}
+}
 
 static const char* kBtnQss =
     "QPushButton {"
@@ -271,38 +285,51 @@ void JsonPageBuilder::onCalculateButtonClicked()
     const QString now = QDateTime::currentDateTime()
                         .toString("yyyy-MM-dd HH:mm:ss");
 
-    QString message;
+    QFileInfo jsonInfo(m_jsonPath);
+    QDir workingDir = jsonInfo.exists() ? jsonInfo.dir() : QDir();
+    QFileInfo previousStl = jsonInfo.exists() ? latestStlInfo(workingDir) : QFileInfo();
+
+    emit logMessage(tr("开始计算，保存参数到 %1")
+                        .arg(QDir::toNativeSeparators(m_jsonPath)));
 
     // 1) 先保存 JSON
     if (!saveJson(m_jsonPath)) {
-        QMessageBox::warning(this, tr("警告"),
-                             tr("保存 JSON 失败：%1").arg(m_jsonPath));
+        const QString warn = tr("保存 JSON 失败：%1")
+                                 .arg(QDir::toNativeSeparators(m_jsonPath));
+        emit logMessage(warn);
+        QMessageBox::warning(this, tr("警告"), warn);
         m_calculateButton->setEnabled(true);
         return;
     }
 
+    emit logMessage(tr("已保存参数，开始执行计算脚本"));
+
     // 2) 执行外部命令（Windows 下：cmd /c calculate.bat）
     int exitCode = -1;
     QString stderrText, stdoutText;
-    try {
-        QProcess p;
-        QFileInfo info(m_jsonPath);
-        if (info.exists())
-            p.setWorkingDirectory(info.dir().absolutePath());
-        p.setProcessChannelMode(QProcess::MergedChannels);
-        p.start("cmd", QStringList() << "/c" << "calculate.bat");
-        // 若完全隐藏窗口，可把 "cmd /c" 换成直接 p.start("calculate.bat")
-        // 或使用: p.start("cmd", {"/c","start","/B","/WAIT","calculate.bat"});
-        const bool ok = p.waitForFinished(-1);
-        stdoutText = QString::fromLocal8Bit(p.readAllStandardOutput());
-        stderrText = QString::fromLocal8Bit(p.readAllStandardError());
-        exitCode = ok ? p.exitCode() : -1;
-    } catch (...) {
-        exitCode = -1;
+    QProcess process;
+    if (jsonInfo.exists())
+        process.setWorkingDirectory(workingDir.absolutePath());
+    process.setProcessChannelMode(QProcess::MergedChannels);
+    process.start("cmd", QStringList() << "/c" << "calculate.bat");
+    const bool finished = process.waitForFinished(-1);
+    stdoutText = QString::fromLocal8Bit(process.readAllStandardOutput());
+    stderrText = QString::fromLocal8Bit(process.readAllStandardError());
+    exitCode = finished ? process.exitCode() : -1;
+
+    if (!finished) {
+        emit logMessage(tr("计算脚本执行异常：%1")
+                            .arg(process.errorString()));
     }
 
+    if (!stdoutText.trimmed().isEmpty())
+        emit logMessage(tr("输出：%1").arg(stdoutText.trimmed()));
+    if (!stderrText.trimmed().isEmpty())
+        emit logMessage(tr("错误：%1").arg(stderrText.trimmed()));
+
+    QString message;
     if (exitCode == 0) {
-        message = QString("compute successfully At %1").arg(now);
+        message = tr("计算成功，时间：%1").arg(now);
     }
 
     // 3) 检测 .msg
@@ -310,7 +337,7 @@ void JsonPageBuilder::onCalculateButtonClicked()
         const QString all = readWholeFile(m_msgPath);
         const QString err = extractErrorMsgFromMsg(all);
         if (!err.isEmpty()) {
-            message = QString("error info: %1 At %2").arg(err, now);
+            message = tr("错误信息：%1 时间：%2").arg(err, now);
         }
     }
     // 4) 否则检测 .dat
@@ -318,20 +345,40 @@ void JsonPageBuilder::onCalculateButtonClicked()
         const QString all = readWholeFile(m_datPath);
         QString err = extractErrorMsgFromDat(all);
         if (!err.isEmpty()) {
-            message = QString("error info: %1 At %2").arg(err, now);
+            message = tr("错误信息：%1 时间：%2").arg(err, now);
         }
     }
 
     if (message.isEmpty()) {
         // 兜底信息：既无错误也无成功码
-        message = QString("finished with code %1 At %2")
+        message = tr("计算结束，退出码 %1 时间：%2")
                       .arg(exitCode)
                       .arg(now);
         if (!stderrText.trimmed().isEmpty())
-            message += QString("\n%1").arg(stderrText.trimmed());
+            message += QStringLiteral("\n%1").arg(stderrText.trimmed());
     }
 
-    QMessageBox::information(this, ("提示框"),
+    emit logMessage(message);
+
+    QFileInfo latestStl = jsonInfo.exists() ? latestStlInfo(workingDir) : QFileInfo();
+    QString newStlPath;
+    if (latestStl.exists()) {
+        const bool isNewFile = !previousStl.exists() ||
+                               latestStl.absoluteFilePath() != previousStl.absoluteFilePath();
+        const bool isUpdated = previousStl.exists() &&
+                               latestStl.absoluteFilePath() == previousStl.absoluteFilePath() &&
+                               latestStl.lastModified() > previousStl.lastModified();
+        if (isNewFile || isUpdated)
+        {
+            newStlPath = latestStl.absoluteFilePath();
+            emit logMessage(tr("检测到新的 STL 输出：%1")
+                                .arg(QDir::toNativeSeparators(newStlPath)));
+        }
+    }
+
+    emit calculationFinished(newStlPath);
+
+    QMessageBox::information(this, tr("提示框"),
                              message, QMessageBox::Ok);
     m_calculateButton->setEnabled(true);
 }

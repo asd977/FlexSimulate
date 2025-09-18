@@ -13,7 +13,11 @@ class JsonPageBuilder : public QWidget
     Q_OBJECT
 public:
     explicit JsonPageBuilder(const QString& jsonPath,
-                           QWidget* parent = nullptr);
+                             QWidget* parent = nullptr);
+
+signals:
+    void logMessage(const QString& message);
+    void calculationFinished(const QString& stlPath);
 
 private slots:
     void onCalculateButtonClicked();

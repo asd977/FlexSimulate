@@ -7,6 +7,7 @@
 #include <QPixmap>
 #include <QUrl>
 #include <QDir>
+#include <vtkSmartPointer.h>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -16,6 +17,10 @@ class QTreeWidgetItem;
 class QWidget;
 class QShortcut;
 class SchemeGalleryWidget;
+class JsonPageBuilder;
+class vtkGenericOpenGLRenderWindow;
+class vtkRenderer;
+class vtkActor;
 
 class MainWindow : public QMainWindow
 {
@@ -48,7 +53,7 @@ private:
     struct SchemeRecord {
         QString id;
         QString name;
-        QString directory;
+        QString workingDirectory;
         QVector<ModelRecord> models;
     };
 
@@ -78,13 +83,18 @@ private:
     QWidget* buildSchemeSettingsWidget(const SchemeRecord& scheme);
     QWidget* buildModelSettingsWidget(const ModelRecord& model);
     void refreshCurrentDetail();
+    void updateToolbarState();
+    void appendLogMessage(const QString& message);
+    void displayStlFile(const QString& filePath);
+    void clearVtkScene();
 
     SchemeRecord* schemeById(const QString& id);
     const SchemeRecord* schemeById(const QString& id) const;
-    SchemeRecord* schemeByDirectory(const QString& canonicalPath);
+    SchemeRecord* schemeByWorkingDirectory(const QString& canonicalPath);
     ModelRecord* modelById(const QString& id, SchemeRecord** owner = nullptr);
     const ModelRecord* modelById(const QString& id, const SchemeRecord** owner = nullptr) const;
 
+    QString createScheme(const QString& name, const QString& workingDir);
     QString importSchemeFromDirectory(const QString& dirPath, bool showError = true);
     QVector<QString> importModelsIntoScheme(const QString& schemeId,
                                             const QStringList& paths,
@@ -94,9 +104,15 @@ private:
     QPixmap makeSchemePlaceholder(const QString& name) const;
     void promptAddScheme();
     void promptAddModel(const QString& schemeId);
+    void openSchemeSettings(const QString& schemeId);
     void removeSchemeById(const QString& id);
     void removeModelById(const QString& id);
     void syncDataFromTree();
+    bool loadSchemesFromStorage();
+    void saveSchemesToStorage() const;
+    void persistSchemes() const;
+    QString makeUniqueWorkspaceSubdir(const QString& baseName) const;
+    QString workspaceRoot() const;
 
     Ui::MainWindow *ui;
     SchemeGalleryWidget* m_galleryWidget = nullptr;
@@ -107,4 +123,9 @@ private:
     QString m_activeSchemeId;
     QString m_activeModelId;
     bool m_blockTreeSignals = false;
+    QString m_storageFilePath;
+    QString m_workspaceRoot;
+    vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
+    vtkSmartPointer<vtkRenderer> m_renderer;
+    vtkSmartPointer<vtkActor> m_currentActor;
 };

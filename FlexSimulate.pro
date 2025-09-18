@@ -37,7 +37,10 @@ HEADERS += \
 FORMS += \
     MainWindow.ui \
     SchemeCardWidget.ui \
-    SchemeGalleryWidget.ui \
+    SchemeGalleryWidget.ui
+
+RESOURCES += \
+    resources.qrc
 
 
 # Default rules for deployment.
