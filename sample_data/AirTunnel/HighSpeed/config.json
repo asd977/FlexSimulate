@@ -1,0 +1,18 @@
+[
+  {
+    "title": "高速段参数",
+    "data": [
+      { "cn_name": "风速", "value": 36.0 },
+      { "cn_name": "湍流强度", "value": 5.2 },
+      { "cn_name": "密度", "value": 1.18 }
+    ]
+  },
+  {
+    "title": "控制策略",
+    "data": [
+      { "cn_name": "PID_P", "value": 0.6 },
+      { "cn_name": "PID_I", "value": 0.25 },
+      { "cn_name": "PID_D", "value": 0.05 }
+    ]
+  }
+]

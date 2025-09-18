@@ -11,6 +11,7 @@
 #include <QRegularExpression>
 #include <QDateTime>
 #include <QTextStream>
+#include <QFileInfo>
 
 static const char* kBtnQss =
     "QPushButton {"
@@ -23,10 +24,17 @@ static const char* kBtnQss =
 
 JsonPageBuilder::JsonPageBuilder(const QString& jsonPath, QWidget* parent)
     : QWidget(parent)
-    , m_jsonPath(jsonPath)
+    , m_jsonPath(QFileInfo(jsonPath).absoluteFilePath())
 {
     setWindowTitle(("广汽APP-Demo"));
     setMinimumWidth(500);
+
+    QFileInfo info(m_jsonPath);
+    if (info.exists())
+    {
+        m_datPath = info.dir().filePath(QStringLiteral("Job-2.dat"));
+        m_msgPath = info.dir().filePath(QStringLiteral("Job-2.msg"));
+    }
 
     QJsonArray sections;
     if (!loadJson(m_jsonPath, sections))
@@ -277,6 +285,9 @@ void JsonPageBuilder::onCalculateButtonClicked()
     QString stderrText, stdoutText;
     try {
         QProcess p;
+        QFileInfo info(m_jsonPath);
+        if (info.exists())
+            p.setWorkingDirectory(info.dir().absolutePath());
         p.setProcessChannelMode(QProcess::MergedChannels);
         p.start("cmd", QStringList() << "/c" << "calculate.bat");
         // 若完全隐藏窗口，可把 "cmd /c" 换成直接 p.start("calculate.bat")

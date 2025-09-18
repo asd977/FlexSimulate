@@ -1,47 +1,42 @@
 ﻿#include "SchemeGalleryWidget.h"
 #include "ui_SchemeGalleryWidget.h"   // 由 .ui 生成
 #include "SchemeCardWidget.h"
-#include "SchemeSettingsDialog.h"
 
 #include <QGridLayout>
 #include <QScrollArea>
-#include <QRandomGenerator>
-#include <QUuid>
 #include <QPixmap>
-#include <QPainter>
-
-static QPixmap makePlaceholderThumb(const QString& text, const QSize& sz=QSize(600,360)) {
-    QPixmap pm(sz);
-    pm.fill(Qt::white);
-    QPainter p(&pm);
-    p.fillRect(pm.rect(), QColor("#eef2f7"));
-    p.setPen(QColor("#7a8aa0"));
-    QFont f = p.font(); f.setPointSize(18); p.setFont(f);
-    p.drawText(pm.rect(), Qt::AlignCenter, text);
-    return pm;
-}
 
 SchemeGalleryWidget::SchemeGalleryWidget(QWidget *parent)
     : QWidget(parent), ui(new Ui::SchemeGalleryWidget)
 {
     ui->setupUi(this);
 
-    // 示例：预置3个
-    addScheme("空气模拟", makePlaceholderThumb("空气模拟"));
-    addScheme("弯管应力", makePlaceholderThumb("弯管应力"));
-    addScheme("喷淋工况", makePlaceholderThumb("喷淋工况"));
-
-    connect(ui->addButton, &QPushButton::clicked, this, [this](){
-        const int n = m_cards.size()+1;
-        addScheme(QString("新方案 %1").arg(n), makePlaceholderThumb(QString("新方案 %1").arg(n)));
-    });
+    connect(ui->addButton, &QPushButton::clicked,
+            this, &SchemeGalleryWidget::addSchemeRequested);
 }
 
 SchemeGalleryWidget::~SchemeGalleryWidget() { delete ui; }
 
-void SchemeGalleryWidget::addScheme(const QString& name, const QPixmap& thumb) {
-    // 生成唯一 id
-    QString id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+void SchemeGalleryWidget::clearSchemes()
+{
+    auto* grid = qobject_cast<QGridLayout*>(ui->gridLayout);
+    for (auto& card : m_cards) {
+        if (card) {
+            grid->removeWidget(card);
+            card->deleteLater();
+        }
+    }
+    m_cards.clear();
+    relayoutCards();
+}
+
+void SchemeGalleryWidget::addScheme(const QString& id,
+                                    const QString& name,
+                                    const QPixmap& thumb) {
+    if (id.isEmpty())
+        return;
+
+    removeSchemeById(id);
 
     // 创建卡片
     auto* card = new SchemeCardWidget(id, this);
@@ -55,15 +50,12 @@ void SchemeGalleryWidget::addScheme(const QString& name, const QPixmap& thumb) {
     m_cards.push_back(card);
 
     // 打开设置
-    connect(card, &SchemeCardWidget::openRequested, this, [this, card](const QString&){
-        SchemeSettingsDialog dlg(card->title(), this);
-        dlg.exec(); // 在你的工程里替换为真正的“方案设置”页面
-    });
+    connect(card, &SchemeCardWidget::openRequested,
+            this, &SchemeGalleryWidget::schemeOpenRequested);
 
     // 删除
-    connect(card, &SchemeCardWidget::deleteRequested, this, [this](const QString& cid){
-        removeSchemeById(cid);
-    });
+    connect(card, &SchemeCardWidget::deleteRequested,
+            this, &SchemeGalleryWidget::schemeDeleteRequested);
 
     relayoutCards();
 }

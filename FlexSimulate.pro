@@ -21,6 +21,7 @@ SOURCES += \
     SchemeCardWidget.cpp \
     SchemeGalleryWidget.cpp \
     SchemeSettingsDialog.cpp \
+    SchemeTreeWidget.cpp \
     main.cpp
 
 HEADERS += \
@@ -28,7 +29,8 @@ HEADERS += \
     MainWindow.h \
     SchemeCardWidget.h \
     SchemeGalleryWidget.h \
-    SchemeSettingsDialog.h
+    SchemeSettingsDialog.h \
+    SchemeTreeWidget.h
 
 FORMS += \
     MainWindow.ui \

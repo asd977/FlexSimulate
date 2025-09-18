@@ -14,9 +14,16 @@ public:
     explicit SchemeGalleryWidget(QWidget *parent = nullptr);
     ~SchemeGalleryWidget();
 
-public slots:
-    void addScheme(const QString& name = QString(), const QPixmap& thumb = QPixmap());
+    void clearSchemes();
+    void addScheme(const QString& id,
+                   const QString& name = QString(),
+                   const QPixmap& thumb = QPixmap());
     void removeSchemeById(const QString& id);
+
+signals:
+    void addSchemeRequested();
+    void schemeOpenRequested(const QString& id);
+    void schemeDeleteRequested(const QString& id);
 
 protected:
     void resizeEvent(QResizeEvent* e) override;
