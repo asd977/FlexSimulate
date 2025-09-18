@@ -53,6 +53,7 @@ private:
         QString id;
         QString name;
         QString workingDirectory;
+        QString thumbnailPath;
         QVector<ModelRecord> models;
     };
 
@@ -101,6 +102,10 @@ private:
     bool isModelFolder(const QDir& dir, QString* jsonPath, QString* batPath) const;
     QVector<ModelRecord> scanSchemeFolder(const QString& schemeDir) const;
     QPixmap makeSchemePlaceholder(const QString& name) const;
+    QPixmap loadSchemeThumbnail(const SchemeRecord& scheme) const;
+    void applySchemeThumbnail(SchemeRecord& scheme, const QString& sourcePath);
+    QString storeSchemeThumbnail(const QString& schemeDir, const QString& sourcePath) const;
+    bool isPathWithinDirectory(const QString& filePath, const QString& directory) const;
     void promptAddScheme();
     void promptAddModel(const QString& schemeId);
     void openSchemeSettings(const QString& schemeId);

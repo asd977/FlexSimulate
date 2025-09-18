@@ -24,6 +24,7 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QListWidget>
+#include <QImageReader>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
@@ -585,8 +586,10 @@ void MainWindow::updateGallery()
     m_galleryWidget->clearSchemes();
     for (const SchemeRecord& scheme : m_schemes)
     {
-        m_galleryWidget->addScheme(scheme.id, scheme.name,
-                                   makeSchemePlaceholder(scheme.name));
+        QPixmap thumb = loadSchemeThumbnail(scheme);
+        if (thumb.isNull())
+            thumb = makeSchemePlaceholder(scheme.name);
+        m_galleryWidget->addScheme(scheme.id, scheme.name, thumb);
     }
 }
 
@@ -895,6 +898,10 @@ QString MainWindow::importSchemeFromDirectory(const QString& dirPath, bool showE
     scheme.name = dir.dirName();
     scheme.workingDirectory = canonical;
     scheme.models = scanSchemeFolder(canonical);
+    const QStringList covers = dir.entryList(QStringList() << QStringLiteral("scheme_cover.*"),
+                                             QDir::Files | QDir::NoDotAndDotDot);
+    if (!covers.isEmpty())
+        scheme.thumbnailPath = QDir::cleanPath(dir.filePath(covers.first()));
 
     m_schemes.push_back(scheme);
     persistSchemes();
@@ -1075,6 +1082,101 @@ QPixmap MainWindow::makeSchemePlaceholder(const QString& name) const
     return pm;
 }
 
+QPixmap MainWindow::loadSchemeThumbnail(const SchemeRecord& scheme) const
+{
+    if (scheme.thumbnailPath.isEmpty())
+        return QPixmap();
+
+    QImageReader reader(scheme.thumbnailPath);
+    reader.setAutoTransform(true);
+    const QImage image = reader.read();
+    if (image.isNull())
+        return QPixmap();
+    return QPixmap::fromImage(image);
+}
+
+QString MainWindow::storeSchemeThumbnail(const QString& schemeDir,
+                                         const QString& sourcePath) const
+{
+    if (schemeDir.isEmpty() || sourcePath.trimmed().isEmpty())
+        return QString();
+
+    QFileInfo srcInfo(sourcePath);
+    if (!srcInfo.exists() || !srcInfo.isFile())
+        return QString();
+
+    if (!ensureDirectoryExists(schemeDir))
+        return QString();
+
+    QDir dir(schemeDir);
+    const QString suffix = srcInfo.suffix().isEmpty()
+                               ? QStringLiteral("png")
+                               : srcInfo.suffix().toLower();
+    const QString targetName = QStringLiteral("scheme_cover.%1").arg(suffix);
+    const QString targetPath = dir.filePath(targetName);
+
+    if (!QFileInfo(sourcePath).absoluteFilePath().compare(targetPath, Qt::CaseInsensitive))
+        return QDir::cleanPath(targetPath);
+
+    if (QFile::exists(targetPath))
+        QFile::remove(targetPath);
+
+    if (!QFile::copy(srcInfo.absoluteFilePath(), targetPath))
+        return QString();
+
+    const QStringList duplicates = dir.entryList(QStringList() << QStringLiteral("scheme_cover.*"),
+                                                 QDir::Files | QDir::NoDotAndDotDot);
+    for (const QString& dup : duplicates)
+    {
+        const QString absoluteDup = dir.filePath(dup);
+        if (absoluteDup.compare(targetPath, Qt::CaseInsensitive) == 0)
+            continue;
+        QFile::remove(absoluteDup);
+    }
+
+    return QDir::cleanPath(QFileInfo(targetPath).absoluteFilePath());
+}
+
+bool MainWindow::isPathWithinDirectory(const QString& filePath,
+                                       const QString& directory) const
+{
+    if (filePath.isEmpty() || directory.isEmpty())
+        return false;
+
+    QDir dir(directory);
+    const QString fileAbsolute = QDir::cleanPath(QFileInfo(filePath).absoluteFilePath());
+    const QString relative = dir.relativeFilePath(fileAbsolute);
+    if (relative.isEmpty())
+        return true;
+    if (relative.startsWith(QStringLiteral("..")))
+        return false;
+    if (QDir::isAbsolutePath(relative))
+        return false;
+    return true;
+}
+
+void MainWindow::applySchemeThumbnail(SchemeRecord& scheme, const QString& sourcePath)
+{
+    const QString trimmed = sourcePath.trimmed();
+    if (trimmed.isEmpty())
+    {
+        if (isPathWithinDirectory(scheme.thumbnailPath, scheme.workingDirectory))
+            QFile::remove(scheme.thumbnailPath);
+        scheme.thumbnailPath.clear();
+        return;
+    }
+
+    QString stored = storeSchemeThumbnail(scheme.workingDirectory, trimmed);
+    if (stored.isEmpty())
+        stored = QDir::cleanPath(QFileInfo(trimmed).absoluteFilePath());
+
+    if (!scheme.thumbnailPath.isEmpty() && scheme.thumbnailPath != stored &&
+        isPathWithinDirectory(scheme.thumbnailPath, scheme.workingDirectory))
+        QFile::remove(scheme.thumbnailPath);
+
+    scheme.thumbnailPath = stored;
+}
+
 void MainWindow::promptAddScheme()
 {
     const QString defaultName = tr("新方案%1").arg(m_schemes.size() + 1);
@@ -1104,7 +1206,10 @@ void MainWindow::promptAddScheme()
     if (!id.isEmpty())
     {
         if (SchemeRecord* scheme = schemeById(id))
+        {
             scheme->name = name;
+            applySchemeThumbnail(*scheme, dlg.thumbnailPath());
+        }
         persistSchemes();
         refreshNavigation(id);
         ui->stackedWidget->setCurrentWidget(ui->MainPage);
@@ -1135,11 +1240,15 @@ void MainWindow::openSchemeSettings(const QString& schemeId)
     if (!scheme)
         return;
 
-    SchemeSettingsDialog dlg(scheme->name, scheme->workingDirectory, false, this);
+    SchemeSettingsDialog dlg(scheme->name, scheme->workingDirectory, false, this,
+                             scheme->thumbnailPath);
     if (dlg.exec() != QDialog::Accepted)
         return;
 
-    scheme->name = dlg.schemeName();
+    const QString newName = dlg.schemeName();
+    if (!newName.isEmpty())
+        scheme->name = newName;
+    applySchemeThumbnail(*scheme, dlg.thumbnailPath());
     persistSchemes();
     refreshNavigation(schemeId, m_activeModelId);
 }
@@ -1150,6 +1259,9 @@ void MainWindow::removeSchemeById(const QString& id)
     {
         if (m_schemes[i].id == id)
         {
+            if (isPathWithinDirectory(m_schemes[i].thumbnailPath,
+                                      m_schemes[i].workingDirectory))
+                QFile::remove(m_schemes[i].thumbnailPath);
             m_schemes.removeAt(i);
             if (m_activeSchemeId == id)
             {
@@ -1338,6 +1450,9 @@ bool MainWindow::loadSchemesFromStorage()
         scheme.workingDirectory = canonicalPathForDir(QDir(obj.value(QStringLiteral("workingDirectory")).toString()));
         if (scheme.workingDirectory.isEmpty())
             continue;
+        const QString storedThumb = obj.value(QStringLiteral("thumbnailPath")).toString().trimmed();
+        if (!storedThumb.isEmpty())
+            scheme.thumbnailPath = QDir::cleanPath(QFileInfo(storedThumb).absoluteFilePath());
 
         const QJsonArray modelArray = obj.value(QStringLiteral("models")).toArray();
         for (const QJsonValue& mv : modelArray)
@@ -1379,6 +1494,7 @@ void MainWindow::saveSchemesToStorage() const
         obj.insert(QStringLiteral("id"), scheme.id);
         obj.insert(QStringLiteral("name"), scheme.name);
         obj.insert(QStringLiteral("workingDirectory"), scheme.workingDirectory);
+        obj.insert(QStringLiteral("thumbnailPath"), scheme.thumbnailPath);
 
         QJsonArray modelArray;
         for (const ModelRecord& model : scheme.models)

@@ -33,5 +33,5 @@ private:
 private:
     Ui::SchemeGalleryWidget *ui;
     QList<QPointer<SchemeCardWidget>> m_cards;
-    int m_cardW = 236;                // 估算卡片宽度（含间距）
+    int m_cardW = 268;                // 估算卡片宽度（含间距）
 };

@@ -22,10 +22,15 @@ signals:
 
 protected:
     void mousePressEvent(QMouseEvent* ev) override;
+    void resizeEvent(QResizeEvent* ev) override;
 
 private:
+    void updateThumbnailDisplay();
+
     QString m_id;
     QLabel* m_imageLabel;
     QLabel* m_titleLabel;
     QToolButton* m_deleteBtn;
+    QLabel* m_hintLabel;
+    QPixmap m_thumbnail;
 };
