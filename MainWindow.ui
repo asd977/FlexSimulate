@@ -32,6 +32,12 @@
     </property>
     <item>
      <widget class="QWidget" name="headerWidget" native="true">
+      <property name="sizePolicy">
+       <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+        <horstretch>0</horstretch>
+        <verstretch>0</verstretch>
+       </sizepolicy>
+      </property>
       <layout class="QHBoxLayout" name="headerLayout">
        <property name="spacing">
         <number>10</number>
@@ -63,7 +69,7 @@
           </size>
          </property>
          <property name="pixmap">
-          <pixmap resource="resources.qrc">:/icons/app_logo.svg</pixmap>
+          <pixmap>:/icons/app_logo.svg</pixmap>
          </property>
          <property name="scaledContents">
           <bool>true</bool>
@@ -71,19 +77,12 @@
         </widget>
        </item>
        <item>
-        <widget class="QLabel" name="appTitleLabel">
-         <property name="text">
-          <string>柔性仿真工作台</string>
-         </property>
-         <property name="styleSheet">
-          <string notr="true">font-size:20px; font-weight:600;</string>
-         </property>
-        </widget>
-       </item>
-       <item>
         <spacer name="headerSpacer">
          <property name="orientation">
           <enum>Qt::Horizontal</enum>
+         </property>
+         <property name="sizeType">
+          <enum>QSizePolicy::Preferred</enum>
          </property>
          <property name="sizeHint" stdset="0">
           <size>
@@ -95,11 +94,14 @@
        </item>
        <item>
         <widget class="QPushButton" name="showPlanPushButton">
+         <property name="toolTip">
+          <string>查看所有方案</string>
+         </property>
          <property name="text">
           <string>方案库</string>
          </property>
          <property name="icon">
-          <iconset resource="resources.qrc">
+          <iconset>
            <normaloff>:/icons/gallery.svg</normaloff>:/icons/gallery.svg</iconset>
          </property>
          <property name="iconSize">
@@ -108,18 +110,18 @@
            <height>18</height>
           </size>
          </property>
-         <property name="toolTip">
-          <string>查看所有方案</string>
-         </property>
         </widget>
        </item>
        <item>
         <widget class="QPushButton" name="addSchemeButton">
+         <property name="toolTip">
+          <string>创建一个新的方案</string>
+         </property>
          <property name="text">
           <string>新增方案</string>
          </property>
          <property name="icon">
-          <iconset resource="resources.qrc">
+          <iconset>
            <normaloff>:/icons/add.svg</normaloff>:/icons/add.svg</iconset>
          </property>
          <property name="iconSize">
@@ -128,9 +130,6 @@
            <height>18</height>
           </size>
          </property>
-         <property name="toolTip">
-          <string>创建一个新的方案</string>
-         </property>
         </widget>
        </item>
        <item>
@@ -138,11 +137,14 @@
          <property name="enabled">
           <bool>false</bool>
          </property>
+         <property name="toolTip">
+          <string>向当前方案导入模型</string>
+         </property>
          <property name="text">
           <string>添加模型</string>
          </property>
          <property name="icon">
-          <iconset resource="resources.qrc">
+          <iconset>
            <normaloff>:/icons/model_add.svg</normaloff>:/icons/model_add.svg</iconset>
          </property>
          <property name="iconSize">
@@ -151,9 +153,6 @@
            <height>18</height>
           </size>
          </property>
-         <property name="toolTip">
-          <string>向当前方案导入模型</string>
-         </property>
         </widget>
        </item>
        <item>
@@ -161,11 +160,14 @@
          <property name="enabled">
           <bool>false</bool>
          </property>
+         <property name="toolTip">
+          <string>打开选中方案或模型的所在目录</string>
+         </property>
          <property name="text">
           <string>打开目录</string>
          </property>
          <property name="icon">
-          <iconset resource="resources.qrc">
+          <iconset>
            <normaloff>:/icons/folder.svg</normaloff>:/icons/folder.svg</iconset>
          </property>
          <property name="iconSize">
@@ -173,9 +175,6 @@
            <width>18</width>
            <height>18</height>
           </size>
-         </property>
-         <property name="toolTip">
-          <string>打开选中方案或模型的所在目录</string>
          </property>
         </widget>
        </item>
@@ -209,11 +208,11 @@
         </property>
         <item>
          <widget class="QLabel" name="navigationTitle">
-          <property name="text">
-           <string>方案与模型</string>
-          </property>
           <property name="styleSheet">
            <string notr="true">font-size:15px;font-weight:600;</string>
+          </property>
+          <property name="text">
+           <string>方案与模型</string>
           </property>
          </widget>
         </item>
@@ -240,11 +239,11 @@
         </item>
         <item>
          <widget class="QLabel" name="navigationHint">
-          <property name="text">
-           <string>可将模型文件夹拖拽到此处进行导入</string>
-          </property>
           <property name="styleSheet">
            <string notr="true">color:#6b7280;font-size:12px;</string>
+          </property>
+          <property name="text">
+           <string>可将模型文件夹拖拽到此处进行导入</string>
           </property>
           <property name="wordWrap">
            <bool>true</bool>
@@ -255,7 +254,7 @@
       </widget>
       <widget class="QStackedWidget" name="stackedWidget">
        <property name="currentIndex">
-        <number>0</number>
+        <number>1</number>
        </property>
        <widget class="QWidget" name="planPage">
         <layout class="QVBoxLayout" name="planPageLayout">
@@ -317,11 +316,11 @@
              </property>
              <item>
               <widget class="QLabel" name="detailTitle">
-               <property name="text">
-                <string>参数设置</string>
-               </property>
                <property name="styleSheet">
                 <string notr="true">font-size:15px;font-weight:600;</string>
+               </property>
+               <property name="text">
+                <string>参数设置</string>
                </property>
               </widget>
              </item>
@@ -338,8 +337,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>100</width>
-                  <height>100</height>
+                  <width>176</width>
+                  <height>539</height>
                  </rect>
                 </property>
                 <layout class="QVBoxLayout" name="scrollAreaLayout">
@@ -403,11 +402,17 @@
              </property>
              <item>
               <widget class="QLabel" name="vtkTitle">
-               <property name="text">
-                <string>模型预览</string>
+               <property name="sizePolicy">
+                <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                 <horstretch>0</horstretch>
+                 <verstretch>0</verstretch>
+                </sizepolicy>
                </property>
                <property name="styleSheet">
                 <string notr="true">font-size:15px;font-weight:600;</string>
+               </property>
+               <property name="text">
+                <string>模型预览</string>
                </property>
               </widget>
              </item>
@@ -420,6 +425,9 @@
                 <enum>QFrame::Raised</enum>
                </property>
                <layout class="QVBoxLayout" name="vtkFrameLayout">
+                <property name="spacing">
+                 <number>0</number>
+                </property>
                 <property name="leftMargin">
                  <number>0</number>
                 </property>
@@ -430,9 +438,6 @@
                  <number>0</number>
                 </property>
                 <property name="bottomMargin">
-                 <number>0</number>
-                </property>
-                <property name="spacing">
                  <number>0</number>
                 </property>
                 <item>
@@ -454,16 +459,28 @@
          </item>
          <item>
           <widget class="QLabel" name="logTitle">
-           <property name="text">
-            <string>运行日志</string>
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
            </property>
            <property name="styleSheet">
             <string notr="true">font-size:15px;font-weight:600;</string>
+           </property>
+           <property name="text">
+            <string>运行日志</string>
            </property>
           </widget>
          </item>
          <item>
           <widget class="QPlainTextEdit" name="logTextEdit">
+           <property name="sizePolicy">
+            <sizepolicy hsizetype="Expanding" vsizetype="Fixed">
+             <horstretch>0</horstretch>
+             <verstretch>0</verstretch>
+            </sizepolicy>
+           </property>
            <property name="readOnly">
             <bool>true</bool>
            </property>
@@ -519,8 +536,6 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <resources>
-  <include location="resources.qrc"/>
- </resources>
+ <resources/>
  <connections/>
 </ui>
