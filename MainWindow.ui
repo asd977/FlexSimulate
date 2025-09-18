@@ -79,7 +79,7 @@
        <widget class="QWidget" name="MainPage">
         <layout class="QGridLayout" name="gridLayout">
          <item row="1" column="3">
-          <widget class="QWidget" name="vtkWidget" native="true">
+          <widget class="QVTKOpenGLNativeWidget" name="vtkWidget" native="true">
            <property name="minimumSize">
             <size>
              <width>0</width>
@@ -153,13 +153,19 @@
    <addaction name="menuProject"/>
    <addaction name="menuModel"/>
   </widget>
- <widget class="QStatusBar" name="statusbar"/>
-</widget>
+  <widget class="QStatusBar" name="statusbar"/>
+ </widget>
  <customwidgets>
   <customwidget>
    <class>SchemeTreeWidget</class>
    <extends>QTreeWidget</extends>
    <header>SchemeTreeWidget.h</header>
+  </customwidget>
+  <customwidget>
+   <class>QVTKOpenGLNativeWidget</class>
+   <extends>QWidget</extends>
+   <header>QVTKOpenGLNativeWidget.h</header>
+   <container>1</container>
   </customwidget>
  </customwidgets>
  <resources/>
