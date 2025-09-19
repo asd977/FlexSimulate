@@ -27,9 +27,9 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
         "QLabel#imageLabel{background:#f6f7fb;border-radius:12px;"
         "border:1px dashed #d0d6e5;color:#8a93a6;font-size:13px;"
         "padding:12px;line-height:20px;}"
-        "QToolButton#addButton{border:none;border-radius:12px;padding:4px;"
+        "QToolButton#addButton, QToolButton#openButton{border:none;border-radius:12px;padding:4px;"
         "color:#0b57d0;background:rgba(11,87,208,0.08);}"
-        "QToolButton#addButton:hover{background:rgba(11,87,208,0.16);}"
+        "QToolButton#addButton:hover, QToolButton#openButton:hover{background:rgba(11,87,208,0.16);}"
         "QToolButton#deleteButton{border:none;border-radius:12px;"
         "padding:4px;color:#d93025;"
         "background:rgba(217,48,37,0.08);}"
@@ -57,6 +57,16 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
     m_titleLabel->setWordWrap(true);
     m_titleLabel->setText(tr("未命名方案"));
     header->addWidget(m_titleLabel, 1);
+
+    m_openBtn = new QToolButton(this);
+    m_openBtn->setObjectName("openButton");
+    m_openBtn->setToolTip(tr("打开方案目录"));
+    m_openBtn->setIcon(QIcon(QStringLiteral(":/icons/icons/folder.svg")));
+    m_openBtn->setIconSize(QSize(16, 16));
+    m_openBtn->setAutoRaise(false);
+    m_openBtn->setCursor(Qt::ArrowCursor);
+    m_openBtn->setVisible(false);
+    header->addWidget(m_openBtn, 0, Qt::AlignRight);
 
     m_addBtn = new QToolButton(this);
     m_addBtn->setObjectName("addButton");
@@ -100,6 +110,9 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
     });
     connect(m_deleteBtn, &QToolButton::clicked, this, [this]() {
         emit deleteRequested(m_id);
+    });
+    connect(m_openBtn, &QToolButton::clicked, this, [this]() {
+        emit openRequested(m_id);
     });
 }
 
@@ -155,15 +168,42 @@ void SchemeCardWidget::setDeleteButtonToolTip(const QString& text)
         m_deleteBtn->setToolTip(text);
 }
 
+void SchemeCardWidget::setOpenButtonVisible(bool visible)
+{
+    if (m_openBtn)
+        m_openBtn->setVisible(visible);
+}
+
+void SchemeCardWidget::setOpenButtonEnabled(bool enabled)
+{
+    if (m_openBtn)
+        m_openBtn->setEnabled(enabled);
+}
+
+void SchemeCardWidget::setOpenButtonToolTip(const QString& text)
+{
+    if (m_openBtn)
+        m_openBtn->setToolTip(text);
+}
+
 void SchemeCardWidget::mousePressEvent(QMouseEvent* ev)
 {
-    const bool onAdd = m_addBtn && m_addBtn->isVisible() &&
-                       m_addBtn->geometry().contains(ev->pos());
-    const bool onDelete = m_deleteBtn && m_deleteBtn->isVisible() &&
-                          m_deleteBtn->geometry().contains(ev->pos());
-    if (!onAdd && !onDelete)
-        emit openRequested(m_id);
     QFrame::mousePressEvent(ev);
+}
+
+void SchemeCardWidget::mouseDoubleClickEvent(QMouseEvent* ev)
+{
+    const bool onAdd = isPointInsideButton(m_addBtn, ev->pos());
+    const bool onDelete = isPointInsideButton(m_deleteBtn, ev->pos());
+    const bool onOpen = isPointInsideButton(m_openBtn, ev->pos());
+    if (!onAdd && !onDelete && !onOpen)
+    {
+        if (m_addBtn && m_addBtn->isVisible() && m_addBtn->isEnabled())
+            emit addRequested(m_id);
+        else
+            emit openRequested(m_id);
+    }
+    QFrame::mouseDoubleClickEvent(ev);
 }
 
 void SchemeCardWidget::resizeEvent(QResizeEvent* ev)
@@ -195,4 +235,12 @@ void SchemeCardWidget::updateThumbnailDisplay()
                                         Qt::SmoothTransformation);
     scaled.setDevicePixelRatio(ratio);
     m_imageLabel->setPixmap(scaled);
+}
+
+
+bool SchemeCardWidget::isPointInsideButton(const QToolButton* button, const QPoint& pos) const
+{
+    if (!button || !button->isVisible())
+        return false;
+    return button->geometry().contains(pos);
 }

@@ -20,9 +20,12 @@ public:
         bool enableAddButton = true;
         bool showDeleteButton = true;
         bool enableDeleteButton = true;
+        bool showOpenButton = false;
+        bool enableOpenButton = true;
         QString hintText;
         QString addToolTip;
         QString deleteToolTip;
+        QString openToolTip;
     };
 
     void clearSchemes();

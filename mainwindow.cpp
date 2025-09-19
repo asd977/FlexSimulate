@@ -17,13 +17,16 @@
 #include <QFileDialog>
 #include <QFileInfo>
 #include <QFont>
+#include <QFrame>
 #include <QHeaderView>
 #include <QIcon>
+#include <QGridLayout>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
 #include <QLabel>
 #include <QListWidget>
+#include <QList>
 #include <QInputDialog>
 #include <QImageReader>
 #include <QLineEdit>
@@ -34,6 +37,7 @@
 #include <QProcess>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QScopedValueRollback>
 #include <QScrollBar>
 #include <QScrollArea>
 #include <QSet>
@@ -500,6 +504,7 @@ void MainWindow::enterProjectlessState()
     m_schemes.clear();
     m_schemeItems.clear();
     m_modelItems.clear();
+    m_projectRootItem = nullptr;
 
     if (ui->treeModels)
         ui->treeModels->clear();
@@ -616,7 +621,7 @@ void MainWindow::updateWindowTitle()
         return;
     }
 
-    const QString projectName = QDir(m_projectRoot).dirName();
+    const QString projectName = projectDisplayName();
     setWindowTitle(QStringLiteral("%1 - %2").arg(base, projectName));
 }
 
@@ -825,6 +830,13 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         ui->stackedWidget->setCurrentWidget(ui->MainPage);
         showModelSettings(modelId);
     }
+    else if (type == ProjectItem)
+    {
+        m_activeSchemeId.clear();
+        m_activeModelId.clear();
+        clearDetailWidget();
+        clearVtkScene();
+    }
     updateToolbarState();
 }
 
@@ -836,13 +848,43 @@ void MainWindow::onTreeItemChanged(QTreeWidgetItem* item, int column)
         return;
 
     const int type = item->data(0, TypeRole).toInt();
+    if (type == ProjectItem)
+        return;
+
     const QString id = item->data(0, IdRole).toString();
+
+    auto restoreText = [this, item](const QString& text) {
+        QScopedValueRollback<bool> guard(m_blockTreeSignals, true);
+        item->setText(0, text);
+    };
 
     if (type == SchemeItem)
     {
         if (SchemeRecord* scheme = schemeById(id))
         {
-            scheme->name = item->text(0);
+            const QString trimmed = item->text(0).trimmed();
+            if (trimmed.isEmpty())
+            {
+                QMessageBox::warning(this, tr("重命名方案"), tr("方案名称不能为空。"));
+                restoreText(scheme->name);
+                return;
+            }
+
+            const QString unique = makeUniqueSchemeName(trimmed, scheme->id);
+            if (unique.compare(trimmed, Qt::CaseSensitive) != 0)
+            {
+                QMessageBox::warning(this, tr("重命名方案"), tr("已存在同名方案，请输入其他名称。"));
+                restoreText(scheme->name);
+                return;
+            }
+
+            if (item->text(0) != trimmed)
+            {
+                QScopedValueRollback<bool> guard(m_blockTreeSignals, true);
+                item->setText(0, trimmed);
+            }
+
+            scheme->name = trimmed;
             persistSchemes();
             updateGallery();
             refreshCurrentDetail();
@@ -853,7 +895,29 @@ void MainWindow::onTreeItemChanged(QTreeWidgetItem* item, int column)
         SchemeRecord* owner = nullptr;
         if (ModelRecord* model = modelById(id, &owner))
         {
-            model->name = item->text(0);
+            const QString trimmed = item->text(0).trimmed();
+            if (trimmed.isEmpty())
+            {
+                QMessageBox::warning(this, tr("重命名模型"), tr("模型名称不能为空。"));
+                restoreText(model->name);
+                return;
+            }
+
+            const QString unique = makeUniqueModelName(*owner, trimmed, model->id);
+            if (unique.compare(trimmed, Qt::CaseSensitive) != 0)
+            {
+                QMessageBox::warning(this, tr("重命名模型"), tr("该方案下已存在同名模型。"));
+                restoreText(model->name);
+                return;
+            }
+
+            if (item->text(0) != trimmed)
+            {
+                QScopedValueRollback<bool> guard(m_blockTreeSignals, true);
+                item->setText(0, trimmed);
+            }
+
+            model->name = trimmed;
             persistSchemes();
             refreshCurrentDetail();
         }
@@ -872,7 +936,17 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
     else
     {
         const int type = item->data(0, TypeRole).toInt();
-        if (type == SchemeItem)
+        if (type == ProjectItem)
+        {
+            if (!m_projectRoot.isEmpty())
+            {
+                menu.addAction(tr("打开工程目录"), this, [this]() {
+                    QDesktopServices::openUrl(QUrl::fromLocalFile(m_projectRoot));
+                });
+            }
+            menu.addAction(tr("导入方案"), this, &MainWindow::promptAddScheme);
+        }
+        else if (type == SchemeItem)
         {
             const QString schemeId = item->data(0, IdRole).toString();
             menu.addAction(tr("方案设置"), this, [this, schemeId]() {
@@ -942,6 +1016,8 @@ void MainWindow::onExternalDrop(const QList<QUrl>& urls, QTreeWidgetItem* target
             targetSchemeId = target->data(0, IdRole).toString();
         else if (type == ModelItem)
             targetSchemeId = target->data(0, SchemeRole).toString();
+        else if (type == ProjectItem)
+            targetSchemeId.clear();
     }
 
     if (targetSchemeId.isEmpty())
@@ -1031,7 +1107,7 @@ void MainWindow::onGalleryAddRequested(const QString& id)
 
     if (SchemeRecord* scheme = schemeById(importedId))
     {
-        scheme->name = entryName;
+        scheme->name = makeUniqueSchemeName(entryName, scheme->id);
         persistSchemes();
         refreshNavigation(importedId);
     }
@@ -1079,6 +1155,8 @@ void MainWindow::deleteCurrentTreeItem()
         return;
 
     const int type = item->data(0, TypeRole).toInt();
+    if (type == ProjectItem)
+        return;
     const QString id = item->data(0, IdRole).toString();
 
     if (type == SchemeItem)
@@ -1130,13 +1208,26 @@ void MainWindow::rebuildTree()
     ui->treeModels->clear();
     m_schemeItems.clear();
     m_modelItems.clear();
+    m_projectRootItem = nullptr;
 
     const QIcon schemeIcon(QStringLiteral(":/icons/icons/plan.svg"));
     const QIcon modelIcon(QStringLiteral(":/icons/icons/model.svg"));
 
+    QTreeWidgetItem* parentItem = ui->treeModels->invisibleRootItem();
+    if (hasActiveProject())
+    {
+        m_projectRootItem = new QTreeWidgetItem(ui->treeModels);
+        m_projectRootItem->setText(0, projectDisplayName());
+        m_projectRootItem->setIcon(0, QIcon(QStringLiteral(":/icons/icons/app_logo.svg")));
+        m_projectRootItem->setData(0, TypeRole, ProjectItem);
+        m_projectRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
+                                    Qt::ItemIsDropEnabled);
+        parentItem = m_projectRootItem;
+    }
+
     for (const SchemeRecord& scheme : m_schemes)
     {
-        auto* schemeItem = new QTreeWidgetItem(ui->treeModels);
+        auto* schemeItem = new QTreeWidgetItem(parentItem);
         schemeItem->setText(0, scheme.name);
         schemeItem->setIcon(0, schemeIcon);
         schemeItem->setData(0, TypeRole, SchemeItem);
@@ -1145,6 +1236,8 @@ void MainWindow::rebuildTree()
                              Qt::ItemIsDragEnabled | Qt::ItemIsEditable |
                              Qt::ItemIsDropEnabled);
         m_schemeItems.insert(scheme.id, schemeItem);
+
+        ui->treeModels->expandItem(schemeItem);
 
         for (const ModelRecord& model : scheme.models)
         {
@@ -1160,7 +1253,14 @@ void MainWindow::rebuildTree()
         }
     }
 
-    ui->treeModels->expandAll();
+    if (m_projectRootItem)
+    {
+        ui->treeModels->expandItem(m_projectRootItem);
+    }
+    else
+    {
+        ui->treeModels->expandAll();
+    }
     m_blockTreeSignals = false;
 }
 
@@ -1188,7 +1288,10 @@ void MainWindow::updateGallery()
         options.deleteToolTip = entry.deletable
                                      ? tr("从方案库中删除此方案")
                                      : tr("内置模板不可删除");
-        options.hintText = tr("点击卡片打开方案所在目录");
+        options.showOpenButton = true;
+        options.enableOpenButton = true;
+        options.openToolTip = tr("打开方案所在目录");
+        options.hintText = tr("双击卡片添加到当前工程");
 
         m_galleryWidget->addScheme(entry.id, entry.name, thumb, options);
     }
@@ -1201,7 +1304,9 @@ void MainWindow::updateGallery()
 
         SchemeGalleryWidget::CardOptions options;
         options.showAddButton = false;
-        options.hintText = tr("点击卡片以查看详情");
+        options.showOpenButton = true;
+        options.openToolTip = tr("查看方案详情");
+        options.hintText = tr("双击卡片查看详情");
 
         m_galleryWidget->addScheme(scheme.id, scheme.name, thumb, options);
     }
@@ -1292,35 +1397,107 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
     auto* container = new QWidget(ui->settingWidget);
     auto* layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(8);
+    layout->setSpacing(12);
 
     auto* title = new QLabel(tr("方案：%1").arg(scheme.name), container);
-    title->setStyleSheet("font-size:18px;font-weight:600;");
+    title->setStyleSheet("font-size:18px;font-weight:600;color:#0f172a;");
     layout->addWidget(title);
 
-    auto* pathLabel = new QLabel(tr("工作目录：%1")
-                                     .arg(QDir::toNativeSeparators(scheme.workingDirectory)),
-                                 container);
-    pathLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    layout->addWidget(pathLabel);
+    auto* infoFrame = new QFrame(container);
+    infoFrame->setObjectName("schemeInfoFrame");
+    infoFrame->setStyleSheet(
+        "QFrame#schemeInfoFrame{background:#f8fafc;border:1px solid #d0d5dd;border-radius:10px;}"
+        "QLabel.infoCaption{color:#64748b;font-size:12px;}"
+        "QLabel.infoValue{color:#0f172a;font-weight:500;}");
+    auto* infoLayout = new QGridLayout(infoFrame);
+    infoLayout->setContentsMargins(12, 12, 12, 12);
+    infoLayout->setHorizontalSpacing(16);
+    infoLayout->setVerticalSpacing(8);
 
-    auto* hint = new QLabel(tr("将模型文件夹拖到左侧树中，或使用下方按钮导入模型。"), container);
+    auto* pathCaption = new QLabel(tr("工作目录"), infoFrame);
+    pathCaption->setObjectName("infoCaption");
+    auto* pathValue = new QLabel(QDir::toNativeSeparators(scheme.workingDirectory), infoFrame);
+    pathValue->setObjectName("infoValue");
+    pathValue->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    pathValue->setWordWrap(true);
+    infoLayout->addWidget(pathCaption, 0, 0, Qt::AlignTop);
+    infoLayout->addWidget(pathValue, 0, 1);
+
+    auto* countCaption = new QLabel(tr("模型数量"), infoFrame);
+    countCaption->setObjectName("infoCaption");
+    auto* countValue = new QLabel(tr("%1 个").arg(scheme.models.size()), infoFrame);
+    countValue->setObjectName("infoValue");
+    infoLayout->addWidget(countCaption, 1, 0, Qt::AlignTop);
+    infoLayout->addWidget(countValue, 1, 1, Qt::AlignTop);
+    infoLayout->setColumnStretch(1, 1);
+
+    layout->addWidget(infoFrame);
+
+    auto* hint = new QLabel(tr("可将模型文件夹拖到左侧树中，或使用下方按钮导入模型。"), container);
     hint->setWordWrap(true);
+    hint->setStyleSheet("color:#64748b;");
     layout->addWidget(hint);
 
-    auto* list = new QListWidget(container);
+    auto* listFrame = new QFrame(container);
+    listFrame->setObjectName("modelListFrame");
+    listFrame->setStyleSheet(
+        "QFrame#modelListFrame{background:#ffffff;border:1px solid #d0d5dd;border-radius:10px;}"
+        "QListWidget#modelList{border:none;background:transparent;}"
+        "QListWidget#modelList::item{padding:10px;border-radius:8px;}"
+        "QListWidget#modelList::item:hover{background:rgba(23,135,255,0.08);}");
+    auto* listLayout = new QVBoxLayout(listFrame);
+    listLayout->setContentsMargins(12, 12, 12, 12);
+    listLayout->setSpacing(8);
+
+    auto* listHeader = new QHBoxLayout();
+    listHeader->setContentsMargins(0, 0, 0, 0);
+    auto* listTitle = new QLabel(tr("模型列表"), listFrame);
+    listTitle->setStyleSheet("font-weight:600;color:#1b2b4d;");
+    auto* listCount = new QLabel(tr("%1 个模型").arg(scheme.models.size()), listFrame);
+    listCount->setStyleSheet("color:#64748b;");
+    listHeader->addWidget(listTitle);
+    listHeader->addStretch();
+    listHeader->addWidget(listCount);
+    listLayout->addLayout(listHeader);
+
+    auto* list = new QListWidget(listFrame);
+    list->setObjectName("modelList");
     list->setSelectionMode(QAbstractItemView::NoSelection);
-    for (const ModelRecord& model : scheme.models)
+    list->setSpacing(6);
+    list->setIconSize(QSize(20, 20));
+    list->setFrameShape(QFrame::NoFrame);
+    list->setWordWrap(true);
+    listLayout->addWidget(list);
+
+    auto* emptyLabel = new QLabel(tr("暂无模型，请点击“添加模型”按钮导入。"), listFrame);
+    emptyLabel->setAlignment(Qt::AlignCenter);
+    emptyLabel->setStyleSheet("color:#94a3b8;");
+    emptyLabel->setVisible(scheme.models.isEmpty());
+    emptyLabel->setMargin(12);
+    listLayout->addWidget(emptyLabel);
+
+    if (scheme.models.isEmpty())
     {
-        auto* item = new QListWidgetItem(tr("%1  (%2)")
-                                         .arg(model.name,
-                                              QDir::toNativeSeparators(model.directory)));
-        item->setToolTip(QDir::toNativeSeparators(model.jsonPath));
-        list->addItem(item);
+        list->setVisible(false);
     }
-    layout->addWidget(list, 1);
+    else
+    {
+        for (const ModelRecord& model : scheme.models)
+        {
+            auto* item = new QListWidgetItem(
+                QIcon(QStringLiteral(":/icons/icons/model.svg")),
+                tr("%1\n%2").arg(model.name,
+                               QDir::toNativeSeparators(model.directory)));
+            item->setToolTip(QDir::toNativeSeparators(model.jsonPath));
+            list->addItem(item);
+        }
+    }
+
+    layout->addWidget(listFrame, 1);
 
     auto* buttonRow = new QHBoxLayout();
+    buttonRow->setSpacing(8);
+    buttonRow->setContentsMargins(0, 0, 0, 0);
     auto* addBtn = new QPushButton(tr("添加模型"), container);
     connect(addBtn, &QPushButton::clicked, this, [this, sid = scheme.id]() {
         promptAddModel(sid);
@@ -1479,7 +1656,7 @@ QString MainWindow::createScheme(const QString& name, const QString& workingDir)
 
     SchemeRecord scheme;
     scheme.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    scheme.name = trimmedName;
+    scheme.name = makeUniqueSchemeName(trimmedName, scheme.id);
     scheme.workingDirectory = canonical;
     m_schemes.push_back(scheme);
     return scheme.id;
@@ -1500,8 +1677,9 @@ QString MainWindow::importSchemeFromDirectory(const QString& dirPath, bool showE
 
     if (SchemeRecord* existing = schemeByWorkingDirectory(canonical))
     {
-        existing->name = dir.dirName();
+        existing->name = makeUniqueSchemeName(dir.dirName(), existing->id);
         existing->models = scanSchemeFolder(canonical);
+        ensureUniqueModelNames(*existing);
         persistSchemes();
         refreshNavigation(existing->id);
         return existing->id;
@@ -1509,9 +1687,10 @@ QString MainWindow::importSchemeFromDirectory(const QString& dirPath, bool showE
 
     SchemeRecord scheme;
     scheme.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-    scheme.name = dir.dirName();
+    scheme.name = makeUniqueSchemeName(dir.dirName(), scheme.id);
     scheme.workingDirectory = canonical;
     scheme.models = scanSchemeFolder(canonical);
+    ensureUniqueModelNames(scheme);
     const QStringList covers = dir.entryList(QStringList() << QStringLiteral("scheme_cover.*"),
                                              QDir::Files | QDir::NoDotAndDotDot);
     if (!covers.isEmpty())
@@ -1573,7 +1752,7 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             QDir destDir(destPath);
             ModelRecord model;
             model.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-            model.name = destDir.dirName();
+            model.name = makeUniqueModelName(*scheme, destDir.dirName());
             model.directory = canonicalPathForDir(destDir);
             const QString jsonName = QFileInfo(jsonPath).fileName();
             model.jsonPath = destDir.filePath(jsonName);
@@ -1616,6 +1795,7 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             const QString batName = QFileInfo(model.batPath).fileName();
             model.batPath = batName.isEmpty() ? QString() : destDir.filePath(batName);
             model.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+            model.name = makeUniqueModelName(*scheme, model.name);
 
             if (existingPaths.contains(model.directory))
                 continue;
@@ -1677,6 +1857,10 @@ QVector<MainWindow::ModelRecord> MainWindow::scanSchemeFolder(const QString& sch
         model.batPath = batPath;
         models.push_back(model);
     }
+
+    QSet<QString> taken;
+    for (ModelRecord& model : models)
+        model.name = makeUniqueName(model.name, taken, tr("未命名模型"));
     return models;
 }
 
@@ -2024,7 +2208,7 @@ void MainWindow::promptAddScheme()
     {
         if (SchemeRecord* scheme = schemeById(id))
         {
-            scheme->name = name;
+            scheme->name = makeUniqueSchemeName(name, scheme->id);
             applySchemeThumbnail(*scheme, dlg.thumbnailPath());
         }
         persistSchemes();
@@ -2072,9 +2256,9 @@ void MainWindow::openSchemeSettings(const QString& schemeId)
     if (dlg.exec() != QDialog::Accepted)
         return;
 
-    const QString newName = dlg.schemeName();
+    const QString newName = dlg.schemeName().trimmed();
     if (!newName.isEmpty())
-        scheme->name = newName;
+        scheme->name = makeUniqueSchemeName(newName, scheme->id);
     applySchemeThumbnail(*scheme, dlg.thumbnailPath());
     persistSchemes();
     refreshNavigation(schemeId, m_activeModelId);
@@ -2168,10 +2352,35 @@ void MainWindow::syncDataFromTree()
             modelMap.insert(model.id, model);
 
     QVector<SchemeRecord> updated;
-    const int topCount = ui->treeModels->topLevelItemCount();
-    for (int i = 0; i < topCount; ++i)
+    QList<QTreeWidgetItem*> schemeItems;
+    if (m_projectRootItem)
     {
-        QTreeWidgetItem* schemeItem = ui->treeModels->topLevelItem(i);
+        const int childCount = m_projectRootItem->childCount();
+        for (int i = 0; i < childCount; ++i)
+        {
+            if (QTreeWidgetItem* child = m_projectRootItem->child(i))
+            {
+                if (child->data(0, TypeRole).toInt() == SchemeItem)
+                    schemeItems.append(child);
+            }
+        }
+    }
+    else
+    {
+        const int topCount = ui->treeModels->topLevelItemCount();
+        for (int i = 0; i < topCount; ++i)
+        {
+            QTreeWidgetItem* schemeItem = ui->treeModels->topLevelItem(i);
+            if (!schemeItem)
+                continue;
+            if (schemeItem->data(0, TypeRole).toInt() != SchemeItem)
+                continue;
+            schemeItems.append(schemeItem);
+        }
+    }
+
+    for (QTreeWidgetItem* schemeItem : schemeItems)
+    {
         const QString schemeId = schemeItem->data(0, IdRole).toString();
         if (schemeId.isEmpty())
             continue;
@@ -2201,6 +2410,86 @@ void MainWindow::syncDataFromTree()
     m_schemes = updated;
     persistSchemes();
     refreshNavigation(m_activeSchemeId, m_activeModelId);
+}
+
+QString MainWindow::projectDisplayName() const
+{
+    if (!hasActiveProject())
+        return tr("未命名工程");
+
+    QFileInfo info(m_projectRoot);
+    QString name = info.fileName();
+    if (name.isEmpty())
+    {
+        QDir dir(m_projectRoot);
+        name = dir.dirName();
+    }
+    if (name.isEmpty())
+        name = QDir::toNativeSeparators(m_projectRoot);
+    return name;
+}
+
+QString MainWindow::makeUniqueName(const QString& desired, QSet<QString>& taken,
+                                   const QString& fallback) const
+{
+    QString base = desired.trimmed();
+    if (base.isEmpty())
+        base = fallback;
+
+    QString candidate = base;
+    QString key = candidate.trimmed().toLower();
+    int index = 2;
+    while (taken.contains(key))
+    {
+        candidate = QStringLiteral("%1 (%2)").arg(base).arg(index++);
+        key = candidate.trimmed().toLower();
+    }
+    taken.insert(key);
+    return candidate;
+}
+
+QString MainWindow::makeUniqueSchemeName(const QString& desired,
+                                         const QString& excludeId) const
+{
+    QSet<QString> taken;
+    for (const SchemeRecord& scheme : m_schemes)
+    {
+        if (scheme.id == excludeId)
+            continue;
+        taken.insert(scheme.name.trimmed().toLower());
+    }
+    return makeUniqueName(desired, taken, tr("未命名方案"));
+}
+
+QString MainWindow::makeUniqueModelName(const SchemeRecord& scheme,
+                                        const QString& desired,
+                                        const QString& excludeId) const
+{
+    QSet<QString> taken;
+    for (const ModelRecord& model : scheme.models)
+    {
+        if (model.id == excludeId)
+            continue;
+        taken.insert(model.name.trimmed().toLower());
+    }
+    return makeUniqueName(desired, taken, tr("未命名模型"));
+}
+
+void MainWindow::ensureUniqueModelNames(SchemeRecord& scheme) const
+{
+    QSet<QString> taken;
+    for (ModelRecord& model : scheme.models)
+        model.name = makeUniqueName(model.name, taken, tr("未命名模型"));
+}
+
+void MainWindow::ensureUniqueSchemeAndModelNames()
+{
+    QSet<QString> taken;
+    for (SchemeRecord& scheme : m_schemes)
+    {
+        scheme.name = makeUniqueName(scheme.name, taken, tr("未命名方案"));
+        ensureUniqueModelNames(scheme);
+    }
 }
 
 void MainWindow::updateToolbarState()
@@ -2370,6 +2659,7 @@ bool MainWindow::loadSchemesFromStorage()
     }
 
     m_schemes = loaded;
+    ensureUniqueSchemeAndModelNames();
     return true;
 }
 
