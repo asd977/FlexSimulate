@@ -202,33 +202,6 @@ void MainWindow::setupUiHelpers()
     ui->contentSplitter->setStretchFactor(1, 1);
     ui->contentSplitter->setCollapsible(1, true);
 
-    if (ui->headerWidget)
-        ui->headerWidget->setAttribute(Qt::WA_StyledBackground, true);
-
-    if (ui->libraryCard)
-    {
-        ui->libraryCard->setAttribute(Qt::WA_StyledBackground, true);
-        ui->libraryCard->setStyleSheet(
-            "#libraryCard{background:rgba(37,99,235,0.08);"
-            "border:1px solid rgba(37,99,235,0.25);border-radius:18px;}"
-        );
-    }
-
-    if (ui->showPlanPushButton)
-    {
-        ui->showPlanPushButton->setCursor(Qt::PointingHandCursor);
-        ui->showPlanPushButton->setMinimumHeight(44);
-        ui->showPlanPushButton->setIconSize(QSize(22, 22));
-        ui->showPlanPushButton->setStyleSheet(
-            "QPushButton#showPlanPushButton{padding:10px 24px;"
-            "border:none;border-radius:20px;font-size:16px;font-weight:600;"
-            "color:#ffffff;background:qlineargradient(x1:0,y1:0,x2:1,y2:1,#1d4ed8,#2563eb);}"
-            "QPushButton#showPlanPushButton:hover{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,#2563eb,#3b82f6);}"
-            "QPushButton#showPlanPushButton:pressed{background:#1e3a8a;}"
-        );
-    }
-
-
     ui->logTextEdit->setStyleSheet(
         "QPlainTextEdit{background:#0f172a;color:#f8fafc;border-radius:6px;padding:6px;}"
     );
@@ -267,9 +240,6 @@ void MainWindow::setupConnections()
         connect(schemeTree, &SchemeTreeWidget::externalPathsDropped,
                 this, &MainWindow::onExternalDrop);
     }
-
-    connect(ui->showPlanPushButton, &QPushButton::clicked,
-            this, &MainWindow::on_showPlanPushButton_clicked);
 
     connect(m_galleryWidget, &SchemeGalleryWidget::schemeOpenRequested,
             this, &MainWindow::onGalleryOpenRequested);
@@ -509,6 +479,7 @@ void MainWindow::enterProjectlessState()
     m_schemeItems.clear();
     m_modelItems.clear();
     m_projectRootItem = nullptr;
+    m_libraryRootItem = nullptr;
 
     if (ui->treeModels)
         ui->treeModels->clear();
@@ -798,12 +769,6 @@ void MainWindow::onAddLibraryScheme()
     appendLogMessage(tr("已创建方案库 %1").arg(name));
 }
 
-void MainWindow::on_showPlanPushButton_clicked()
-{
-    ui->stackedWidget->setCurrentWidget(ui->planPage);
-    updateGallery();
-}
-
 void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidgetItem*)
 {
     if (!current)
@@ -820,7 +785,18 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
 
     const int type = current->data(0, TypeRole).toInt();
 
-    if (type == SchemeItem)
+    if (type == LibraryItem)
+    {
+        m_activeSchemeId.clear();
+        m_activeModelId.clear();
+        clearDetailWidget();
+        clearVtkScene();
+        setVisualizationVisible(false);
+        ui->stackedWidget->setCurrentWidget(ui->planPage);
+        updateGallery();
+        updateSelectionInfo();
+    }
+    else if (type == SchemeItem)
     {
         const QString schemeId = current->data(0, IdRole).toString();
         m_activeSchemeId = schemeId;
@@ -875,7 +851,7 @@ void MainWindow::onTreeItemChanged(QTreeWidgetItem* item, int column)
         return;
 
     const int type = item->data(0, TypeRole).toInt();
-    if (type == ProjectItem)
+    if (type == ProjectItem || type == LibraryItem)
         return;
 
     const QString id = item->data(0, IdRole).toString();
@@ -963,7 +939,19 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
     else
     {
         const int type = item->data(0, TypeRole).toInt();
-        if (type == ProjectItem)
+        if (type == LibraryItem)
+        {
+            menu.addAction(tr("查看方案库"), this, [this]() {
+                ui->stackedWidget->setCurrentWidget(ui->planPage);
+                updateGallery();
+            });
+            if (hasActiveProject())
+            {
+                menu.addSeparator();
+                menu.addAction(tr("导入方案"), this, &MainWindow::promptAddScheme);
+            }
+        }
+        else if (type == ProjectItem)
         {
             if (!m_projectRoot.isEmpty())
             {
@@ -1043,7 +1031,7 @@ void MainWindow::onExternalDrop(const QList<QUrl>& urls, QTreeWidgetItem* target
             targetSchemeId = target->data(0, IdRole).toString();
         else if (type == ModelItem)
             targetSchemeId = target->data(0, SchemeRole).toString();
-        else if (type == ProjectItem)
+        else if (type == ProjectItem || type == LibraryItem)
             targetSchemeId.clear();
     }
 
@@ -1182,7 +1170,7 @@ void MainWindow::deleteCurrentTreeItem()
         return;
 
     const int type = item->data(0, TypeRole).toInt();
-    if (type == ProjectItem)
+    if (type == ProjectItem || type == LibraryItem)
         return;
     const QString id = item->data(0, IdRole).toString();
 
@@ -1236,11 +1224,19 @@ void MainWindow::rebuildTree()
     m_schemeItems.clear();
     m_modelItems.clear();
     m_projectRootItem = nullptr;
+    m_libraryRootItem = nullptr;
 
+    const QIcon libraryIcon(QStringLiteral(":/icons/icons/gallery.svg"));
     const QIcon schemeIcon(QStringLiteral(":/icons/icons/plan.svg"));
     const QIcon modelIcon(QStringLiteral(":/icons/icons/model.svg"));
 
-    QTreeWidgetItem* parentItem = ui->treeModels->invisibleRootItem();
+    m_libraryRootItem = new QTreeWidgetItem(ui->treeModels);
+    m_libraryRootItem->setText(0, tr("方案库"));
+    m_libraryRootItem->setIcon(0, libraryIcon);
+    m_libraryRootItem->setData(0, TypeRole, LibraryItem);
+    m_libraryRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+
+    QTreeWidgetItem* schemeParent = ui->treeModels->invisibleRootItem();
     if (hasActiveProject())
     {
         m_projectRootItem = new QTreeWidgetItem(ui->treeModels);
@@ -1249,11 +1245,14 @@ void MainWindow::rebuildTree()
         m_projectRootItem->setData(0, TypeRole, ProjectItem);
         m_projectRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
                                     Qt::ItemIsDropEnabled);
-        parentItem = m_projectRootItem;
+        schemeParent = m_projectRootItem;
     }
 
     for (const SchemeRecord& scheme : m_schemes)
     {
+        QTreeWidgetItem* parentItem = schemeParent;
+        if (!parentItem)
+            parentItem = ui->treeModels->invisibleRootItem();
         auto* schemeItem = new QTreeWidgetItem(parentItem);
         schemeItem->setText(0, scheme.name);
         schemeItem->setIcon(0, schemeIcon);
@@ -1577,31 +1576,6 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
     auto* layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(8);
-
-    auto* title = new QLabel(tr("模型：%1").arg(model.name), container);
-    title->setStyleSheet("font-size:18px;font-weight:600;");
-    layout->addWidget(title);
-
-    auto* pathLabel = new QLabel(tr("目录：%1")
-                                     .arg(QDir::toNativeSeparators(model.directory)),
-                                 container);
-    pathLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    layout->addWidget(pathLabel);
-
-    auto* jsonLabel = new QLabel(tr("配置文件：%1")
-                                     .arg(QDir::toNativeSeparators(model.jsonPath)),
-                                 container);
-    jsonLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    layout->addWidget(jsonLabel);
-
-    QString remarkText = model.remarks.trimmed();
-    if (remarkText.isEmpty())
-        remarkText = tr("暂无备注");
-    auto* remarkLabel = new QLabel(tr("备注：%1").arg(remarkText), container);
-    remarkLabel->setWordWrap(true);
-    remarkLabel->setStyleSheet("color:#475569;");
-    remarkLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    layout->addWidget(remarkLabel);
 
     auto* builder = new JsonPageBuilder(model.jsonPath, container);
     layout->addWidget(builder, 1);
@@ -2566,10 +2540,8 @@ void MainWindow::ensureUniqueSchemeAndModelNames()
 
 void MainWindow::updateToolbarState()
 {
-    const bool hasProject = hasActiveProject();
-
-    ui->treeModels->setEnabled(hasProject);
-    ui->showPlanPushButton->setEnabled(true);
+    if (ui->treeModels)
+        ui->treeModels->setEnabled(true);
 }
 
 void MainWindow::setVisualizationVisible(bool visible)
