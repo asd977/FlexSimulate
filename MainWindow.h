@@ -111,6 +111,8 @@ private:
     void openSchemeSettings(const QString& schemeId);
     void removeSchemeById(const QString& id);
     void removeModelById(const QString& id);
+    bool confirmSchemeDeletion(const SchemeRecord& scheme);
+    bool confirmModelDeletion(const ModelRecord& model, const SchemeRecord& owner);
     void syncDataFromTree();
     bool loadSchemesFromStorage();
     void saveSchemesToStorage() const;

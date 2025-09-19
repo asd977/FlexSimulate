@@ -412,7 +412,11 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
             });
             menu.addSeparator();
             menu.addAction(tr("删除方案"), this, [this, schemeId]() {
-                removeSchemeById(schemeId);
+                if (SchemeRecord* scheme = schemeById(schemeId))
+                {
+                    if (confirmSchemeDeletion(*scheme))
+                        removeSchemeById(schemeId);
+                }
             });
         }
         else if (type == ModelItem)
@@ -425,7 +429,12 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
             });
             menu.addSeparator();
             menu.addAction(tr("删除模型"), this, [this, modelId]() {
-                removeModelById(modelId);
+                SchemeRecord* owner = nullptr;
+                if (ModelRecord* model = modelById(modelId, &owner))
+                {
+                    if (owner && confirmModelDeletion(*model, *owner))
+                        removeModelById(modelId);
+                }
             });
         }
     }
@@ -496,7 +505,11 @@ void MainWindow::onGalleryOpenRequested(const QString& id)
 
 void MainWindow::onGalleryDeleteRequested(const QString& id)
 {
-    removeSchemeById(id);
+    if (SchemeRecord* scheme = schemeById(id))
+    {
+        if (confirmSchemeDeletion(*scheme))
+            removeSchemeById(id);
+    }
 }
 
 void MainWindow::deleteCurrentTreeItem()
@@ -509,9 +522,22 @@ void MainWindow::deleteCurrentTreeItem()
     const QString id = item->data(0, IdRole).toString();
 
     if (type == SchemeItem)
-        removeSchemeById(id);
+    {
+        if (SchemeRecord* scheme = schemeById(id))
+        {
+            if (confirmSchemeDeletion(*scheme))
+                removeSchemeById(id);
+        }
+    }
     else if (type == ModelItem)
-        removeModelById(id);
+    {
+        SchemeRecord* owner = nullptr;
+        if (ModelRecord* model = modelById(id, &owner))
+        {
+            if (owner && confirmModelDeletion(*model, *owner))
+                removeModelById(id);
+        }
+    }
 }
 
 void MainWindow::refreshNavigation(const QString& schemeToSelect,
@@ -1251,6 +1277,36 @@ void MainWindow::openSchemeSettings(const QString& schemeId)
     applySchemeThumbnail(*scheme, dlg.thumbnailPath());
     persistSchemes();
     refreshNavigation(schemeId, m_activeModelId);
+}
+
+bool MainWindow::confirmSchemeDeletion(const SchemeRecord& scheme)
+{
+    const QString schemeName = scheme.name.isEmpty()
+                                  ? tr("未命名方案")
+                                  : scheme.name;
+    const QString text =
+        tr("确定要删除方案“%1”吗？此操作将删除方案下的所有模型。")
+            .arg(schemeName);
+    return QMessageBox::question(this, tr("删除方案"), text,
+                                 QMessageBox::Yes | QMessageBox::No,
+                                 QMessageBox::No) == QMessageBox::Yes;
+}
+
+bool MainWindow::confirmModelDeletion(const ModelRecord& model,
+                                      const SchemeRecord& owner)
+{
+    const QString modelName = model.name.isEmpty()
+                                  ? tr("未命名模型")
+                                  : model.name;
+    const QString schemeName = owner.name.isEmpty()
+                                   ? tr("未命名方案")
+                                   : owner.name;
+    const QString text =
+        tr("确定要从方案“%1”中删除模型“%2”吗？")
+            .arg(schemeName, modelName);
+    return QMessageBox::question(this, tr("删除模型"), text,
+                                 QMessageBox::Yes | QMessageBox::No,
+                                 QMessageBox::No) == QMessageBox::Yes;
 }
 
 void MainWindow::removeSchemeById(const QString& id)
