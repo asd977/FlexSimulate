@@ -21,6 +21,7 @@ public:
     void setSchemeName(const QString& name);
     void setWorkingDirectory(const QString& directory);
     void setThumbnailPath(const QString& path);
+    void setDirectoryHint(const QString& hint);
 
 private slots:
     void browseForDirectory();

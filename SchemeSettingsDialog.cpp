@@ -126,6 +126,12 @@ void SchemeSettingsDialog::setWorkingDirectory(const QString& directory)
         m_directoryEdit->setText(QDir::toNativeSeparators(directory));
 }
 
+void SchemeSettingsDialog::setDirectoryHint(const QString& hint)
+{
+    if (m_directoryEdit)
+        m_directoryEdit->setPlaceholderText(hint);
+}
+
 void SchemeSettingsDialog::setThumbnailPath(const QString& path)
 {
     const QString trimmed = path.trimmed();

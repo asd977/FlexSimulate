@@ -24,7 +24,9 @@
 #include <QJsonObject>
 #include <QLabel>
 #include <QListWidget>
+#include <QInputDialog>
 #include <QImageReader>
+#include <QLineEdit>
 #include <QMenu>
 #include <QMessageBox>
 #include <QPainter>
@@ -152,14 +154,13 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    m_baseWindowTitle = windowTitle();
 
     const QString dataRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
     QDir dataDir(dataRoot);
     if (!dataDir.exists())
         dataDir.mkpath(QStringLiteral("."));
-    m_workspaceRoot = dataDir.filePath(QStringLiteral("workspaces"));
-    ensureDirectoryExists(m_workspaceRoot);
-    m_storageFilePath = dataDir.filePath(QStringLiteral("schemes.json"));
+    m_appStateFilePath = dataDir.filePath(QStringLiteral("app_state.json"));
 
     setupUiHelpers();
     setupConnections();
@@ -169,6 +170,7 @@ MainWindow::MainWindow(QWidget *parent)
 MainWindow::~MainWindow()
 {
     saveSchemesToStorage();
+    saveApplicationState();
     delete ui;
 }
 
@@ -214,6 +216,13 @@ void MainWindow::setupUiHelpers()
 
 void MainWindow::setupConnections()
 {
+    if (ui->actionNewProject)
+        connect(ui->actionNewProject, &QAction::triggered,
+                this, &MainWindow::onNewProjectTriggered);
+    if (ui->actionOpenProject)
+        connect(ui->actionOpenProject, &QAction::triggered,
+                this, &MainWindow::onOpenProjectTriggered);
+
     connect(ui->treeModels, &QTreeWidget::currentItemChanged,
             this, &MainWindow::handleTreeSelectionChanged);
     connect(ui->treeModels, &QTreeWidget::itemChanged,
@@ -264,52 +273,242 @@ void MainWindow::setupConnections()
 
 void MainWindow::loadInitialSchemes()
 {
-    if (loadSchemesFromStorage())
+    loadApplicationState();
+}
+
+void MainWindow::loadApplicationState()
+{
+    QString lastProject;
+    QFile file(m_appStateFilePath);
+    if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        const QByteArray data = file.readAll();
+        file.close();
+
+        QJsonParseError err{};
+        const QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+        if (err.error == QJsonParseError::NoError && doc.isObject())
+        {
+            const QJsonObject obj = doc.object();
+            lastProject = obj.value(QStringLiteral("lastProject")).toString().trimmed();
+        }
+    }
+
+    if (!lastProject.isEmpty() && openProjectAt(lastProject, /*silent*/true))
+        return;
+
+    enterProjectlessState();
+}
+
+void MainWindow::saveApplicationState() const
+{
+    if (m_appStateFilePath.isEmpty())
+        return;
+
+    QFileInfo info(m_appStateFilePath);
+    QDir dir = info.dir();
+    if (!dir.exists())
+        dir.mkpath(QStringLiteral("."));
+
+    QJsonObject root;
+    root.insert(QStringLiteral("lastProject"), m_projectRoot);
+
+    QFile file(m_appStateFilePath);
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+
+    QJsonDocument doc(root);
+    file.write(doc.toJson(QJsonDocument::Indented));
+    file.close();
+}
+
+void MainWindow::enterProjectlessState()
+{
+    m_projectRoot.clear();
+    m_workspaceRoot.clear();
+    m_storageFilePath.clear();
+    m_activeSchemeId.clear();
+    m_activeModelId.clear();
+    m_schemes.clear();
+    m_schemeItems.clear();
+    m_modelItems.clear();
+
+    if (ui->treeModels)
+        ui->treeModels->clear();
+    if (m_galleryWidget)
+        m_galleryWidget->clearSchemes();
+
+    clearDetailWidget();
+    clearVtkScene();
+
+    if (ui->stackedWidget && ui->welcomePage)
+        ui->stackedWidget->setCurrentWidget(ui->welcomePage);
+
+    updateWindowTitle();
+    updateToolbarState();
+    saveApplicationState();
+}
+
+bool MainWindow::openProjectAt(const QString& path, bool silent)
+{
+    const QString trimmed = path.trimmed();
+    if (trimmed.isEmpty())
+        return false;
+
+    if (!ensureProjectStructure(trimmed))
+    {
+        if (!silent)
+            QMessageBox::warning(this, tr("打开工程"),
+                                 tr("无法创建或访问工程目录：%1")
+                                     .arg(QDir::toNativeSeparators(trimmed)));
+        return false;
+    }
+
+    QDir projectDir(trimmed);
+    const QString canonicalProject = canonicalPathForDir(projectDir);
+    if (canonicalProject.isEmpty())
+    {
+        if (!silent)
+            QMessageBox::warning(this, tr("打开工程"),
+                                 tr("无法解析工程路径：%1")
+                                     .arg(QDir::toNativeSeparators(trimmed)));
+        return false;
+    }
+
+    if (canonicalProject == m_projectRoot)
     {
         refreshNavigation();
         ui->stackedWidget->setCurrentWidget(ui->planPage);
         updateToolbarState();
+        updateWindowTitle();
+        return true;
+    }
+
+    m_projectRoot = canonicalProject;
+
+    QDir canonicalDir(m_projectRoot);
+    const QString workspacePath = canonicalDir.filePath(QStringLiteral("workspaces"));
+    ensureDirectoryExists(workspacePath);
+    m_workspaceRoot = canonicalPathForDir(QDir(workspacePath));
+    if (m_workspaceRoot.isEmpty())
+        m_workspaceRoot = QDir::cleanPath(workspacePath);
+
+    m_storageFilePath = canonicalDir.filePath(QStringLiteral("schemes.json"));
+
+    m_schemes.clear();
+    if (!loadSchemesFromStorage())
+    {
+        m_schemes.clear();
+        persistSchemes();
+    }
+
+    refreshNavigation();
+    if (ui->stackedWidget)
+        ui->stackedWidget->setCurrentWidget(ui->planPage);
+    updateToolbarState();
+    updateWindowTitle();
+
+    if (!silent)
+        appendLogMessage(tr("已打开工程：%1")
+                             .arg(QDir::toNativeSeparators(m_projectRoot)));
+    saveApplicationState();
+    return true;
+}
+
+bool MainWindow::ensureProjectStructure(const QString& rootPath)
+{
+    if (rootPath.isEmpty())
+        return false;
+
+    QDir root(rootPath);
+    const QString absolute = root.absolutePath();
+    if (!QDir(absolute).exists())
+    {
+        QDir dir;
+        if (!dir.mkpath(absolute))
+            return false;
+    }
+
+    QDir absoluteDir(absolute);
+    if (!ensureDirectoryExists(absoluteDir.filePath(QStringLiteral("workspaces"))))
+        return false;
+
+    return true;
+}
+
+void MainWindow::updateWindowTitle()
+{
+    const QString base = m_baseWindowTitle.isEmpty()
+                             ? tr("柔性仿真软件")
+                             : m_baseWindowTitle;
+    if (!hasActiveProject())
+    {
+        setWindowTitle(base);
         return;
     }
 
-    QVector<SchemeRecord> imported;
-    const QStringList candidateRoots = {
-        QDir::current().absoluteFilePath(QStringLiteral("sample_data")),
-        QCoreApplication::applicationDirPath() + QStringLiteral("/sample_data"),
-        QCoreApplication::applicationDirPath() + QStringLiteral("/../sample_data")
-    };
+    const QString projectName = QDir(m_projectRoot).dirName();
+    setWindowTitle(QStringLiteral("%1 - %2").arg(base, projectName));
+}
 
-    for (const QString& rootPath : candidateRoots)
+void MainWindow::onNewProjectTriggered()
+{
+    const QString baseDir = QFileDialog::getExistingDirectory(
+        this, tr("选择工程位置"), QDir::homePath(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (baseDir.isEmpty())
+        return;
+
+    bool ok = false;
+    const QString name = QInputDialog::getText(
+        this, tr("新建工程"), tr("工程名称："), QLineEdit::Normal,
+        tr("新工程"), &ok);
+    if (!ok)
+        return;
+
+    const QString trimmedName = name.trimmed();
+    if (trimmedName.isEmpty())
     {
-        QDir rootDir(rootPath);
-        if (!rootDir.exists())
-            continue;
-
-        const QStringList schemeDirs = rootDir.entryList(QDir::Dirs | QDir::NoDotAndDotDot);
-        for (const QString& name : schemeDirs)
-        {
-            const QString sourcePath = rootDir.absoluteFilePath(name);
-            const QString workspacePath = makeUniqueWorkspaceSubdir(name);
-            if (!copyDirectoryRecursively(sourcePath, workspacePath))
-                continue;
-
-            SchemeRecord scheme;
-            scheme.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-            scheme.name = name;
-            scheme.workingDirectory = canonicalPathForDir(QDir(workspacePath));
-            scheme.models = scanSchemeFolder(workspacePath);
-            imported.push_back(scheme);
-        }
-
-        if (!imported.isEmpty())
-            break;
+        QMessageBox::warning(this, tr("新建工程"), tr("工程名称不能为空。"));
+        return;
     }
 
-    m_schemes = imported;
-    persistSchemes();
-    refreshNavigation();
-    ui->stackedWidget->setCurrentWidget(ui->planPage);
-    updateToolbarState();
+    QDir base(baseDir);
+    const QString projectPath = base.filePath(trimmedName);
+    QDir projectDir(projectPath);
+    if (projectDir.exists())
+    {
+        const QStringList contents =
+            projectDir.entryList(QDir::NoDotAndDotDot | QDir::AllEntries);
+        if (!contents.isEmpty())
+        {
+            QMessageBox::warning(this, tr("新建工程"),
+                                 tr("选定的工程目录已存在且非空，请选择其它位置。"));
+            return;
+        }
+    }
+
+    if (!ensureProjectStructure(projectPath))
+    {
+        QMessageBox::warning(this, tr("新建工程"),
+                             tr("无法创建工程目录：%1")
+                                 .arg(QDir::toNativeSeparators(projectPath)));
+        return;
+    }
+
+    if (openProjectAt(projectPath, /*silent*/false))
+        appendLogMessage(tr("已创建工程 %1").arg(trimmedName));
+}
+
+void MainWindow::onOpenProjectTriggered()
+{
+    const QString dir = QFileDialog::getExistingDirectory(
+        this, tr("打开工程"), QDir::homePath(),
+        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+    if (dir.isEmpty())
+        return;
+
+    openProjectAt(dir, /*silent*/false);
 }
 
 void MainWindow::on_showPlanPushButton_clicked()
@@ -1181,6 +1380,44 @@ bool MainWindow::isPathWithinDirectory(const QString& filePath,
     return true;
 }
 
+QVector<QPair<QString, QString>> MainWindow::availableSchemeTemplates() const
+{
+    QVector<QPair<QString, QString>> templates;
+    QSet<QString> seen;
+    for (const QString& rootPath : templateSearchRoots())
+    {
+        QDir root(rootPath);
+        if (!root.exists())
+            continue;
+
+        const QFileInfoList entries =
+            root.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QFileInfo& info : entries)
+        {
+            const QString canonical = canonicalPathForDir(QDir(info.absoluteFilePath()));
+            if (canonical.isEmpty() || seen.contains(canonical))
+                continue;
+            templates.append({info.fileName(), canonical});
+            seen.insert(canonical);
+        }
+    }
+    return templates;
+}
+
+QStringList MainWindow::templateSearchRoots() const
+{
+    return {
+        QDir::current().absoluteFilePath(QStringLiteral("sample_data")),
+        QCoreApplication::applicationDirPath() + QStringLiteral("/sample_data"),
+        QCoreApplication::applicationDirPath() + QStringLiteral("/../sample_data")
+    };
+}
+
+bool MainWindow::hasActiveProject() const
+{
+    return !m_projectRoot.isEmpty();
+}
+
 void MainWindow::applySchemeThumbnail(SchemeRecord& scheme, const QString& sourcePath)
 {
     const QString trimmed = sourcePath.trimmed();
@@ -1205,18 +1442,29 @@ void MainWindow::applySchemeThumbnail(SchemeRecord& scheme, const QString& sourc
 
 void MainWindow::promptAddScheme()
 {
-    const QString defaultName = tr("新方案%1").arg(m_schemes.size() + 1);
-    const QString defaultDir = makeUniqueWorkspaceSubdir(defaultName);
+    if (!hasActiveProject())
+    {
+        QMessageBox::information(this, tr("创建方案"), tr("请先新建或打开工程。"));
+        return;
+    }
 
-    SchemeSettingsDialog dlg(defaultName, defaultDir, true, this);
+    const QString defaultName = tr("新方案%1").arg(m_schemes.size() + 1);
+    SchemeSettingsDialog dlg(defaultName, QString(), false, this);
+    dlg.setDirectoryHint(tr("工作目录将在工程中自动生成"));
     if (dlg.exec() != QDialog::Accepted)
         return;
 
     const QString name = dlg.schemeName();
-    const QString directory = dlg.workingDirectory();
-    if (name.isEmpty() || directory.isEmpty())
+    if (name.isEmpty())
     {
-        QMessageBox::warning(this, tr("创建方案"), tr("方案名称和工作目录不能为空"));
+        QMessageBox::warning(this, tr("创建方案"), tr("方案名称不能为空"));
+        return;
+    }
+
+    QString directory = makeUniqueWorkspaceSubdir(name);
+    if (directory.isEmpty())
+    {
+        QMessageBox::warning(this, tr("创建方案"), tr("无法创建方案工作目录"));
         return;
     }
 
@@ -1226,6 +1474,48 @@ void MainWindow::promptAddScheme()
                              tr("无法创建工作目录：%1")
                                  .arg(QDir::toNativeSeparators(directory)));
         return;
+    }
+
+    QString templatePath;
+    const QVector<QPair<QString, QString>> templates = availableSchemeTemplates();
+    if (!templates.isEmpty())
+    {
+        QStringList options;
+        options << tr("空白方案");
+        for (const auto& info : templates)
+            options << info.first;
+
+        bool ok = true;
+        const QString choice = QInputDialog::getItem(
+            this, tr("方案模板"), tr("请选择通用方案模板："), options, 0, false, &ok);
+        if (!ok)
+        {
+            QDir(directory).removeRecursively();
+            return;
+        }
+        if (choice != options.first())
+        {
+            for (const auto& info : templates)
+            {
+                if (info.first == choice)
+                {
+                    templatePath = info.second;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!templatePath.isEmpty())
+    {
+        if (!copyDirectoryRecursively(templatePath, directory))
+        {
+            QDir(directory).removeRecursively();
+            QMessageBox::warning(this, tr("创建方案"),
+                                 tr("无法复制模板目录：%1")
+                                     .arg(QDir::toNativeSeparators(templatePath)));
+            return;
+        }
     }
 
     const QString id = importSchemeFromDirectory(directory, false);
@@ -1241,10 +1531,20 @@ void MainWindow::promptAddScheme()
         ui->stackedWidget->setCurrentWidget(ui->MainPage);
         appendLogMessage(tr("已创建方案 %1").arg(name));
     }
+    else
+    {
+        QDir(directory).removeRecursively();
+    }
 }
 
 void MainWindow::promptAddModel(const QString& schemeId)
 {
+    if (!hasActiveProject())
+    {
+        QMessageBox::information(this, tr("导入模型"), tr("请先新建或打开工程。"));
+        return;
+    }
+
     if (!schemeById(schemeId))
         return;
 
@@ -1404,13 +1704,16 @@ void MainWindow::syncDataFromTree()
 
 void MainWindow::updateToolbarState()
 {
+    const bool hasProject = hasActiveProject();
     const bool hasScheme = !m_activeSchemeId.isEmpty();
     const bool hasModel = !m_activeModelId.isEmpty();
     const bool anyScheme = !m_schemes.isEmpty();
 
-    ui->addModelButton->setEnabled(hasScheme);
-    ui->openWorkspaceButton->setEnabled(hasScheme || hasModel);
-    ui->showPlanPushButton->setEnabled(anyScheme);
+    ui->addSchemeButton->setEnabled(hasProject);
+    ui->treeModels->setEnabled(hasProject);
+    ui->addModelButton->setEnabled(hasProject && hasScheme);
+    ui->openWorkspaceButton->setEnabled(hasProject && (hasScheme || hasModel));
+    ui->showPlanPushButton->setEnabled(hasProject && anyScheme);
 }
 
 void MainWindow::appendLogMessage(const QString& message)
@@ -1473,6 +1776,9 @@ void MainWindow::clearVtkScene()
 
 bool MainWindow::loadSchemesFromStorage()
 {
+    if (m_storageFilePath.isEmpty())
+        return false;
+
     QFile file(m_storageFilePath);
     if (!file.exists())
         return false;
@@ -1488,10 +1794,44 @@ bool MainWindow::loadSchemesFromStorage()
         return false;
 
     const QJsonObject root = doc.object();
-    const QString storedRoot = root.value(QStringLiteral("workspaceRoot")).toString();
+    const QString storedRoot = root.value(QStringLiteral("workspaceRoot")).toString().trimmed();
     if (!storedRoot.isEmpty())
-        m_workspaceRoot = storedRoot;
-    ensureDirectoryExists(m_workspaceRoot);
+    {
+        QDir rootDir(storedRoot);
+        if (rootDir.isAbsolute())
+        {
+            m_workspaceRoot = canonicalPathForDir(rootDir);
+            if (m_workspaceRoot.isEmpty())
+                m_workspaceRoot = QDir::cleanPath(storedRoot);
+        }
+        else if (!m_projectRoot.isEmpty())
+        {
+            QDir projectDir(m_projectRoot);
+            const QString absolute = projectDir.filePath(storedRoot);
+            m_workspaceRoot = canonicalPathForDir(QDir(absolute));
+            if (m_workspaceRoot.isEmpty())
+                m_workspaceRoot = QDir::cleanPath(absolute);
+        }
+        else
+        {
+            m_workspaceRoot = canonicalPathForDir(QDir(storedRoot));
+            if (m_workspaceRoot.isEmpty())
+                m_workspaceRoot = QDir::cleanPath(storedRoot);
+        }
+    }
+
+    if (m_workspaceRoot.isEmpty() && !m_projectRoot.isEmpty())
+    {
+        QDir projectDir(m_projectRoot);
+        const QString fallback = projectDir.filePath(QStringLiteral("workspaces"));
+        ensureDirectoryExists(fallback);
+        m_workspaceRoot = canonicalPathForDir(QDir(fallback));
+        if (m_workspaceRoot.isEmpty())
+            m_workspaceRoot = QDir::cleanPath(fallback);
+    }
+
+    if (!m_workspaceRoot.isEmpty())
+        ensureDirectoryExists(m_workspaceRoot);
 
     QVector<SchemeRecord> loaded;
     const QJsonArray schemeArray = root.value(QStringLiteral("schemes")).toArray();
@@ -1568,7 +1908,15 @@ void MainWindow::saveSchemesToStorage() const
     }
 
     QJsonObject root;
-    root.insert(QStringLiteral("workspaceRoot"), m_workspaceRoot);
+    QString workspaceToStore = m_workspaceRoot;
+    if (!m_projectRoot.isEmpty())
+    {
+        QDir projectDir(m_projectRoot);
+        const QString relative = projectDir.relativeFilePath(m_workspaceRoot);
+        if (!relative.startsWith(QStringLiteral("..")) && !relative.startsWith(QLatin1Char('/')))
+            workspaceToStore = relative;
+    }
+    root.insert(QStringLiteral("workspaceRoot"), workspaceToStore);
     root.insert(QStringLiteral("schemes"), schemeArray);
 
     QFile file(m_storageFilePath);
@@ -1587,9 +1935,13 @@ void MainWindow::persistSchemes() const
 
 QString MainWindow::makeUniqueWorkspaceSubdir(const QString& baseName) const
 {
-    QDir base(workspaceRoot());
+    const QString root = workspaceRoot();
+    if (root.isEmpty())
+        return QString();
+
+    QDir base(root);
     if (!base.exists())
-        ensureDirectoryExists(base.absolutePath());
+        ensureDirectoryExists(root);
     QString sanitized = baseName;
     sanitized.replace(QRegularExpression("\\s+"), "_");
     if (sanitized.isEmpty())
