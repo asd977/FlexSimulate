@@ -191,6 +191,23 @@ void MainWindow::setupUiHelpers()
     detailLayout->setContentsMargins(12, 12, 12, 12);
     detailLayout->setSpacing(12);
 
+    const QString sectionTitleStyle = QStringLiteral(
+        "font-size:15px;font-weight:600;color:#0f172a;"
+        "background:#e2e8f0;border-radius:8px;padding:6px 12px;");
+    const auto applySectionStyle = [&](QLabel* label) {
+        if (label)
+            label->setStyleSheet(sectionTitleStyle);
+    };
+    applySectionStyle(ui->navigationTitle);
+    applySectionStyle(ui->detailTitle);
+    applySectionStyle(ui->vtkTitle);
+    applySectionStyle(ui->logTitle);
+
+    if (ui->projectTitleLabel)
+        ui->projectTitleLabel->setText(tr("未打开工程"));
+    if (ui->projectBadge)
+        ui->projectBadge->setToolTip(tr("请选择或创建工程"));
+
     ui->treeModels->header()->setStretchLastSection(true);
     ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->treeModels->setEditTriggers(QAbstractItemView::EditKeyPressed |
@@ -201,6 +218,12 @@ void MainWindow::setupUiHelpers()
     ui->contentSplitter->setStretchFactor(0, 0);
     ui->contentSplitter->setStretchFactor(1, 1);
     ui->contentSplitter->setCollapsible(1, true);
+    if (ui->visualizationSplitter)
+    {
+        ui->visualizationSplitter->setStretchFactor(0, 3);
+        ui->visualizationSplitter->setStretchFactor(1, 1);
+        ui->visualizationSplitter->setHandleWidth(6);
+    }
 
     ui->logTextEdit->setStyleSheet(
         "QPlainTextEdit{background:#0f172a;color:#f8fafc;border-radius:6px;padding:6px;}"
@@ -595,11 +618,19 @@ void MainWindow::updateWindowTitle()
     if (!hasActiveProject())
     {
         setWindowTitle(base);
+        if (ui->projectTitleLabel)
+            ui->projectTitleLabel->setText(tr("未打开工程"));
+        if (ui->projectBadge)
+            ui->projectBadge->setToolTip(tr("请选择或创建工程"));
         return;
     }
 
     const QString projectName = projectDisplayName();
     setWindowTitle(QStringLiteral("%1 - %2").arg(base, projectName));
+    if (ui->projectTitleLabel)
+        ui->projectTitleLabel->setText(projectName);
+    if (ui->projectBadge)
+        ui->projectBadge->setToolTip(QDir::toNativeSeparators(m_projectRoot));
 }
 
 void MainWindow::onNewProjectTriggered()
@@ -1241,7 +1272,7 @@ void MainWindow::rebuildTree()
     {
         m_projectRootItem = new QTreeWidgetItem(ui->treeModels);
         m_projectRootItem->setText(0, projectDisplayName());
-        m_projectRootItem->setIcon(0, QIcon(QStringLiteral(":/icons/icons/app_logo.svg")));
+        m_projectRootItem->setIcon(0, QIcon(QStringLiteral(":/icons/icons/project_logo.svg")));
         m_projectRootItem->setData(0, TypeRole, ProjectItem);
         m_projectRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
                                     Qt::ItemIsDropEnabled);
@@ -2546,7 +2577,7 @@ void MainWindow::updateToolbarState()
 
 void MainWindow::setVisualizationVisible(bool visible)
 {
-    if (!ui->vtkPanel || !ui->logTitle || !ui->logTextEdit || !ui->contentSplitter)
+    if (!ui->vtkPanel || !ui->logPanel || !ui->logTextEdit || !ui->contentSplitter)
         return;
 
     if (m_visualizationVisible == visible)
@@ -2557,6 +2588,7 @@ void MainWindow::setVisualizationVisible(bool visible)
     if (visible)
     {
         ui->vtkPanel->setVisible(true);
+        ui->logPanel->setVisible(true);
         ui->logTitle->setVisible(true);
         ui->logTextEdit->setVisible(true);
 
@@ -2574,12 +2606,37 @@ void MainWindow::setVisualizationVisible(bool visible)
             }
             ui->contentSplitter->setSizes(sizes);
         }
+
+        if (ui->visualizationSplitter)
+        {
+            QList<int> vizSizes = ui->visualizationSplitter->sizes();
+            bool invalid = vizSizes.size() < 2;
+            if (!invalid)
+            {
+                invalid = true;
+                for (int size : vizSizes)
+                {
+                    if (size > 0)
+                    {
+                        invalid = false;
+                        break;
+                    }
+                }
+            }
+            if (invalid)
+            {
+                vizSizes.clear();
+                vizSizes << 3 << 1;
+                ui->visualizationSplitter->setSizes(vizSizes);
+            }
+        }
     }
     else
     {
         m_lastSplitterSizes = ui->contentSplitter->sizes();
 
         ui->vtkPanel->setVisible(false);
+        ui->logPanel->setVisible(false);
         ui->logTitle->setVisible(false);
         ui->logTextEdit->setVisible(false);
 
