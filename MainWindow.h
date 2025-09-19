@@ -38,10 +38,12 @@ private slots:
     void onTreeItemsReordered();
     void onExternalDrop(const QList<QUrl>& urls, QTreeWidgetItem* target);
     void onGalleryOpenRequested(const QString& id);
+    void onGalleryAddRequested(const QString& id);
     void onGalleryDeleteRequested(const QString& id);
     void deleteCurrentTreeItem();
     void onNewProjectTriggered();
     void onOpenProjectTriggered();
+    void onAddLibraryScheme();
 
 private:
     struct ModelRecord {
@@ -50,6 +52,14 @@ private:
         QString directory;
         QString jsonPath;
         QString batPath;
+    };
+
+    struct SchemeLibraryEntry {
+        QString id;
+        QString name;
+        QString directory;
+        QString thumbnailPath;
+        bool deletable = false;
     };
 
     struct SchemeRecord {
@@ -118,6 +128,15 @@ private:
     QVector<QPair<QString, QString>> availableSchemeTemplates() const;
     QStringList templateSearchRoots() const;
     bool hasActiveProject() const;
+    void loadSchemeLibrary();
+    void saveSchemeLibrary() const;
+    QString schemeLibraryRoot() const;
+    QString makeUniqueLibrarySubdir(const QString& baseName) const;
+    SchemeLibraryEntry* libraryEntryById(const QString& id);
+    const SchemeLibraryEntry* libraryEntryById(const QString& id) const;
+    QPixmap loadLibraryThumbnail(const SchemeLibraryEntry& entry) const;
+    void applyLibraryThumbnail(SchemeLibraryEntry& entry, const QString& sourcePath);
+    bool removeLibraryEntry(const QString& id);
     void promptAddScheme();
     void promptAddModel(const QString& schemeId);
     void openSchemeSettings(const QString& schemeId);
@@ -135,6 +154,7 @@ private:
     Ui::MainWindow *ui;
     SchemeGalleryWidget* m_galleryWidget = nullptr;
     QWidget* m_currentDetailWidget = nullptr;
+    QVector<SchemeLibraryEntry> m_librarySchemes;
     QVector<SchemeRecord> m_schemes;
     QHash<QString, QTreeWidgetItem*> m_schemeItems;
     QHash<QString, QTreeWidgetItem*> m_modelItems;
@@ -145,6 +165,7 @@ private:
     QString m_projectRoot;
     QString m_storageFilePath;
     QString m_workspaceRoot;
+    QString m_schemeLibraryRoot;
     QString m_baseWindowTitle;
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
     vtkSmartPointer<vtkRenderer> m_renderer;

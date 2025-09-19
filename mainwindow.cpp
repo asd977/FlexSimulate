@@ -39,11 +39,13 @@
 #include <QSet>
 #include <QShortcut>
 #include <QSplitter>
+#include <QCryptographicHash>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QTreeWidgetItem>
 #include <QUuid>
 #include <QVBoxLayout>
+#include <algorithm>
 
 #include <QVTKOpenGLNativeWidget.h>
 #include <vtkActor.h>
@@ -164,12 +166,14 @@ MainWindow::MainWindow(QWidget *parent)
 
     setupUiHelpers();
     setupConnections();
+    loadSchemeLibrary();
     loadInitialSchemes();
 }
 
 MainWindow::~MainWindow()
 {
     saveSchemesToStorage();
+    saveSchemeLibrary();
     saveApplicationState();
     delete ui;
 }
@@ -241,7 +245,7 @@ void MainWindow::setupConnections()
     connect(ui->showPlanPushButton, &QPushButton::clicked,
             this, &MainWindow::on_showPlanPushButton_clicked);
     connect(ui->addSchemeButton, &QPushButton::clicked,
-            this, &MainWindow::promptAddScheme);
+            this, &MainWindow::onAddLibraryScheme);
     connect(ui->addModelButton, &QPushButton::clicked, this, [this]() {
         if (!m_activeSchemeId.isEmpty())
             promptAddModel(m_activeSchemeId);
@@ -263,12 +267,176 @@ void MainWindow::setupConnections()
 
     connect(m_galleryWidget, &SchemeGalleryWidget::schemeOpenRequested,
             this, &MainWindow::onGalleryOpenRequested);
+    connect(m_galleryWidget, &SchemeGalleryWidget::schemeAddRequested,
+            this, &MainWindow::onGalleryAddRequested);
     connect(m_galleryWidget, &SchemeGalleryWidget::schemeDeleteRequested,
             this, &MainWindow::onGalleryDeleteRequested);
 
     auto* deleteShortcut = new QShortcut(QKeySequence::Delete, ui->treeModels);
     connect(deleteShortcut, &QShortcut::activated,
             this, &MainWindow::deleteCurrentTreeItem);
+}
+
+void MainWindow::loadSchemeLibrary()
+{
+    m_librarySchemes.clear();
+
+    const QString appDir = QCoreApplication::applicationDirPath();
+    QDir baseDir(appDir);
+    const QString defaultRoot = baseDir.filePath(QStringLiteral("scheme_library"));
+    QDir root(defaultRoot);
+    if (!root.exists())
+        root.mkpath(QStringLiteral("."));
+
+    m_schemeLibraryRoot = canonicalPathForDir(root);
+    if (m_schemeLibraryRoot.isEmpty())
+        m_schemeLibraryRoot = QDir::cleanPath(defaultRoot);
+
+    QSet<QString> seen;
+    QDir libraryRoot(m_schemeLibraryRoot);
+
+    const QString indexFile = libraryRoot.filePath(QStringLiteral("library.json"));
+    QFile file(indexFile);
+    if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text))
+    {
+        const QByteArray data = file.readAll();
+        file.close();
+        QJsonParseError err{};
+        const QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+        if (err.error == QJsonParseError::NoError && doc.isObject())
+        {
+            const QJsonArray arr = doc.object().value(QStringLiteral("schemes")).toArray();
+            for (const QJsonValue& value : arr)
+            {
+                const QJsonObject obj = value.toObject();
+                const QString id = obj.value(QStringLiteral("id")).toString();
+                QString name = obj.value(QStringLiteral("name")).toString();
+                const QString relDir = obj.value(QStringLiteral("directory")).toString();
+                if (relDir.trimmed().isEmpty())
+                    continue;
+                const QString absoluteDir = libraryRoot.filePath(relDir);
+                const QString canonical = canonicalPathForDir(QDir(absoluteDir));
+                if (canonical.isEmpty() || seen.contains(canonical))
+                    continue;
+                if (!QDir(canonical).exists())
+                    continue;
+
+                SchemeLibraryEntry entry;
+                entry.id = id.isEmpty() ? QUuid::createUuid().toString(QUuid::WithoutBraces) : id;
+                entry.name = name.isEmpty() ? QDir(canonical).dirName() : name;
+                entry.directory = canonical;
+                entry.deletable = true;
+
+                const QString thumbRel = obj.value(QStringLiteral("thumbnail")).toString().trimmed();
+                if (!thumbRel.isEmpty())
+                {
+                    const QString thumbPath = QDir(canonical).filePath(thumbRel);
+                    if (QFileInfo::exists(thumbPath))
+                        entry.thumbnailPath = QDir::cleanPath(QFileInfo(thumbPath).absoluteFilePath());
+                }
+                if (entry.thumbnailPath.isEmpty())
+                {
+                    QDir dir(canonical);
+                    const QStringList covers = dir.entryList(QStringList() << QStringLiteral("scheme_cover.*"),
+                                                             QDir::Files | QDir::NoDotAndDotDot);
+                    if (!covers.isEmpty())
+                        entry.thumbnailPath = QDir::cleanPath(dir.filePath(covers.first()));
+                }
+
+                m_librarySchemes.push_back(entry);
+                seen.insert(canonical);
+            }
+        }
+    }
+
+    const QStringList builtinRoots = {
+        QDir::current().absoluteFilePath(QStringLiteral("sample_data")),
+        QCoreApplication::applicationDirPath() + QStringLiteral("/sample_data"),
+        QCoreApplication::applicationDirPath() + QStringLiteral("/../sample_data")
+    };
+    for (const QString& rootPath : builtinRoots)
+    {
+        QDir rootDir(rootPath);
+        if (!rootDir.exists())
+            continue;
+        const QFileInfoList dirs = rootDir.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
+        for (const QFileInfo& info : dirs)
+        {
+            const QString canonical = canonicalPathForDir(QDir(info.absoluteFilePath()));
+            if (canonical.isEmpty() || seen.contains(canonical))
+                continue;
+
+            SchemeLibraryEntry entry;
+            entry.id = QString::fromLatin1(QCryptographicHash::hash(canonical.toUtf8(),
+                                                                    QCryptographicHash::Md5).toHex());
+            entry.name = info.fileName();
+            entry.directory = canonical;
+            entry.deletable = false;
+
+            QDir dir(canonical);
+            const QStringList covers = dir.entryList(QStringList() << QStringLiteral("scheme_cover.*"),
+                                                     QDir::Files | QDir::NoDotAndDotDot);
+            if (!covers.isEmpty())
+                entry.thumbnailPath = QDir::cleanPath(dir.filePath(covers.first()));
+
+            m_librarySchemes.push_back(entry);
+            seen.insert(canonical);
+        }
+    }
+
+    std::sort(m_librarySchemes.begin(), m_librarySchemes.end(), [](const SchemeLibraryEntry& a,
+                                                                   const SchemeLibraryEntry& b) {
+        return QString::localeAwareCompare(a.name, b.name) < 0;
+    });
+}
+
+void MainWindow::saveSchemeLibrary() const
+{
+    if (m_schemeLibraryRoot.isEmpty())
+        return;
+
+    QDir root(m_schemeLibraryRoot);
+    if (!root.exists())
+        root.mkpath(QStringLiteral("."));
+
+    QJsonArray array;
+    for (const SchemeLibraryEntry& entry : m_librarySchemes)
+    {
+        if (!entry.deletable)
+            continue;
+        if (!isPathWithinDirectory(entry.directory, m_schemeLibraryRoot))
+            continue;
+
+        const QString relativeDir = root.relativeFilePath(entry.directory);
+        if (relativeDir.startsWith(QStringLiteral("..")))
+            continue;
+
+        QJsonObject obj;
+        obj.insert(QStringLiteral("id"), entry.id);
+        obj.insert(QStringLiteral("name"), entry.name);
+        obj.insert(QStringLiteral("directory"), relativeDir);
+
+        if (!entry.thumbnailPath.isEmpty())
+        {
+            QDir entryDir(entry.directory);
+            const QString relThumb = entryDir.relativeFilePath(entry.thumbnailPath);
+            if (!relThumb.startsWith(QStringLiteral("..")))
+                obj.insert(QStringLiteral("thumbnail"), relThumb);
+        }
+
+        array.append(obj);
+    }
+
+    QJsonObject rootObj;
+    rootObj.insert(QStringLiteral("schemes"), array);
+
+    QFile file(root.filePath(QStringLiteral("library.json")));
+    if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
+        return;
+
+    QJsonDocument doc(rootObj);
+    file.write(doc.toJson(QJsonDocument::Indented));
+    file.close();
 }
 
 void MainWindow::loadInitialSchemes()
@@ -346,6 +514,7 @@ void MainWindow::enterProjectlessState()
 
     updateWindowTitle();
     updateToolbarState();
+    updateGallery();
     saveApplicationState();
 }
 
@@ -509,6 +678,113 @@ void MainWindow::onOpenProjectTriggered()
         return;
 
     openProjectAt(dir, /*silent*/false);
+}
+
+void MainWindow::onAddLibraryScheme()
+{
+    const QString defaultName = tr("新方案%1").arg(m_librarySchemes.size() + 1);
+    SchemeSettingsDialog dlg(defaultName, QString(), false, this);
+    dlg.setDirectoryHint(tr("方案库目录将在软件运行目录中自动生成"));
+    if (dlg.exec() != QDialog::Accepted)
+        return;
+
+    const QString name = dlg.schemeName();
+    if (name.isEmpty())
+    {
+        QMessageBox::warning(this, tr("创建方案库"), tr("方案名称不能为空"));
+        return;
+    }
+
+    QString directory = makeUniqueLibrarySubdir(name);
+    if (directory.isEmpty())
+    {
+        QMessageBox::warning(this, tr("创建方案库"), tr("无法创建方案库目录"));
+        return;
+    }
+
+    if (!ensureDirectoryExists(directory))
+    {
+        QMessageBox::warning(this, tr("创建方案库"),
+                             tr("无法创建目录：%1")
+                                 .arg(QDir::toNativeSeparators(directory)));
+        return;
+    }
+
+    QString templatePath;
+    const QVector<QPair<QString, QString>> templates = availableSchemeTemplates();
+    if (!templates.isEmpty())
+    {
+        QStringList options;
+        options << tr("空白方案");
+        for (const auto& info : templates)
+            options << info.first;
+
+        bool ok = true;
+        const QString choice = QInputDialog::getItem(
+            this, tr("方案模板"), tr("请选择通用方案模板："), options, 0, false, &ok);
+        if (!ok)
+        {
+            QDir(directory).removeRecursively();
+            return;
+        }
+        if (choice != options.first())
+        {
+            for (const auto& info : templates)
+            {
+                if (info.first == choice)
+                {
+                    templatePath = info.second;
+                    break;
+                }
+            }
+        }
+    }
+
+    if (!templatePath.isEmpty())
+    {
+        if (!copyDirectoryRecursively(templatePath, directory))
+        {
+            QDir(directory).removeRecursively();
+            QMessageBox::warning(this, tr("创建方案库"),
+                                 tr("无法复制模板目录：%1")
+                                     .arg(QDir::toNativeSeparators(templatePath)));
+            return;
+        }
+    }
+
+    const QString canonical = canonicalPathForDir(QDir(directory));
+    if (canonical.isEmpty())
+    {
+        QDir(directory).removeRecursively();
+        QMessageBox::warning(this, tr("创建方案库"), tr("无法解析方案库目录"));
+        return;
+    }
+
+    SchemeLibraryEntry entry;
+    entry.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
+    entry.name = name;
+    entry.directory = canonical;
+    entry.deletable = true;
+
+    applyLibraryThumbnail(entry, dlg.thumbnailPath());
+    if (entry.thumbnailPath.isEmpty())
+    {
+        QDir dir(canonical);
+        const QStringList covers = dir.entryList(QStringList() << QStringLiteral("scheme_cover.*"),
+                                                 QDir::Files | QDir::NoDotAndDotDot);
+        if (!covers.isEmpty())
+            entry.thumbnailPath = QDir::cleanPath(dir.filePath(covers.first()));
+    }
+
+    m_librarySchemes.push_back(entry);
+    std::sort(m_librarySchemes.begin(), m_librarySchemes.end(), [](const SchemeLibraryEntry& a,
+                                                                   const SchemeLibraryEntry& b) {
+        return QString::localeAwareCompare(a.name, b.name) < 0;
+    });
+
+    saveSchemeLibrary();
+    updateGallery();
+    appendLogMessage(tr("已创建方案库 %1").arg(name));
 }
 
 void MainWindow::on_showPlanPushButton_clicked()
@@ -695,6 +971,13 @@ void MainWindow::onExternalDrop(const QList<QUrl>& urls, QTreeWidgetItem* target
 
 void MainWindow::onGalleryOpenRequested(const QString& id)
 {
+    if (const SchemeLibraryEntry* entry = libraryEntryById(id))
+    {
+        if (!entry->directory.isEmpty())
+            QDesktopServices::openUrl(QUrl::fromLocalFile(entry->directory));
+        return;
+    }
+
     if (schemeById(id))
     {
         ui->stackedWidget->setCurrentWidget(ui->MainPage);
@@ -702,8 +985,86 @@ void MainWindow::onGalleryOpenRequested(const QString& id)
     }
 }
 
+void MainWindow::onGalleryAddRequested(const QString& id)
+{
+    const SchemeLibraryEntry* entry = libraryEntryById(id);
+    if (!entry)
+        return;
+
+    if (!hasActiveProject())
+    {
+        QMessageBox::information(this, tr("添加方案"), tr("请先新建或打开工程。"));
+        return;
+    }
+
+    if (entry->directory.isEmpty() || !QDir(entry->directory).exists())
+    {
+        QMessageBox::warning(this, tr("添加方案"), tr("方案库目录不存在或不可访问。"));
+        return;
+    }
+
+    const QString entryName = entry->name.isEmpty() ? tr("未命名方案") : entry->name;
+
+    QString targetDir = makeUniqueWorkspaceSubdir(entryName);
+    if (targetDir.isEmpty())
+    {
+        QMessageBox::warning(this, tr("添加方案"), tr("无法创建方案工作目录。"));
+        return;
+    }
+
+    if (!copyDirectoryRecursively(entry->directory, targetDir))
+    {
+        QDir(targetDir).removeRecursively();
+        QMessageBox::warning(this, tr("添加方案"),
+                             tr("无法复制方案目录：%1")
+                                 .arg(QDir::toNativeSeparators(entry->directory)));
+        return;
+    }
+
+    const QString importedId = importSchemeFromDirectory(targetDir, false);
+    if (importedId.isEmpty())
+    {
+        QDir(targetDir).removeRecursively();
+        QMessageBox::warning(this, tr("添加方案"), tr("无法导入方案。"));
+        return;
+    }
+
+    if (SchemeRecord* scheme = schemeById(importedId))
+    {
+        scheme->name = entryName;
+        persistSchemes();
+        refreshNavigation(importedId);
+    }
+
+    appendLogMessage(tr("已从方案库添加方案 %1").arg(entryName));
+    ui->stackedWidget->setCurrentWidget(ui->MainPage);
+    selectTreeItem(importedId, QString());
+}
+
 void MainWindow::onGalleryDeleteRequested(const QString& id)
 {
+    if (SchemeLibraryEntry* entry = libraryEntryById(id))
+    {
+        if (!entry->deletable)
+        {
+            QMessageBox::information(this, tr("删除方案库"), tr("此方案属于内置模板，无法删除。"));
+            return;
+        }
+        const QString entryName = entry->name.isEmpty() ? tr("未命名方案") : entry->name;
+        const QString text = tr("确定要从方案库中删除“%1”吗？").arg(entryName);
+        if (QMessageBox::question(this, tr("删除方案库"), text,
+                                  QMessageBox::Yes | QMessageBox::No,
+                                  QMessageBox::No) == QMessageBox::Yes)
+        {
+            if (removeLibraryEntry(id))
+            {
+                updateGallery();
+                appendLogMessage(tr("已删除方案库 %1").arg(entryName));
+            }
+        }
+        return;
+    }
+
     if (SchemeRecord* scheme = schemeById(id))
     {
         if (confirmSchemeDeletion(*scheme))
@@ -809,12 +1170,40 @@ void MainWindow::updateGallery()
         return;
 
     m_galleryWidget->clearSchemes();
+    const bool hasProject = hasActiveProject();
+
+    for (const SchemeLibraryEntry& entry : m_librarySchemes)
+    {
+        QPixmap thumb = loadLibraryThumbnail(entry);
+        if (thumb.isNull())
+            thumb = makeSchemePlaceholder(entry.name);
+
+        SchemeGalleryWidget::CardOptions options;
+        options.showAddButton = true;
+        options.enableAddButton = hasProject;
+        options.addToolTip = hasProject ? tr("添加到当前工程")
+                                        : tr("请先新建或打开工程。");
+        options.showDeleteButton = entry.deletable;
+        options.enableDeleteButton = entry.deletable;
+        options.deleteToolTip = entry.deletable
+                                     ? tr("从方案库中删除此方案")
+                                     : tr("内置模板不可删除");
+        options.hintText = tr("点击卡片打开方案所在目录");
+
+        m_galleryWidget->addScheme(entry.id, entry.name, thumb, options);
+    }
+
     for (const SchemeRecord& scheme : m_schemes)
     {
         QPixmap thumb = loadSchemeThumbnail(scheme);
         if (thumb.isNull())
             thumb = makeSchemePlaceholder(scheme.name);
-        m_galleryWidget->addScheme(scheme.id, scheme.name, thumb);
+
+        SchemeGalleryWidget::CardOptions options;
+        options.showAddButton = false;
+        options.hintText = tr("点击卡片以查看详情");
+
+        m_galleryWidget->addScheme(scheme.id, scheme.name, thumb, options);
     }
 }
 
@@ -1401,6 +1790,15 @@ QVector<QPair<QString, QString>> MainWindow::availableSchemeTemplates() const
             seen.insert(canonical);
         }
     }
+    for (const SchemeLibraryEntry& entry : m_librarySchemes)
+    {
+        if (entry.directory.isEmpty())
+            continue;
+        if (seen.contains(entry.directory))
+            continue;
+        templates.append({entry.name, entry.directory});
+        seen.insert(entry.directory);
+    }
     return templates;
 }
 
@@ -1411,6 +1809,109 @@ QStringList MainWindow::templateSearchRoots() const
         QCoreApplication::applicationDirPath() + QStringLiteral("/sample_data"),
         QCoreApplication::applicationDirPath() + QStringLiteral("/../sample_data")
     };
+}
+
+QString MainWindow::schemeLibraryRoot() const
+{
+    return m_schemeLibraryRoot;
+}
+
+QString MainWindow::makeUniqueLibrarySubdir(const QString& baseName) const
+{
+    const QString root = schemeLibraryRoot();
+    if (root.isEmpty())
+        return QString();
+
+    QDir dir(root);
+    if (!dir.exists())
+        ensureDirectoryExists(root);
+
+    QString sanitized = baseName.trimmed();
+    if (sanitized.isEmpty())
+        sanitized = QStringLiteral("Scheme");
+    sanitized.replace(QRegularExpression("\\s+"), "_");
+
+    QString candidate = dir.filePath(sanitized);
+    int index = 1;
+    while (QDir(candidate).exists())
+        candidate = dir.filePath(QStringLiteral("%1_%2").arg(sanitized).arg(index++));
+    return candidate;
+}
+
+MainWindow::SchemeLibraryEntry* MainWindow::libraryEntryById(const QString& id)
+{
+    for (SchemeLibraryEntry& entry : m_librarySchemes)
+    {
+        if (entry.id == id)
+            return &entry;
+    }
+    return nullptr;
+}
+
+const MainWindow::SchemeLibraryEntry* MainWindow::libraryEntryById(const QString& id) const
+{
+    for (const SchemeLibraryEntry& entry : m_librarySchemes)
+    {
+        if (entry.id == id)
+            return &entry;
+    }
+    return nullptr;
+}
+
+QPixmap MainWindow::loadLibraryThumbnail(const SchemeLibraryEntry& entry) const
+{
+    if (entry.thumbnailPath.isEmpty())
+        return QPixmap();
+
+    QImageReader reader(entry.thumbnailPath);
+    reader.setAutoTransform(true);
+    const QImage image = reader.read();
+    if (image.isNull())
+        return QPixmap();
+    return QPixmap::fromImage(image);
+}
+
+void MainWindow::applyLibraryThumbnail(SchemeLibraryEntry& entry,
+                                       const QString& sourcePath)
+{
+    const QString trimmed = sourcePath.trimmed();
+    if (trimmed.isEmpty())
+    {
+        if (isPathWithinDirectory(entry.thumbnailPath, entry.directory))
+            QFile::remove(entry.thumbnailPath);
+        entry.thumbnailPath.clear();
+        return;
+    }
+
+    QString stored = storeSchemeThumbnail(entry.directory, trimmed);
+    if (stored.isEmpty())
+        stored = QDir::cleanPath(QFileInfo(trimmed).absoluteFilePath());
+
+    if (!entry.thumbnailPath.isEmpty() && entry.thumbnailPath != stored &&
+        isPathWithinDirectory(entry.thumbnailPath, entry.directory))
+        QFile::remove(entry.thumbnailPath);
+
+    entry.thumbnailPath = stored;
+}
+
+bool MainWindow::removeLibraryEntry(const QString& id)
+{
+    for (int i = 0; i < m_librarySchemes.size(); ++i)
+    {
+        if (m_librarySchemes[i].id == id)
+        {
+            SchemeLibraryEntry entry = m_librarySchemes.takeAt(i);
+            if (entry.deletable && isPathWithinDirectory(entry.directory, m_schemeLibraryRoot))
+            {
+                QDir dir(entry.directory);
+                dir.removeRecursively();
+            }
+            if (entry.deletable)
+                saveSchemeLibrary();
+            return true;
+        }
+    }
+    return false;
 }
 
 bool MainWindow::hasActiveProject() const
@@ -1707,13 +2208,12 @@ void MainWindow::updateToolbarState()
     const bool hasProject = hasActiveProject();
     const bool hasScheme = !m_activeSchemeId.isEmpty();
     const bool hasModel = !m_activeModelId.isEmpty();
-    const bool anyScheme = !m_schemes.isEmpty();
 
-    ui->addSchemeButton->setEnabled(hasProject);
+    ui->addSchemeButton->setEnabled(true);
     ui->treeModels->setEnabled(hasProject);
     ui->addModelButton->setEnabled(hasProject && hasScheme);
     ui->openWorkspaceButton->setEnabled(hasProject && (hasScheme || hasModel));
-    ui->showPlanPushButton->setEnabled(hasProject && anyScheme);
+    ui->showPlanPushButton->setEnabled(true);
 }
 
 void MainWindow::appendLogMessage(const QString& message)

@@ -115,10 +115,10 @@
        <item>
         <widget class="QPushButton" name="addSchemeButton">
          <property name="toolTip">
-          <string>创建一个新的方案</string>
+          <string>创建一个新的方案库</string>
          </property>
          <property name="text">
-          <string>新增方案</string>
+          <string>新增方案库</string>
          </property>
          <property name="icon">
           <iconset>

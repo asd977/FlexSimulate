@@ -31,7 +31,8 @@ void SchemeGalleryWidget::clearSchemes()
 
 void SchemeGalleryWidget::addScheme(const QString& id,
                                     const QString& name,
-                                    const QPixmap& thumb) {
+                                    const QPixmap& thumb,
+                                    const CardOptions& options) {
     if (id.isEmpty())
         return;
 
@@ -42,6 +43,16 @@ void SchemeGalleryWidget::addScheme(const QString& id,
     card->setTitle(name.isEmpty() ? QStringLiteral("未命名方案") : name);
     if (!thumb.isNull()) card->setThumbnail(thumb);
     card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
+    if (!options.hintText.isEmpty())
+        card->setHintText(options.hintText);
+    card->setAddButtonVisible(options.showAddButton);
+    card->setAddButtonEnabled(options.enableAddButton);
+    if (!options.addToolTip.isEmpty())
+        card->setAddButtonToolTip(options.addToolTip);
+    card->setDeleteButtonVisible(options.showDeleteButton);
+    card->setDeleteButtonEnabled(options.enableDeleteButton);
+    if (!options.deleteToolTip.isEmpty())
+        card->setDeleteButtonToolTip(options.deleteToolTip);
 
     // 放进网格
     auto* grid = qobject_cast<QGridLayout*>(ui->gridLayout);
@@ -51,6 +62,9 @@ void SchemeGalleryWidget::addScheme(const QString& id,
     // 打开设置
     connect(card, &SchemeCardWidget::openRequested,
             this, &SchemeGalleryWidget::schemeOpenRequested);
+
+    connect(card, &SchemeCardWidget::addRequested,
+            this, &SchemeGalleryWidget::schemeAddRequested);
 
     // 删除
     connect(card, &SchemeCardWidget::deleteRequested,
