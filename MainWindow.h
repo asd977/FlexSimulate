@@ -77,7 +77,8 @@ private:
     };
 
     enum TreeItemType {
-        SchemeItem = 1,
+        ProjectItem = 0,
+        SchemeItem,
         ModelItem
     };
 
@@ -106,6 +107,7 @@ private:
     void appendLogMessage(const QString& message);
     void displayStlFile(const QString& filePath);
     void clearVtkScene();
+    QString projectDisplayName() const;
 
     SchemeRecord* schemeById(const QString& id);
     const SchemeRecord* schemeById(const QString& id) const;
@@ -145,6 +147,14 @@ private:
     bool confirmSchemeDeletion(const SchemeRecord& scheme);
     bool confirmModelDeletion(const ModelRecord& model, const SchemeRecord& owner);
     void syncDataFromTree();
+    QString makeUniqueName(const QString& desired, QSet<QString>& taken,
+                           const QString& fallback) const;
+    QString makeUniqueSchemeName(const QString& desired,
+                                 const QString& excludeId = QString()) const;
+    QString makeUniqueModelName(const SchemeRecord& scheme, const QString& desired,
+                                const QString& excludeId = QString()) const;
+    void ensureUniqueModelNames(SchemeRecord& scheme) const;
+    void ensureUniqueSchemeAndModelNames();
     bool loadSchemesFromStorage();
     void saveSchemesToStorage() const;
     void persistSchemes() const;
@@ -158,6 +168,7 @@ private:
     QVector<SchemeRecord> m_schemes;
     QHash<QString, QTreeWidgetItem*> m_schemeItems;
     QHash<QString, QTreeWidgetItem*> m_modelItems;
+    QTreeWidgetItem* m_projectRootItem = nullptr;
     QString m_activeSchemeId;
     QString m_activeModelId;
     bool m_blockTreeSignals = false;

@@ -69,7 +69,7 @@
           </size>
          </property>
          <property name="pixmap">
-          <pixmap>:/icons/app_logo.svg</pixmap>
+          <pixmap>:/icons/icons/app_logo.svg</pixmap>
          </property>
          <property name="scaledContents">
           <bool>true</bool>
@@ -102,7 +102,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>:/icons/gallery.svg</normaloff>:/icons/gallery.svg</iconset>
+           <normaloff>:/icons/icons/gallery.svg</normaloff>:/icons/icons/gallery.svg</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -122,7 +122,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>:/icons/add.svg</normaloff>:/icons/add.svg</iconset>
+           <normaloff>:/icons/icons/add.svg</normaloff>:/icons/icons/add.svg</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -145,7 +145,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>:/icons/model_add.svg</normaloff>:/icons/model_add.svg</iconset>
+           <normaloff>:/icons/icons/model_add.svg</normaloff>:/icons/icons/model_add.svg</iconset>
          </property>
          <property name="iconSize">
           <size>
@@ -168,7 +168,7 @@
          </property>
          <property name="icon">
           <iconset>
-           <normaloff>:/icons/folder.svg</normaloff>:/icons/folder.svg</iconset>
+           <normaloff>:/icons/icons/folder.svg</normaloff>:/icons/icons/folder.svg</iconset>
          </property>
          <property name="iconSize">
           <size>

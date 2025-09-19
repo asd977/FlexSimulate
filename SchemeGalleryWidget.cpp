@@ -53,6 +53,10 @@ void SchemeGalleryWidget::addScheme(const QString& id,
     card->setDeleteButtonEnabled(options.enableDeleteButton);
     if (!options.deleteToolTip.isEmpty())
         card->setDeleteButtonToolTip(options.deleteToolTip);
+    card->setOpenButtonVisible(options.showOpenButton);
+    card->setOpenButtonEnabled(options.enableOpenButton);
+    if (!options.openToolTip.isEmpty())
+        card->setOpenButtonToolTip(options.openToolTip);
 
     // 放进网格
     auto* grid = qobject_cast<QGridLayout*>(ui->gridLayout);
