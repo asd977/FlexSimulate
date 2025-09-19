@@ -1131,8 +1131,8 @@ void MainWindow::rebuildTree()
     m_schemeItems.clear();
     m_modelItems.clear();
 
-    const QIcon schemeIcon(QStringLiteral(":/icons/plan.svg"));
-    const QIcon modelIcon(QStringLiteral(":/icons/model.svg"));
+    const QIcon schemeIcon(QStringLiteral(":/icons/icons/plan.svg"));
+    const QIcon modelIcon(QStringLiteral(":/icons/icons/model.svg"));
 
     for (const SchemeRecord& scheme : m_schemes)
     {

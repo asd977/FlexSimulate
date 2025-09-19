@@ -61,7 +61,7 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
     m_addBtn = new QToolButton(this);
     m_addBtn->setObjectName("addButton");
     m_addBtn->setToolTip(tr("添加到当前工程"));
-    m_addBtn->setIcon(QIcon(QStringLiteral(":/icons/add.svg")));
+    m_addBtn->setIcon(QIcon(QStringLiteral(":/icons/icons/add.svg")));
     m_addBtn->setIconSize(QSize(16, 16));
     m_addBtn->setAutoRaise(false);
     m_addBtn->setCursor(Qt::ArrowCursor);
