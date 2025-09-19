@@ -5,6 +5,7 @@
 #include <QGridLayout>
 #include <QScrollArea>
 #include <QPixmap>
+#include <QPushButton>
 
 #include <algorithm>
 
@@ -12,6 +13,19 @@ SchemeGalleryWidget::SchemeGalleryWidget(QWidget *parent)
     : QWidget(parent), ui(new Ui::SchemeGalleryWidget)
 {
     ui->setupUi(this);
+
+    if (ui->newSchemeButton)
+    {
+        ui->newSchemeButton->setCursor(Qt::PointingHandCursor);
+        ui->newSchemeButton->setStyleSheet(
+            "QPushButton{padding:6px 14px;border-radius:16px;"
+            "background-color:#1d4ed8;color:white;font-weight:600;}"
+            "QPushButton:hover{background-color:#2563eb;}"
+            "QPushButton:pressed{background-color:#1e3a8a;}"
+        );
+        connect(ui->newSchemeButton, &QPushButton::clicked,
+                this, &SchemeGalleryWidget::createSchemeRequested);
+    }
 }
 
 SchemeGalleryWidget::~SchemeGalleryWidget() { delete ui; }

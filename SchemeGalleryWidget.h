@@ -39,6 +39,7 @@ signals:
     void schemeOpenRequested(const QString& id);
     void schemeAddRequested(const QString& id);
     void schemeDeleteRequested(const QString& id);
+    void createSchemeRequested();
 
 protected:
     void resizeEvent(QResizeEvent* e) override;

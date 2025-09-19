@@ -200,19 +200,60 @@ void MainWindow::setupUiHelpers()
     ui->mainSplitter->setStretchFactor(1, 1);
     ui->contentSplitter->setStretchFactor(0, 0);
     ui->contentSplitter->setStretchFactor(1, 1);
+    ui->contentSplitter->setCollapsible(1, true);
 
-    const QString buttonStyle =
-        "QPushButton{padding:6px 12px;border:1px solid #d0d5dd;"
-        "border-radius:6px;background:#f5f7fb;}"
-        "QPushButton:hover{background:#e8efff;}";
-    ui->showPlanPushButton->setStyleSheet(buttonStyle);
-    ui->addSchemeButton->setStyleSheet(buttonStyle);
-    ui->addModelButton->setStyleSheet(buttonStyle);
-    ui->openWorkspaceButton->setStyleSheet(buttonStyle);
+    if (ui->headerWidget)
+        ui->headerWidget->setAttribute(Qt::WA_StyledBackground, true);
+
+    if (ui->libraryCard)
+    {
+        ui->libraryCard->setAttribute(Qt::WA_StyledBackground, true);
+        ui->libraryCard->setStyleSheet(
+            "#libraryCard{background:rgba(37,99,235,0.08);"
+            "border:1px solid rgba(37,99,235,0.25);border-radius:18px;}"
+        );
+    }
+    if (ui->libraryCardHintLabel)
+        ui->libraryCardHintLabel->setStyleSheet("color:#1e3a8a;font-size:12px;");
+
+    if (ui->showPlanPushButton)
+    {
+        ui->showPlanPushButton->setCursor(Qt::PointingHandCursor);
+        ui->showPlanPushButton->setMinimumHeight(44);
+        ui->showPlanPushButton->setIconSize(QSize(22, 22));
+        ui->showPlanPushButton->setStyleSheet(
+            "QPushButton#showPlanPushButton{padding:10px 24px;"
+            "border:none;border-radius:20px;font-size:16px;font-weight:600;"
+            "color:#ffffff;background:qlineargradient(x1:0,y1:0,x2:1,y2:1,#1d4ed8,#2563eb);}"
+            "QPushButton#showPlanPushButton:hover{background:qlineargradient(x1:0,y1:0,x2:1,y2:1,#2563eb,#3b82f6);}"
+            "QPushButton#showPlanPushButton:pressed{background:#1e3a8a;}"
+        );
+    }
+
+    if (ui->selectionInfoFrame)
+    {
+        ui->selectionInfoFrame->setAttribute(Qt::WA_StyledBackground, true);
+        ui->selectionInfoFrame->setStyleSheet(
+            "#selectionInfoFrame{background:#f8fafc;border:1px solid #e2e8f0;"
+            "border-radius:12px;}"
+        );
+    }
+    if (ui->selectionPathValueLabel)
+    {
+        ui->selectionPathValueLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    }
+    if (ui->selectionRemarkValueLabel)
+    {
+        ui->selectionRemarkValueLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+        ui->selectionRemarkValueLabel->setWordWrap(true);
+    }
 
     ui->logTextEdit->setStyleSheet(
         "QPlainTextEdit{background:#0f172a;color:#f8fafc;border-radius:6px;padding:6px;}"
     );
+
+    setVisualizationVisible(false);
+    updateSelectionInfo();
 
     auto colors = vtkSmartPointer<vtkNamedColors>::New();
     m_renderWindow = vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
@@ -248,26 +289,6 @@ void MainWindow::setupConnections()
 
     connect(ui->showPlanPushButton, &QPushButton::clicked,
             this, &MainWindow::on_showPlanPushButton_clicked);
-    connect(ui->addSchemeButton, &QPushButton::clicked,
-            this, &MainWindow::onAddLibraryScheme);
-    connect(ui->addModelButton, &QPushButton::clicked, this, [this]() {
-        if (!m_activeSchemeId.isEmpty())
-            promptAddModel(m_activeSchemeId);
-    });
-    connect(ui->openWorkspaceButton, &QPushButton::clicked, this, [this]() {
-        if (!m_activeModelId.isEmpty())
-        {
-            SchemeRecord* owner = nullptr;
-            if (ModelRecord* model = modelById(m_activeModelId, &owner))
-                QDesktopServices::openUrl(QUrl::fromLocalFile(model->directory));
-            return;
-        }
-        if (!m_activeSchemeId.isEmpty())
-        {
-            if (SchemeRecord* scheme = schemeById(m_activeSchemeId))
-                QDesktopServices::openUrl(QUrl::fromLocalFile(scheme->workingDirectory));
-        }
-    });
 
     connect(m_galleryWidget, &SchemeGalleryWidget::schemeOpenRequested,
             this, &MainWindow::onGalleryOpenRequested);
@@ -275,6 +296,8 @@ void MainWindow::setupConnections()
             this, &MainWindow::onGalleryAddRequested);
     connect(m_galleryWidget, &SchemeGalleryWidget::schemeDeleteRequested,
             this, &MainWindow::onGalleryDeleteRequested);
+    connect(m_galleryWidget, &SchemeGalleryWidget::createSchemeRequested,
+            this, &MainWindow::onAddLibraryScheme);
 
     auto* deleteShortcut = new QShortcut(QKeySequence::Delete, ui->treeModels);
     connect(deleteShortcut, &QShortcut::activated,
@@ -513,6 +536,8 @@ void MainWindow::enterProjectlessState()
 
     clearDetailWidget();
     clearVtkScene();
+    setVisualizationVisible(false);
+    updateSelectionInfo();
 
     if (ui->stackedWidget && ui->welcomePage)
         ui->stackedWidget->setCurrentWidget(ui->welcomePage);
@@ -806,6 +831,8 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         m_activeModelId.clear();
         clearDetailWidget();
         clearVtkScene();
+        setVisualizationVisible(false);
+        updateSelectionInfo();
         updateToolbarState();
         return;
     }
@@ -820,6 +847,12 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         ui->stackedWidget->setCurrentWidget(ui->MainPage);
         showSchemeSettings(schemeId);
         clearVtkScene();
+        setVisualizationVisible(false);
+
+        if (SchemeRecord* scheme = schemeById(schemeId))
+            updateSelectionInfo(scheme->workingDirectory, scheme->remarks);
+        else
+            updateSelectionInfo();
     }
     else if (type == ModelItem)
     {
@@ -829,6 +862,13 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         m_activeModelId = modelId;
         ui->stackedWidget->setCurrentWidget(ui->MainPage);
         showModelSettings(modelId);
+        setVisualizationVisible(true);
+
+        SchemeRecord* owner = nullptr;
+        if (ModelRecord* model = modelById(modelId, &owner))
+            updateSelectionInfo(model->directory, model->remarks);
+        else
+            updateSelectionInfo();
     }
     else if (type == ProjectItem)
     {
@@ -836,6 +876,12 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         m_activeModelId.clear();
         clearDetailWidget();
         clearVtkScene();
+        setVisualizationVisible(false);
+        updateSelectionInfo(m_projectRoot, QString());
+    }
+    else
+    {
+        updateSelectionInfo();
     }
     updateToolbarState();
 }
@@ -1362,6 +1408,8 @@ void MainWindow::showSchemeSettings(const QString& schemeId)
     clearDetailWidget();
     m_currentDetailWidget = buildSchemeSettingsWidget(*scheme);
     ui->settingWidget->layout()->addWidget(m_currentDetailWidget);
+    setVisualizationVisible(false);
+    updateSelectionInfo(scheme->workingDirectory, scheme->remarks);
 }
 
 void MainWindow::showModelSettings(const QString& modelId)
@@ -1378,6 +1426,8 @@ void MainWindow::showModelSettings(const QString& modelId)
     clearDetailWidget();
     m_currentDetailWidget = buildModelSettingsWidget(*model);
     ui->settingWidget->layout()->addWidget(m_currentDetailWidget);
+    setVisualizationVisible(true);
+    updateSelectionInfo(model->directory, model->remarks);
 
     const QString stl = latestStlFile(model->directory);
     if (!stl.isEmpty())
@@ -1429,6 +1479,17 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
     countValue->setObjectName("infoValue");
     infoLayout->addWidget(countCaption, 1, 0, Qt::AlignTop);
     infoLayout->addWidget(countValue, 1, 1, Qt::AlignTop);
+    auto* remarkCaption = new QLabel(tr("备注"), infoFrame);
+    remarkCaption->setObjectName("infoCaption");
+    QString remarkText = scheme.remarks.trimmed();
+    if (remarkText.isEmpty())
+        remarkText = tr("暂无备注");
+    auto* remarkValue = new QLabel(remarkText, infoFrame);
+    remarkValue->setObjectName("infoValue");
+    remarkValue->setWordWrap(true);
+    remarkValue->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    infoLayout->addWidget(remarkCaption, 2, 0, Qt::AlignTop);
+    infoLayout->addWidget(remarkValue, 2, 1, Qt::AlignTop);
     infoLayout->setColumnStretch(1, 1);
 
     layout->addWidget(infoFrame);
@@ -1499,12 +1560,26 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
     buttonRow->setSpacing(8);
     buttonRow->setContentsMargins(0, 0, 0, 0);
     auto* addBtn = new QPushButton(tr("添加模型"), container);
+    addBtn->setCursor(Qt::PointingHandCursor);
+    addBtn->setStyleSheet(
+        "QPushButton{padding:8px 18px;border-radius:18px;border:none;"
+        "background-color:#2563eb;color:#ffffff;font-weight:600;}"
+        "QPushButton:hover{background-color:#1d4ed8;}"
+        "QPushButton:pressed{background-color:#1e3a8a;}"
+    );
     connect(addBtn, &QPushButton::clicked, this, [this, sid = scheme.id]() {
         promptAddModel(sid);
     });
     buttonRow->addWidget(addBtn);
 
     auto* openBtn = new QPushButton(tr("打开方案目录"), container);
+    openBtn->setCursor(Qt::PointingHandCursor);
+    openBtn->setStyleSheet(
+        "QPushButton{padding:8px 18px;border-radius:18px;"
+        "border:1px solid #cbd5f5;background:#f1f5ff;color:#1d4ed8;}"
+        "QPushButton:hover{background:#e0e7ff;}"
+        "QPushButton:pressed{background:#bfdbfe;}"
+    );
     connect(openBtn, &QPushButton::clicked, this, [path = scheme.workingDirectory]() {
         QDesktopServices::openUrl(QUrl::fromLocalFile(path));
     });
@@ -1538,6 +1613,15 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
     jsonLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
     layout->addWidget(jsonLabel);
 
+    QString remarkText = model.remarks.trimmed();
+    if (remarkText.isEmpty())
+        remarkText = tr("暂无备注");
+    auto* remarkLabel = new QLabel(tr("备注：%1").arg(remarkText), container);
+    remarkLabel->setWordWrap(true);
+    remarkLabel->setStyleSheet("color:#475569;");
+    remarkLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    layout->addWidget(remarkLabel);
+
     auto* builder = new JsonPageBuilder(model.jsonPath, container);
     layout->addWidget(builder, 1);
 
@@ -1555,6 +1639,13 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
     });
 
     auto* openBtn = new QPushButton(tr("打开模型目录"), container);
+    openBtn->setCursor(Qt::PointingHandCursor);
+    openBtn->setStyleSheet(
+        "QPushButton{padding:8px 18px;border-radius:18px;"
+        "border:1px solid #cbd5f5;background:#f8faff;color:#1d4ed8;}"
+        "QPushButton:hover{background:#e0e7ff;}"
+        "QPushButton:pressed{background:#bfdbfe;}"
+    );
     connect(openBtn, &QPushButton::clicked, this, [path = model.directory]() {
         QDesktopServices::openUrl(QUrl::fromLocalFile(path));
     });
@@ -2495,14 +2586,77 @@ void MainWindow::ensureUniqueSchemeAndModelNames()
 void MainWindow::updateToolbarState()
 {
     const bool hasProject = hasActiveProject();
-    const bool hasScheme = !m_activeSchemeId.isEmpty();
-    const bool hasModel = !m_activeModelId.isEmpty();
 
-    ui->addSchemeButton->setEnabled(true);
     ui->treeModels->setEnabled(hasProject);
-    ui->addModelButton->setEnabled(hasProject && hasScheme);
-    ui->openWorkspaceButton->setEnabled(hasProject && (hasScheme || hasModel));
     ui->showPlanPushButton->setEnabled(true);
+}
+
+void MainWindow::setVisualizationVisible(bool visible)
+{
+    if (!ui->vtkPanel || !ui->logTitle || !ui->logTextEdit || !ui->contentSplitter)
+        return;
+
+    if (m_visualizationVisible == visible)
+        return;
+
+    m_visualizationVisible = visible;
+
+    if (visible)
+    {
+        ui->vtkPanel->setVisible(true);
+        ui->logTitle->setVisible(true);
+        ui->logTextEdit->setVisible(true);
+
+        if (!m_lastSplitterSizes.isEmpty())
+        {
+            ui->contentSplitter->setSizes(m_lastSplitterSizes);
+        }
+        else
+        {
+            QList<int> sizes = ui->contentSplitter->sizes();
+            if (sizes.size() < 2 || (sizes.at(0) == 0 && sizes.at(1) == 0))
+            {
+                sizes.clear();
+                sizes << 1 << 1;
+            }
+            ui->contentSplitter->setSizes(sizes);
+        }
+    }
+    else
+    {
+        m_lastSplitterSizes = ui->contentSplitter->sizes();
+
+        ui->vtkPanel->setVisible(false);
+        ui->logTitle->setVisible(false);
+        ui->logTextEdit->setVisible(false);
+
+        QList<int> sizes = ui->contentSplitter->sizes();
+        if (sizes.size() >= 2)
+        {
+            const int total = std::max(1, sizes.value(0) + sizes.value(1));
+            sizes[0] = total;
+            sizes[1] = 0;
+            ui->contentSplitter->setSizes(sizes);
+        }
+    }
+}
+
+void MainWindow::updateSelectionInfo(const QString& path, const QString& remark)
+{
+    if (!ui->selectionPathValueLabel || !ui->selectionRemarkValueLabel)
+        return;
+
+    QString displayPath = path.trimmed();
+    if (displayPath.isEmpty())
+        displayPath = tr("未选择");
+    else
+        displayPath = QDir::toNativeSeparators(displayPath);
+    ui->selectionPathValueLabel->setText(displayPath);
+
+    QString displayRemark = remark.trimmed();
+    if (displayRemark.isEmpty())
+        displayRemark = tr("暂无备注");
+    ui->selectionRemarkValueLabel->setText(displayRemark);
 }
 
 void MainWindow::appendLogMessage(const QString& message)
@@ -2638,6 +2792,7 @@ bool MainWindow::loadSchemesFromStorage()
         const QString storedThumb = obj.value(QStringLiteral("thumbnailPath")).toString().trimmed();
         if (!storedThumb.isEmpty())
             scheme.thumbnailPath = QDir::cleanPath(QFileInfo(storedThumb).absoluteFilePath());
+        scheme.remarks = obj.value(QStringLiteral("remarks")).toString();
 
         const QJsonArray modelArray = obj.value(QStringLiteral("models")).toArray();
         for (const QJsonValue& mv : modelArray)
@@ -2651,6 +2806,7 @@ bool MainWindow::loadSchemesFromStorage()
             model.directory = canonicalPathForDir(QDir(mo.value(QStringLiteral("directory")).toString()));
             model.jsonPath = QDir::cleanPath(mo.value(QStringLiteral("jsonPath")).toString());
             model.batPath = QDir::cleanPath(mo.value(QStringLiteral("batPath")).toString());
+            model.remarks = mo.value(QStringLiteral("remarks")).toString();
             if (model.directory.isEmpty() || model.jsonPath.isEmpty())
                 continue;
             scheme.models.push_back(model);
@@ -2681,6 +2837,7 @@ void MainWindow::saveSchemesToStorage() const
         obj.insert(QStringLiteral("name"), scheme.name);
         obj.insert(QStringLiteral("workingDirectory"), scheme.workingDirectory);
         obj.insert(QStringLiteral("thumbnailPath"), scheme.thumbnailPath);
+        obj.insert(QStringLiteral("remarks"), scheme.remarks);
 
         QJsonArray modelArray;
         for (const ModelRecord& model : scheme.models)
@@ -2691,6 +2848,7 @@ void MainWindow::saveSchemesToStorage() const
             mo.insert(QStringLiteral("directory"), model.directory);
             mo.insert(QStringLiteral("jsonPath"), model.jsonPath);
             mo.insert(QStringLiteral("batPath"), model.batPath);
+            mo.insert(QStringLiteral("remarks"), model.remarks);
             modelArray.append(mo);
         }
         obj.insert(QStringLiteral("models"), modelArray);

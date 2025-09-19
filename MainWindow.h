@@ -8,6 +8,7 @@
 #include <QUrl>
 #include <QDir>
 #include <QPair>
+#include <QList>
 #include <vtkSmartPointer.h>
 
 QT_BEGIN_NAMESPACE
@@ -52,6 +53,7 @@ private:
         QString directory;
         QString jsonPath;
         QString batPath;
+        QString remarks;
     };
 
     struct SchemeLibraryEntry {
@@ -67,6 +69,7 @@ private:
         QString name;
         QString workingDirectory;
         QString thumbnailPath;
+        QString remarks;
         QVector<ModelRecord> models;
     };
 
@@ -104,6 +107,9 @@ private:
     QWidget* buildModelSettingsWidget(const ModelRecord& model);
     void refreshCurrentDetail();
     void updateToolbarState();
+    void setVisualizationVisible(bool visible);
+    void updateSelectionInfo(const QString& path = QString(),
+                             const QString& remark = QString());
     void appendLogMessage(const QString& message);
     void displayStlFile(const QString& filePath);
     void clearVtkScene();
@@ -181,4 +187,6 @@ private:
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
     vtkSmartPointer<vtkRenderer> m_renderer;
     vtkSmartPointer<vtkActor> m_currentActor;
+    QList<int> m_lastSplitterSizes;
+    bool m_visualizationVisible = false;
 };
