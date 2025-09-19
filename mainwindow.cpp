@@ -213,8 +213,6 @@ void MainWindow::setupUiHelpers()
             "border:1px solid rgba(37,99,235,0.25);border-radius:18px;}"
         );
     }
-    if (ui->libraryCardHintLabel)
-        ui->libraryCardHintLabel->setStyleSheet("color:#1e3a8a;font-size:12px;");
 
     if (ui->showPlanPushButton)
     {
@@ -230,23 +228,6 @@ void MainWindow::setupUiHelpers()
         );
     }
 
-    if (ui->selectionInfoFrame)
-    {
-        ui->selectionInfoFrame->setAttribute(Qt::WA_StyledBackground, true);
-        ui->selectionInfoFrame->setStyleSheet(
-            "#selectionInfoFrame{background:#f8fafc;border:1px solid #e2e8f0;"
-            "border-radius:12px;}"
-        );
-    }
-    if (ui->selectionPathValueLabel)
-    {
-        ui->selectionPathValueLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    }
-    if (ui->selectionRemarkValueLabel)
-    {
-        ui->selectionRemarkValueLabel->setTextInteractionFlags(Qt::TextSelectableByMouse);
-        ui->selectionRemarkValueLabel->setWordWrap(true);
-    }
 
     ui->logTextEdit->setStyleSheet(
         "QPlainTextEdit{background:#0f172a;color:#f8fafc;border-radius:6px;padding:6px;}"
@@ -2643,20 +2624,6 @@ void MainWindow::setVisualizationVisible(bool visible)
 
 void MainWindow::updateSelectionInfo(const QString& path, const QString& remark)
 {
-    if (!ui->selectionPathValueLabel || !ui->selectionRemarkValueLabel)
-        return;
-
-    QString displayPath = path.trimmed();
-    if (displayPath.isEmpty())
-        displayPath = tr("未选择");
-    else
-        displayPath = QDir::toNativeSeparators(displayPath);
-    ui->selectionPathValueLabel->setText(displayPath);
-
-    QString displayRemark = remark.trimmed();
-    if (displayRemark.isEmpty())
-        displayRemark = tr("暂无备注");
-    ui->selectionRemarkValueLabel->setText(displayRemark);
 }
 
 void MainWindow::appendLogMessage(const QString& message)
