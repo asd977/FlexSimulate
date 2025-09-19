@@ -32,7 +32,6 @@ public:
     ~MainWindow();
 
 private slots:
-    void on_showPlanPushButton_clicked();
     void handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidgetItem* previous);
     void onTreeItemChanged(QTreeWidgetItem* item, int column);
     void onTreeContextMenuRequested(const QPoint& pos);
@@ -80,7 +79,8 @@ private:
     };
 
     enum TreeItemType {
-        ProjectItem = 0,
+        LibraryItem = 0,
+        ProjectItem,
         SchemeItem,
         ModelItem
     };
@@ -174,6 +174,7 @@ private:
     QVector<SchemeRecord> m_schemes;
     QHash<QString, QTreeWidgetItem*> m_schemeItems;
     QHash<QString, QTreeWidgetItem*> m_modelItems;
+    QTreeWidgetItem* m_libraryRootItem = nullptr;
     QTreeWidgetItem* m_projectRootItem = nullptr;
     QString m_activeSchemeId;
     QString m_activeModelId;
