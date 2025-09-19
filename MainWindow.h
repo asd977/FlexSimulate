@@ -7,6 +7,7 @@
 #include <QPixmap>
 #include <QUrl>
 #include <QDir>
+#include <QPair>
 #include <vtkSmartPointer.h>
 
 QT_BEGIN_NAMESPACE
@@ -39,6 +40,8 @@ private slots:
     void onGalleryOpenRequested(const QString& id);
     void onGalleryDeleteRequested(const QString& id);
     void deleteCurrentTreeItem();
+    void onNewProjectTriggered();
+    void onOpenProjectTriggered();
 
 private:
     struct ModelRecord {
@@ -71,6 +74,12 @@ private:
     void setupUiHelpers();
     void setupConnections();
     void loadInitialSchemes();
+    void loadApplicationState();
+    void saveApplicationState() const;
+    void enterProjectlessState();
+    bool openProjectAt(const QString& path, bool silent = false);
+    bool ensureProjectStructure(const QString& rootPath);
+    void updateWindowTitle();
 
     void refreshNavigation(const QString& schemeToSelect = QString(),
                            const QString& modelToSelect = QString());
@@ -106,6 +115,9 @@ private:
     void applySchemeThumbnail(SchemeRecord& scheme, const QString& sourcePath);
     QString storeSchemeThumbnail(const QString& schemeDir, const QString& sourcePath) const;
     bool isPathWithinDirectory(const QString& filePath, const QString& directory) const;
+    QVector<QPair<QString, QString>> availableSchemeTemplates() const;
+    QStringList templateSearchRoots() const;
+    bool hasActiveProject() const;
     void promptAddScheme();
     void promptAddModel(const QString& schemeId);
     void openSchemeSettings(const QString& schemeId);
@@ -129,8 +141,11 @@ private:
     QString m_activeSchemeId;
     QString m_activeModelId;
     bool m_blockTreeSignals = false;
+    QString m_appStateFilePath;
+    QString m_projectRoot;
     QString m_storageFilePath;
     QString m_workspaceRoot;
+    QString m_baseWindowTitle;
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
     vtkSmartPointer<vtkRenderer> m_renderer;
     vtkSmartPointer<vtkActor> m_currentActor;

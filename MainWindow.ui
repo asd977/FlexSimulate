@@ -254,8 +254,75 @@
       </widget>
       <widget class="QStackedWidget" name="stackedWidget">
        <property name="currentIndex">
-        <number>1</number>
+        <number>0</number>
        </property>
+       <widget class="QWidget" name="welcomePage">
+        <layout class="QVBoxLayout" name="welcomeLayout">
+         <property name="spacing">
+          <number>12</number>
+         </property>
+         <property name="leftMargin">
+          <number>24</number>
+         </property>
+         <property name="topMargin">
+          <number>24</number>
+         </property>
+         <property name="rightMargin">
+          <number>24</number>
+         </property>
+         <property name="bottomMargin">
+          <number>24</number>
+         </property>
+         <item>
+          <spacer name="welcomeTopSpacer">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>120</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+         <item>
+          <widget class="QLabel" name="welcomeLabel">
+           <property name="text">
+            <string>当前未打开任何工程，请通过“工程”菜单新建或打开工程。</string>
+           </property>
+           <property name="alignment">
+            <set>Qt::AlignHCenter|Qt::AlignVCenter</set>
+           </property>
+           <property name="wordWrap">
+            <bool>true</bool>
+           </property>
+           <property name="styleSheet">
+            <string notr="true">font-size:16px;color:#4b5563;</string>
+           </property>
+           <property name="minimumSize">
+            <size>
+             <width>0</width>
+             <height>80</height>
+            </size>
+           </property>
+          </widget>
+         </item>
+         <item>
+          <spacer name="welcomeBottomSpacer">
+           <property name="orientation">
+            <enum>Qt::Vertical</enum>
+           </property>
+           <property name="sizeHint" stdset="0">
+            <size>
+             <width>20</width>
+             <height>120</height>
+            </size>
+           </property>
+          </spacer>
+         </item>
+        </layout>
+       </widget>
        <widget class="QWidget" name="planPage">
         <layout class="QVBoxLayout" name="planPageLayout">
          <property name="spacing">
@@ -512,6 +579,8 @@
     <property name="title">
      <string>工程(&amp;P)</string>
     </property>
+    <addaction name="actionNewProject"/>
+    <addaction name="actionOpenProject"/>
    </widget>
    <widget class="QMenu" name="menuModel">
     <property name="title">
@@ -521,8 +590,18 @@
    <addaction name="menuProject"/>
    <addaction name="menuModel"/>
   </widget>
-  <widget class="QStatusBar" name="statusbar"/>
- </widget>
+ <widget class="QStatusBar" name="statusbar"/>
+ <action name="actionNewProject">
+  <property name="text">
+   <string>新建工程...</string>
+  </property>
+ </action>
+ <action name="actionOpenProject">
+  <property name="text">
+   <string>打开工程...</string>
+  </property>
+ </action>
+</widget>
  <customwidgets>
   <customwidget>
    <class>SchemeTreeWidget</class>
