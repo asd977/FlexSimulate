@@ -1,6 +1,7 @@
 ﻿#pragma once
 #include <QWidget>
 #include <QPointer>
+#include <QString>
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class SchemeGalleryWidget; }
@@ -14,14 +15,26 @@ public:
     explicit SchemeGalleryWidget(QWidget *parent = nullptr);
     ~SchemeGalleryWidget();
 
+    struct CardOptions {
+        bool showAddButton = false;
+        bool enableAddButton = true;
+        bool showDeleteButton = true;
+        bool enableDeleteButton = true;
+        QString hintText;
+        QString addToolTip;
+        QString deleteToolTip;
+    };
+
     void clearSchemes();
     void addScheme(const QString& id,
                    const QString& name = QString(),
-                   const QPixmap& thumb = QPixmap());
+                   const QPixmap& thumb = QPixmap(),
+                   const CardOptions& options = CardOptions());
     void removeSchemeById(const QString& id);
 
 signals:
     void schemeOpenRequested(const QString& id);
+    void schemeAddRequested(const QString& id);
     void schemeDeleteRequested(const QString& id);
 
 protected:
