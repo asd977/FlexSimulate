@@ -6,6 +6,8 @@
 #include <QScrollArea>
 #include <QPixmap>
 
+#include <algorithm>
+
 SchemeGalleryWidget::SchemeGalleryWidget(QWidget *parent)
     : QWidget(parent), ui(new Ui::SchemeGalleryWidget)
 {
@@ -39,7 +41,7 @@ void SchemeGalleryWidget::addScheme(const QString& id,
     auto* card = new SchemeCardWidget(id, this);
     card->setTitle(name.isEmpty() ? QStringLiteral("未命名方案") : name);
     if (!thumb.isNull()) card->setThumbnail(thumb);
-    card->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Preferred);
+    card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
 
     // 放进网格
     auto* grid = qobject_cast<QGridLayout*>(ui->gridLayout);
@@ -102,6 +104,14 @@ void SchemeGalleryWidget::relayoutCards() {
     }
 
     int cols = qMax(1, (viewportW - contents + hSpacing) / (cardWidth + hSpacing));
+    const int cardCount = std::max(1, static_cast<int>(m_cards.size()));
+    cols = qMin(cols, cardCount);
+
+    for (int c = 0; c < m_lastColumnCount; ++c)
+        grid->setColumnStretch(c, 0);
+    m_lastColumnCount = cols;
+    for (int c = 0; c < m_lastColumnCount; ++c)
+        grid->setColumnStretch(c, 1);
 
     int row = 0, col = 0;
     for (QPointer<SchemeCardWidget> card : m_cards) {
@@ -110,4 +120,7 @@ void SchemeGalleryWidget::relayoutCards() {
         col++;
         if (col >= cols) { col = 0; row++; }
     }
+
+    grid->invalidate();
+    grid->activate();
 }
