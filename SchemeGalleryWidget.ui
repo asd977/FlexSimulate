@@ -41,21 +41,44 @@
        </property>
       </widget>
      </item>
+    <item>
+     <spacer name="toolbarSpacer">
+      <property name="orientation">
+       <enum>Qt::Horizontal</enum>
+      </property>
+      <property name="sizeHint" stdset="0">
+       <size>
+        <width>40</width>
+        <height>20</height>
+       </size>
+      </property>
+     </spacer>
+    </item>
      <item>
-      <spacer name="toolbarSpacer">
-       <property name="orientation">
-        <enum>Qt::Horizontal</enum>
-       </property>
-       <property name="sizeHint" stdset="0">
+      <widget class="QPushButton" name="newSchemeButton">
+       <property name="minimumSize">
         <size>
-         <width>40</width>
-         <height>20</height>
+         <width>0</width>
+         <height>32</height>
         </size>
        </property>
-      </spacer>
+       <property name="text">
+        <string>新建方案库</string>
+       </property>
+       <property name="icon">
+        <iconset>
+         <normaloff>:/icons/icons/add.svg</normaloff>:/icons/icons/add.svg</iconset>
+       </property>
+       <property name="iconSize">
+        <size>
+         <width>16</width>
+         <height>16</height>
+        </size>
+       </property>
+      </widget>
      </item>
-    </layout>
-   </item>
+   </layout>
+  </item>
    <item>
     <widget class="QScrollArea" name="scrollArea">
      <property name="widgetResizable">
