@@ -123,6 +123,9 @@ private:
     const SchemeRecord* schemeById(const QString& id) const;
     SchemeRecord* schemeByLibraryId(const QString& libraryId);
     const SchemeRecord* schemeByLibraryId(const QString& libraryId) const;
+    SchemeRecord* resolveSchemeForLibraryEntry(const SchemeLibraryEntry& entry,
+                                              bool* schemeNameAdjusted = nullptr,
+                                              bool* linkEstablished = nullptr);
     SchemeRecord* schemeByWorkingDirectory(const QString& canonicalPath);
     ModelRecord* modelById(const QString& id, SchemeRecord** owner = nullptr);
     const ModelRecord* modelById(const QString& id, const SchemeRecord** owner = nullptr) const;

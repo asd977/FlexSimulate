@@ -1574,6 +1574,17 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
 void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                                          const QString& projectSchemeId)
 {
+    SchemeLibraryEntry* entry = libraryEntryById(entryId);
+    if (!entry)
+    {
+        clearDetailWidget();
+        setVisualizationVisible(false);
+        updateSelectionInfo();
+        return;
+    }
+
+    bool linkedNameAdjusted = false;
+    bool linkEstablished = false;
     SchemeRecord* linkedScheme = nullptr;
     if (!projectSchemeId.isEmpty())
     {
@@ -1583,16 +1594,27 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
         {
             linkedScheme = nullptr;
         }
+        else if (linkedScheme && linkedScheme->libraryId.isEmpty() &&
+                 !entry->id.trimmed().isEmpty())
+        {
+            linkedScheme->libraryId = entry->id;
+            linkEstablished = true;
+        }
     }
 
-    SchemeLibraryEntry* entry = libraryEntryById(entryId);
-    if (!entry)
+    if (!linkedScheme)
     {
-        clearDetailWidget();
-        setVisualizationVisible(false);
-        updateSelectionInfo();
-        return;
+        linkedScheme = resolveSchemeForLibraryEntry(*entry, &linkedNameAdjusted, &linkEstablished);
     }
+
+    if (linkedScheme && linkedNameAdjusted)
+    {
+        auto it = m_schemeItems.find(linkedScheme->id);
+        if (it != m_schemeItems.end() && it.value())
+            it.value()->setText(0, linkedScheme->name);
+    }
+    if (linkedScheme && (linkEstablished || linkedNameAdjusted))
+        persistSchemes();
 
     const QString directory = entry->directory;
     if (directory.isEmpty())
@@ -1895,8 +1917,18 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 QList<QListWidgetItem*> selectedItems = listWidget->selectedItems();
                 if (selectedItems.isEmpty())
                 {
+                    const int total = listWidget->count();
+                    selectedItems.reserve(total);
+                    for (int i = 0; i < total; ++i)
+                    {
+                        if (QListWidgetItem* item = listWidget->item(i))
+                            selectedItems.append(item);
+                    }
+                }
+                if (selectedItems.isEmpty())
+                {
                     QMessageBox::information(this, tr("添加到工程"),
-                                             tr("请先在列表中选择要导入的模型。"));
+                                             tr("当前方案未包含可导入的模型。"));
                     return;
                 }
 
@@ -1910,11 +1942,20 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 if (modelDirectories.isEmpty())
                     return;
 
-                QString targetSchemeId;
-                if (SchemeRecord* linked = schemeByLibraryId(entry->id))
-                    targetSchemeId = linked->id;
+                bool linkEstablished = false;
+                bool linkedNameAdjusted = false;
+                SchemeRecord* linkedSchemeForImport =
+                    resolveSchemeForLibraryEntry(*entry, &linkedNameAdjusted, &linkEstablished);
+                QString targetSchemeId = linkedSchemeForImport ? linkedSchemeForImport->id : QString();
+                if (linkedSchemeForImport && linkedNameAdjusted)
+                {
+                    auto it = m_schemeItems.find(linkedSchemeForImport->id);
+                    if (it != m_schemeItems.end() && it.value())
+                        it.value()->setText(0, linkedSchemeForImport->name);
+                }
                 bool createdNewScheme = false;
-                bool schemeRenamed = false;
+                bool schemeRenamed = linkedNameAdjusted;
+                bool linkNeedsPersist = linkEstablished;
                 QString newSchemeDir;
 
                 if (targetSchemeId.isEmpty())
@@ -1968,6 +2009,18 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                             if (it != m_schemeItems.end() && it.value())
                                 it.value()->setText(0, scheme->name);
                         }
+                        if (!scheme->libraryId.isEmpty() &&
+                            scheme->libraryId.compare(entry->id, Qt::CaseInsensitive) != 0 &&
+                            !entry->id.trimmed().isEmpty())
+                        {
+                            scheme->libraryId = entry->id;
+                            linkNeedsPersist = true;
+                        }
+                        else if (scheme->libraryId.isEmpty() && !entry->id.trimmed().isEmpty())
+                        {
+                            scheme->libraryId = entry->id;
+                            linkNeedsPersist = true;
+                        }
                     }
                 }
 
@@ -2001,7 +2054,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                         persistSchemes();
                         refreshNavigation();
                     }
-                    else if (schemeRenamed)
+                    else if (schemeRenamed || linkNeedsPersist)
                     {
                         persistSchemes();
                     }
@@ -2070,6 +2123,88 @@ const MainWindow::SchemeRecord* MainWindow::schemeByLibraryId(const QString& lib
         if (scheme.libraryId.compare(libraryId, Qt::CaseInsensitive) == 0)
             return &scheme;
     }
+    return nullptr;
+}
+
+MainWindow::SchemeRecord* MainWindow::resolveSchemeForLibraryEntry(
+    const SchemeLibraryEntry& entry, bool* schemeNameAdjusted, bool* linkEstablished)
+{
+    if (!entry.id.trimmed().isEmpty())
+    {
+        if (SchemeRecord* linked = schemeByLibraryId(entry.id))
+            return linked;
+    }
+
+    QString entryName = entry.name.trimmed();
+    if (entryName.isEmpty() && !entry.directory.trimmed().isEmpty())
+    {
+        QDir dir(entry.directory);
+        entryName = dir.dirName().trimmed();
+    }
+
+    QString sanitizedName = entryName;
+    sanitizedName.replace(QRegularExpression("\\s+"), "_");
+    sanitizedName = sanitizedName.trimmed();
+
+    if (entryName.isEmpty() && sanitizedName.isEmpty())
+        return nullptr;
+
+    const auto namesMatch = [&](const SchemeRecord& scheme) {
+        if (!entryName.isEmpty() &&
+            scheme.name.compare(entryName, Qt::CaseInsensitive) == 0)
+            return true;
+
+        QString schemeSanitized = scheme.name;
+        schemeSanitized.replace(QRegularExpression("\\s+"), "_");
+        schemeSanitized = schemeSanitized.trimmed();
+        if (!schemeSanitized.isEmpty() && !sanitizedName.isEmpty() &&
+            schemeSanitized.compare(sanitizedName, Qt::CaseInsensitive) == 0)
+            return true;
+
+        const QString dirName = QFileInfo(scheme.workingDirectory).fileName();
+        if (!dirName.isEmpty() && !sanitizedName.isEmpty() &&
+            dirName.compare(sanitizedName, Qt::CaseInsensitive) == 0)
+            return true;
+
+        return false;
+    };
+
+    const QString entryIdTrimmed = entry.id.trimmed();
+
+    for (SchemeRecord& scheme : m_schemes)
+    {
+        if (!scheme.libraryId.isEmpty())
+        {
+            if (!entryIdTrimmed.isEmpty() &&
+                scheme.libraryId.compare(entryIdTrimmed, Qt::CaseInsensitive) == 0)
+            {
+                return &scheme;
+            }
+
+            if (libraryEntryById(scheme.libraryId))
+                continue;
+        }
+
+        if (!namesMatch(scheme))
+            continue;
+
+        if (!entryIdTrimmed.isEmpty())
+        {
+            scheme.libraryId = entryIdTrimmed;
+            if (linkEstablished)
+                *linkEstablished = true;
+        }
+
+        if (!entryName.isEmpty() && scheme.name != entryName)
+        {
+            scheme.name = entryName;
+            if (schemeNameAdjusted)
+                *schemeNameAdjusted = true;
+        }
+
+        return &scheme;
+    }
+
     return nullptr;
 }
 
