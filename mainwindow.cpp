@@ -172,9 +172,25 @@ void MainWindow::setupUiHelpers()
     detailLayout->setContentsMargins(12, 12, 12, 12);
     detailLayout->setSpacing(12);
 
+    ui->centralwidget->setStyleSheet(QStringLiteral(
+        "QWidget#centralwidget{background-color:#f1f5f9;}"
+        "QSplitter::handle{background-color:#e2e8f0;border-radius:3px;}"
+        "QSplitter::handle:horizontal{width:8px;}"
+        "QSplitter::handle:vertical{height:8px;}"
+        "QSplitter::handle:hover{background-color:#cbd5f5;}"
+        "QScrollArea{border:none;background:transparent;}"
+        "QScrollArea > QWidget > QWidget{background:transparent;}"
+    ));
+    if (ui->mainLayout)
+    {
+        ui->mainLayout->setContentsMargins(20, 20, 20, 20);
+        ui->mainLayout->setSpacing(16);
+    }
+
     const QString sectionTitleStyle = QStringLiteral(
-        "font-size:15px;font-weight:600;color:#0f172a;"
-        "background:#e2e8f0;border-radius:8px;padding:6px 12px;");
+        "font-size:16px;font-weight:600;color:#0f172a;"
+        "border-left:4px solid #2563eb;padding:2px 0 2px 12px;"
+    );
     const auto applySectionStyle = [&](QLabel* label) {
         if (label)
             label->setStyleSheet(sectionTitleStyle);
@@ -184,6 +200,41 @@ void MainWindow::setupUiHelpers()
     applySectionStyle(ui->vtkTitle);
     applySectionStyle(ui->logTitle);
 
+    const auto applyPanelStyle = [&](QWidget* panel, QLayout* layout) {
+        if (!panel)
+            return;
+        const QString style = QStringLiteral(
+            "#%1{background-color:#ffffff;border:1px solid #e2e8f0;border-radius:14px;}"
+        ).arg(panel->objectName());
+        panel->setStyleSheet(style);
+        if (layout)
+        {
+            layout->setContentsMargins(16, 16, 16, 16);
+            layout->setSpacing(12);
+        }
+    };
+    applyPanelStyle(ui->navigationFrame, ui->navigationLayout);
+    applyPanelStyle(ui->detailPanel, ui->detailPanelLayout);
+    applyPanelStyle(ui->vtkContainer, ui->vtkContainerLayout);
+    applyPanelStyle(ui->logPanel, ui->logPanelLayout);
+
+    ui->treeModels->setFrameShape(QFrame::NoFrame);
+    ui->treeModels->setStyleSheet(QStringLiteral(
+        "QTreeWidget{background:transparent;border:none;}"
+        "QTreeView::item{height:28px;border-radius:6px;padding:4px 8px;}"
+        "QTreeView::item:selected{background-color:#2563eb;color:#ffffff;}"
+        "QTreeView::item:hover:!selected{background-color:rgba(37,99,235,0.12);}"
+    ));
+    ui->treeModels->setAlternatingRowColors(false);
+    if (ui->treeModels->header())
+    {
+        ui->treeModels->header()->setStyleSheet(QStringLiteral(
+            "QHeaderView{background:transparent;border:none;}"
+            "QHeaderView::section{background:transparent;color:#475569;font-weight:600;padding:4px 0;border:none;}"
+        ));
+        ui->treeModels->header()->setDefaultAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+    }
+
     ui->treeModels->header()->setStretchLastSection(true);
     ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->treeModels->setEditTriggers(QAbstractItemView::EditKeyPressed |
@@ -191,18 +242,27 @@ void MainWindow::setupUiHelpers()
 
     ui->mainSplitter->setStretchFactor(0, 0);
     ui->mainSplitter->setStretchFactor(1, 1);
+    ui->mainSplitter->setHandleWidth(8);
     ui->contentSplitter->setStretchFactor(0, 0);
     ui->contentSplitter->setStretchFactor(1, 1);
+    ui->contentSplitter->setHandleWidth(8);
     ui->contentSplitter->setCollapsible(1, true);
     if (ui->visualizationSplitter)
     {
         ui->visualizationSplitter->setStretchFactor(0, 3);
         ui->visualizationSplitter->setStretchFactor(1, 1);
-        ui->visualizationSplitter->setHandleWidth(6);
+        ui->visualizationSplitter->setHandleWidth(8);
     }
 
+    ui->vtkFrame->setFrameShape(QFrame::NoFrame);
+    ui->vtkFrame->setStyleSheet(QStringLiteral(
+        "#vtkFrame{background-color:#f8fafc;border:1px solid #e2e8f0;border-radius:12px;}"
+    ));
+
     ui->logTextEdit->setStyleSheet(
-        "QPlainTextEdit{background:#0f172a;color:#f8fafc;border-radius:6px;padding:6px;}"
+        "QPlainTextEdit{background:#111827;color:#f8fafc;border-radius:10px;padding:10px;"
+        "border:1px solid rgba(15,23,42,0.4);font-family:'JetBrains Mono','SFMono-Regular',"
+        "'Menlo','Consolas','Courier New',monospace;font-size:12px;}"
     );
 
     setVisualizationVisible(false);
