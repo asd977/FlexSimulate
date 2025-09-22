@@ -21,7 +21,6 @@
 #include <QDialog>
 #include <QHeaderView>
 #include <QIcon>
-#include <QGridLayout>
 #include <QJsonArray>
 #include <QJsonDocument>
 #include <QJsonObject>
@@ -1445,52 +1444,6 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
     auto* title = new QLabel(tr("方案：%1").arg(scheme.name), container);
     title->setStyleSheet("font-size:18px;font-weight:600;color:#0f172a;");
     layout->addWidget(title);
-
-    auto* infoFrame = new QFrame(container);
-    infoFrame->setObjectName("schemeInfoFrame");
-    infoFrame->setStyleSheet(
-        "QFrame#schemeInfoFrame{background:#f8fafc;border:1px solid #d0d5dd;border-radius:10px;}"
-        "QLabel.infoCaption{color:#64748b;font-size:12px;}"
-        "QLabel.infoValue{color:#0f172a;font-weight:500;}");
-    auto* infoLayout = new QGridLayout(infoFrame);
-    infoLayout->setContentsMargins(12, 12, 12, 12);
-    infoLayout->setHorizontalSpacing(16);
-    infoLayout->setVerticalSpacing(8);
-
-    auto* pathCaption = new QLabel(tr("工作目录"), infoFrame);
-    pathCaption->setObjectName("infoCaption");
-    auto* pathValue = new QLabel(QDir::toNativeSeparators(scheme.workingDirectory), infoFrame);
-    pathValue->setObjectName("infoValue");
-    pathValue->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    pathValue->setWordWrap(true);
-    infoLayout->addWidget(pathCaption, 0, 0, Qt::AlignTop);
-    infoLayout->addWidget(pathValue, 0, 1);
-
-    auto* countCaption = new QLabel(tr("模型数量"), infoFrame);
-    countCaption->setObjectName("infoCaption");
-    auto* countValue = new QLabel(tr("%1 个").arg(scheme.models.size()), infoFrame);
-    countValue->setObjectName("infoValue");
-    infoLayout->addWidget(countCaption, 1, 0, Qt::AlignTop);
-    infoLayout->addWidget(countValue, 1, 1, Qt::AlignTop);
-    auto* remarkCaption = new QLabel(tr("备注"), infoFrame);
-    remarkCaption->setObjectName("infoCaption");
-    QString remarkText = scheme.remarks.trimmed();
-    if (remarkText.isEmpty())
-        remarkText = tr("暂无备注");
-    auto* remarkValue = new QLabel(remarkText, infoFrame);
-    remarkValue->setObjectName("infoValue");
-    remarkValue->setWordWrap(true);
-    remarkValue->setTextInteractionFlags(Qt::TextSelectableByMouse);
-    infoLayout->addWidget(remarkCaption, 2, 0, Qt::AlignTop);
-    infoLayout->addWidget(remarkValue, 2, 1, Qt::AlignTop);
-    infoLayout->setColumnStretch(1, 1);
-
-    layout->addWidget(infoFrame);
-
-    auto* hint = new QLabel(tr("可将模型文件夹拖到左侧树中，或使用下方按钮导入模型。"), container);
-    hint->setWordWrap(true);
-    hint->setStyleSheet("color:#64748b;");
-    layout->addWidget(hint);
 
     auto* listFrame = new QFrame(container);
     listFrame->setObjectName("modelListFrame");
