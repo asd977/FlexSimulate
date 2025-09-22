@@ -40,6 +40,7 @@ private slots:
     void onGalleryOpenRequested(const QString& id);
     void onGalleryAddRequested(const QString& id);
     void onGalleryDeleteRequested(const QString& id);
+    void onGalleryDetailsRequested(const QString& id);
     void deleteCurrentTreeItem();
     void onNewProjectTriggered();
     void onOpenProjectTriggered();
@@ -103,8 +104,10 @@ private:
     void clearDetailWidget();
     void showSchemeSettings(const QString& schemeId);
     void showModelSettings(const QString& modelId);
+    QWidget* buildLibrarySchemeDetailWidget(SchemeLibraryEntry& entry);
     QWidget* buildSchemeSettingsWidget(const SchemeRecord& scheme);
     QWidget* buildModelSettingsWidget(const ModelRecord& model);
+    void showLibrarySchemeDetail(const QString& entryId);
     void refreshCurrentDetail();
     void updateToolbarState();
     void setVisualizationVisible(bool visible);
@@ -126,6 +129,9 @@ private:
     QVector<QString> importModelsIntoScheme(const QString& schemeId,
                                             const QStringList& paths,
                                             bool showError = true);
+    QStringList importModelsIntoLibraryEntry(SchemeLibraryEntry& entry,
+                                            const QStringList& paths,
+                                            bool showError = true);
     bool isModelFolder(const QDir& dir, QString* jsonPath, QString* batPath) const;
     QVector<ModelRecord> scanSchemeFolder(const QString& schemeDir) const;
     QPixmap makeSchemePlaceholder(const QString& name) const;
@@ -137,13 +143,14 @@ private:
     QStringList templateSearchRoots() const;
     bool hasActiveProject() const;
     void loadSchemeLibrary();
-    void saveSchemeLibrary() const;
+    void saveSchemeLibrary();
     QString schemeLibraryRoot() const;
     QString makeUniqueLibrarySubdir(const QString& baseName) const;
     SchemeLibraryEntry* libraryEntryById(const QString& id);
     const SchemeLibraryEntry* libraryEntryById(const QString& id) const;
     QPixmap loadLibraryThumbnail(const SchemeLibraryEntry& entry) const;
     void applyLibraryThumbnail(SchemeLibraryEntry& entry, const QString& sourcePath);
+    void deduplicateLibraryEntries();
     bool removeLibraryEntry(const QString& id);
     void promptAddScheme();
     void promptAddModel(const QString& schemeId);

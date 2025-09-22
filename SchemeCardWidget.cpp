@@ -197,12 +197,7 @@ void SchemeCardWidget::mouseDoubleClickEvent(QMouseEvent* ev)
     const bool onDelete = isPointInsideButton(m_deleteBtn, ev->pos());
     const bool onOpen = isPointInsideButton(m_openBtn, ev->pos());
     if (!onAdd && !onDelete && !onOpen)
-    {
-        if (m_addBtn && m_addBtn->isVisible() && m_addBtn->isEnabled())
-            emit addRequested(m_id);
-        else
-            emit openRequested(m_id);
-    }
+        emit detailsRequested(m_id);
     QFrame::mouseDoubleClickEvent(ev);
 }
 

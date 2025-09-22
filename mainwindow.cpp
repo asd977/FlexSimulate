@@ -18,6 +18,7 @@
 #include <QFileInfo>
 #include <QFont>
 #include <QFrame>
+#include <QDialog>
 #include <QHeaderView>
 #include <QIcon>
 #include <QGridLayout>
@@ -250,6 +251,8 @@ void MainWindow::setupConnections()
             this, &MainWindow::onGalleryAddRequested);
     connect(m_galleryWidget, &SchemeGalleryWidget::schemeDeleteRequested,
             this, &MainWindow::onGalleryDeleteRequested);
+    connect(m_galleryWidget, &SchemeGalleryWidget::schemeDetailsRequested,
+            this, &MainWindow::onGalleryDetailsRequested);
     connect(m_galleryWidget, &SchemeGalleryWidget::createSchemeRequested,
             this, &MainWindow::onAddLibraryScheme);
 
@@ -365,16 +368,20 @@ void MainWindow::loadSchemeLibrary()
         }
     }
 
+    deduplicateLibraryEntries();
+
     std::sort(m_librarySchemes.begin(), m_librarySchemes.end(), [](const SchemeLibraryEntry& a,
                                                                    const SchemeLibraryEntry& b) {
         return QString::localeAwareCompare(a.name, b.name) < 0;
     });
 }
 
-void MainWindow::saveSchemeLibrary() const
+void MainWindow::saveSchemeLibrary()
 {
     if (m_schemeLibraryRoot.isEmpty())
         return;
+
+    deduplicateLibraryEntries();
 
     QDir root(m_schemeLibraryRoot);
     if (!root.exists())
@@ -1174,6 +1181,21 @@ void MainWindow::onGalleryDeleteRequested(const QString& id)
     }
 }
 
+void MainWindow::onGalleryDetailsRequested(const QString& id)
+{
+    if (libraryEntryById(id))
+    {
+        showLibrarySchemeDetail(id);
+        return;
+    }
+
+    if (schemeById(id))
+    {
+        ui->stackedWidget->setCurrentWidget(ui->MainPage);
+        selectTreeItem(id, QString());
+    }
+}
+
 void MainWindow::deleteCurrentTreeItem()
 {
     QTreeWidgetItem* item = ui->treeModels->currentItem();
@@ -1328,7 +1350,7 @@ void MainWindow::updateGallery()
         options.showOpenButton = true;
         options.enableOpenButton = true;
         options.openToolTip = tr("打开方案所在目录");
-        options.hintText = tr("双击卡片添加到当前工程");
+        options.hintText = tr("双击卡片查看详情");
 
         m_galleryWidget->addScheme(entry.id, entry.name, thumb, options);
     }
@@ -1620,6 +1642,240 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
     return container;
 }
 
+QWidget* MainWindow::buildLibrarySchemeDetailWidget(SchemeLibraryEntry& entry)
+{
+    auto* container = new QWidget(ui->settingWidget);
+    auto* layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(12);
+
+    const QString entryName = entry.name.isEmpty() ? tr("未命名方案") : entry.name;
+
+    auto* title = new QLabel(tr("方案库：%1").arg(entryName), container);
+    title->setStyleSheet("font-size:18px;font-weight:600;color:#0f172a;");
+    layout->addWidget(title);
+
+    auto* infoFrame = new QFrame(container);
+    infoFrame->setObjectName("libraryInfoFrame");
+    infoFrame->setStyleSheet(
+        "QFrame#libraryInfoFrame{background:#f8fafc;border:1px solid #d0d5dd;border-radius:10px;}"
+        "QLabel.infoCaption{color:#64748b;font-size:12px;}"
+        "QLabel.infoValue{color:#0f172a;font-weight:500;}");
+    auto* infoLayout = new QGridLayout(infoFrame);
+    infoLayout->setContentsMargins(12, 12, 12, 12);
+    infoLayout->setHorizontalSpacing(16);
+    infoLayout->setVerticalSpacing(8);
+
+    auto* pathCaption = new QLabel(tr("存放目录"), infoFrame);
+    pathCaption->setObjectName("infoCaption");
+    auto* pathValue = new QLabel(QDir::toNativeSeparators(entry.directory), infoFrame);
+    pathValue->setObjectName("infoValue");
+    pathValue->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    pathValue->setWordWrap(true);
+    infoLayout->addWidget(pathCaption, 0, 0, Qt::AlignTop);
+    infoLayout->addWidget(pathValue, 0, 1);
+
+    auto* countCaption = new QLabel(tr("模型数量"), infoFrame);
+    countCaption->setObjectName("infoCaption");
+    auto* countValue = new QLabel(infoFrame);
+    countValue->setObjectName("infoValue");
+    infoLayout->addWidget(countCaption, 1, 0, Qt::AlignTop);
+    infoLayout->addWidget(countValue, 1, 1, Qt::AlignTop);
+    infoLayout->setColumnStretch(1, 1);
+
+    layout->addWidget(infoFrame);
+
+    auto* hintLabel = new QLabel(
+        tr("在此页面可以向方案库添加模型，或将已有模型导入当前工程。"), container);
+    hintLabel->setWordWrap(true);
+    hintLabel->setStyleSheet("color:#64748b;");
+    layout->addWidget(hintLabel);
+
+    auto* listFrame = new QFrame(container);
+    listFrame->setObjectName("libraryModelFrame");
+    listFrame->setStyleSheet(
+        "QFrame#libraryModelFrame{background:#ffffff;border:1px solid #d0d5dd;border-radius:10px;}"
+        "QListWidget#libraryModelList{border:none;background:transparent;}"
+        "QListWidget#libraryModelList::item{padding:10px;border-radius:8px;}"
+        "QListWidget#libraryModelList::item:hover{background:rgba(23,135,255,0.08);}");
+    auto* listLayout = new QVBoxLayout(listFrame);
+    listLayout->setContentsMargins(12, 12, 12, 12);
+    listLayout->setSpacing(8);
+
+    auto* headerLayout = new QHBoxLayout();
+    headerLayout->setContentsMargins(0, 0, 0, 0);
+    auto* listTitle = new QLabel(tr("模型列表"), listFrame);
+    listTitle->setStyleSheet("font-weight:600;color:#1b2b4d;");
+    auto* countLabel = new QLabel(listFrame);
+    countLabel->setStyleSheet("color:#64748b;");
+    headerLayout->addWidget(listTitle);
+    headerLayout->addStretch();
+    headerLayout->addWidget(countLabel);
+    listLayout->addLayout(headerLayout);
+
+    auto* listWidget = new QListWidget(listFrame);
+    listWidget->setObjectName("libraryModelList");
+    listWidget->setSelectionMode(QAbstractItemView::NoSelection);
+    listWidget->setSpacing(6);
+    listWidget->setIconSize(QSize(20, 20));
+    listWidget->setFrameShape(QFrame::NoFrame);
+    listWidget->setWordWrap(true);
+    listLayout->addWidget(listWidget);
+
+    auto* emptyLabel = new QLabel(tr("暂无模型，请点击“添加模型”按钮导入。"), listFrame);
+    emptyLabel->setAlignment(Qt::AlignCenter);
+    emptyLabel->setStyleSheet("color:#94a3b8;");
+    emptyLabel->setMargin(12);
+    listLayout->addWidget(emptyLabel);
+
+    auto refreshModels = [this, listWidget, emptyLabel, countLabel, countValue,
+                          directory = entry.directory]() {
+        listWidget->clear();
+        const QVector<ModelRecord> models = scanSchemeFolder(directory);
+        const bool empty = models.isEmpty();
+        listWidget->setVisible(!empty);
+        emptyLabel->setVisible(empty);
+        countLabel->setText(tr("%1 个模型").arg(models.size()));
+        countValue->setText(tr("%1 个").arg(models.size()));
+        for (const ModelRecord& model : models)
+        {
+            auto* item = new QListWidgetItem(
+                QIcon(QStringLiteral(":/icons/icons/model.svg")),
+                tr("%1\n%2")
+                    .arg(model.name,
+                         QDir::toNativeSeparators(model.directory)));
+            item->setToolTip(QDir::toNativeSeparators(model.jsonPath));
+            item->setData(Qt::UserRole, model.directory);
+            listWidget->addItem(item);
+        }
+    };
+
+    refreshModels();
+
+    connect(listWidget, &QListWidget::itemDoubleClicked, this,
+            [](QListWidgetItem* item) {
+                const QString dir = item->data(Qt::UserRole).toString();
+                if (!dir.isEmpty())
+                    QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+            });
+
+    layout->addWidget(listFrame, 1);
+
+    auto* buttonLayout = new QHBoxLayout();
+    buttonLayout->setContentsMargins(0, 0, 0, 0);
+    buttonLayout->setSpacing(8);
+
+    auto* addModelBtn = new QPushButton(tr("添加模型"), container);
+    addModelBtn->setCursor(Qt::PointingHandCursor);
+    addModelBtn->setStyleSheet(
+        "QPushButton{padding:8px 18px;border-radius:18px;border:none;"
+        "background-color:#2563eb;color:#ffffff;font-weight:600;}"
+        "QPushButton:hover{background-color:#1d4ed8;}"
+        "QPushButton:pressed{background-color:#1e3a8a;}");
+    buttonLayout->addWidget(addModelBtn);
+
+    auto* openDirBtn = new QPushButton(tr("打开方案目录"), container);
+    openDirBtn->setCursor(Qt::PointingHandCursor);
+    openDirBtn->setStyleSheet(
+        "QPushButton{padding:8px 18px;border-radius:18px;"
+        "border:1px solid #cbd5f5;background:#f1f5ff;color:#1d4ed8;}"
+        "QPushButton:hover{background:#e0e7ff;}"
+        "QPushButton:pressed{background:#bfdbfe;}");
+    buttonLayout->addWidget(openDirBtn);
+
+    auto* addToProjectBtn = new QPushButton(tr("添加到当前工程"), container);
+    addToProjectBtn->setCursor(Qt::PointingHandCursor);
+    addToProjectBtn->setStyleSheet(
+        "QPushButton{padding:8px 18px;border-radius:18px;"
+        "border:1px solid #1d4ed8;background:transparent;color:#1d4ed8;font-weight:600;}"
+        "QPushButton:hover{background:rgba(29,78,216,0.08);}" 
+        "QPushButton:pressed{background:rgba(29,78,216,0.16);}");
+    addToProjectBtn->setEnabled(hasActiveProject());
+    if (!hasActiveProject())
+        addToProjectBtn->setToolTip(tr("请先新建或打开工程。"));
+    buttonLayout->addWidget(addToProjectBtn);
+    buttonLayout->addStretch();
+
+    layout->addLayout(buttonLayout);
+
+    connect(openDirBtn, &QPushButton::clicked, this,
+            [directory = entry.directory]() {
+                QDesktopServices::openUrl(QUrl::fromLocalFile(directory));
+            });
+
+    connect(addModelBtn, &QPushButton::clicked, this,
+            [this, entryId = entry.id, entryName, refreshModels]() {
+                SchemeLibraryEntry* entryPtr = libraryEntryById(entryId);
+                if (!entryPtr)
+                    return;
+
+                QFileDialog dlg(this, tr("选择模型目录"));
+                dlg.setFileMode(QFileDialog::Directory);
+                dlg.setOption(QFileDialog::ShowDirsOnly, true);
+                dlg.setOption(QFileDialog::DontUseNativeDialog, true);
+                dlg.setLabelText(QFileDialog::Accept, tr("导入"));
+                dlg.setLabelText(QFileDialog::Reject, tr("取消"));
+                if (dlg.exec() != QDialog::Accepted)
+                    return;
+
+                const QStringList selected = dlg.selectedFiles();
+                const QStringList added =
+                    importModelsIntoLibraryEntry(*entryPtr, selected, true);
+                if (!added.isEmpty())
+                {
+                    refreshModels();
+                    appendLogMessage(
+                        tr("已向方案库 %1 添加 %2 个模型")
+                            .arg(entryName)
+                            .arg(added.size()));
+                    updateGallery();
+                }
+            });
+
+    connect(addToProjectBtn, &QPushButton::clicked, this,
+            [this, entryId = entry.id]() { onGalleryAddRequested(entryId); });
+
+    return container;
+}
+
+void MainWindow::showLibrarySchemeDetail(const QString& entryId)
+{
+    SchemeLibraryEntry* entry = libraryEntryById(entryId);
+    if (!entry)
+        return;
+
+    const QString directory = entry->directory;
+    if (directory.isEmpty())
+    {
+        QMessageBox::warning(this, tr("方案详情"), tr("方案库目录不存在或不可访问。"));
+        return;
+    }
+
+    if (!ensureDirectoryExists(directory))
+    {
+        QMessageBox::warning(this, tr("方案详情"),
+                             tr("无法访问方案库目录：%1")
+                                 .arg(QDir::toNativeSeparators(directory)));
+        return;
+    }
+
+    m_activeSchemeId.clear();
+    m_activeModelId.clear();
+
+    clearDetailWidget();
+    QWidget* detail = buildLibrarySchemeDetailWidget(*entry);
+    if (!detail)
+        return;
+
+    if (auto* layout = ui->settingWidget->layout())
+        layout->addWidget(detail);
+    m_currentDetailWidget = detail;
+
+    ui->stackedWidget->setCurrentWidget(ui->MainPage);
+    setVisualizationVisible(false);
+    updateSelectionInfo(directory, QString());
+}
+
 void MainWindow::refreshCurrentDetail()
 {
     if (!m_activeModelId.isEmpty())
@@ -1887,6 +2143,119 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
     return addedIds;
 }
 
+QStringList MainWindow::importModelsIntoLibraryEntry(SchemeLibraryEntry& entry,
+                                                    const QStringList& paths,
+                                                    bool showError)
+{
+    QStringList added;
+    if (entry.directory.isEmpty())
+    {
+        if (showError)
+            QMessageBox::warning(this, tr("导入模型"), tr("方案库目录不存在。"));
+        return added;
+    }
+
+    if (!ensureDirectoryExists(entry.directory))
+    {
+        if (showError)
+            QMessageBox::warning(this, tr("导入模型"),
+                                 tr("无法创建或访问方案库目录：%1")
+                                     .arg(QDir::toNativeSeparators(entry.directory)));
+        return added;
+    }
+
+    QDir target(entry.directory);
+    const QString targetCanonical = canonicalPathForDir(target);
+
+    for (const QString& path : paths)
+    {
+        if (path.trimmed().isEmpty())
+            continue;
+
+        QDir src(path);
+        if (!src.exists())
+        {
+            if (showError)
+                QMessageBox::warning(this, tr("导入模型"),
+                                     tr("路径不存在：%1")
+                                         .arg(QDir::toNativeSeparators(path)));
+            continue;
+        }
+
+        const QString canonicalSrc = canonicalPathForDir(src);
+        if (!canonicalSrc.isEmpty())
+        {
+            if (canonicalSrc == targetCanonical ||
+                isPathWithinDirectory(canonicalSrc, entry.directory))
+            {
+                if (showError)
+                    QMessageBox::information(
+                        this, tr("导入模型"),
+                        tr("请选择方案库目录以外的模型文件夹。"));
+                continue;
+            }
+        }
+
+        QString jsonPath, batPath;
+        if (isModelFolder(src, &jsonPath, &batPath))
+        {
+            QString destPath = uniqueChildPath(target, src.dirName());
+            if (!copyDirectoryRecursively(src.absolutePath(), destPath))
+            {
+                QDir(destPath).removeRecursively();
+                if (showError)
+                    QMessageBox::warning(this, tr("导入模型"),
+                                         tr("无法复制模型文件夹：%1")
+                                             .arg(QDir::toNativeSeparators(path)));
+                continue;
+            }
+
+            added << QDir::cleanPath(destPath);
+            continue;
+        }
+
+        const QVector<ModelRecord> nested =
+            scanSchemeFolder(canonicalSrc.isEmpty() ? src.absolutePath() : canonicalSrc);
+        if (nested.isEmpty())
+        {
+            if (showError)
+                QMessageBox::warning(this, tr("导入模型"),
+                                     tr("%1 不是有效的模型文件夹。")
+                                         .arg(QDir::toNativeSeparators(path)));
+            continue;
+        }
+
+        for (const ModelRecord& model : nested)
+        {
+            const QString sourceDir = model.directory;
+            if (sourceDir.isEmpty())
+                continue;
+
+            if (isPathWithinDirectory(sourceDir, entry.directory))
+                continue;
+
+            QString baseName = QFileInfo(sourceDir).fileName();
+            if (baseName.isEmpty())
+                baseName = model.name;
+
+            QString destPath = uniqueChildPath(target, baseName);
+            if (!copyDirectoryRecursively(sourceDir, destPath))
+            {
+                QDir(destPath).removeRecursively();
+                if (showError)
+                    QMessageBox::warning(this, tr("导入模型"),
+                                         tr("无法复制模型文件夹：%1")
+                                             .arg(QDir::toNativeSeparators(sourceDir)));
+                continue;
+            }
+
+            added << QDir::cleanPath(destPath);
+        }
+    }
+
+    return added;
+}
+
 bool MainWindow::isModelFolder(const QDir& dir, QString* jsonPath, QString* batPath) const
 {
     QDir copy(dir);
@@ -2143,6 +2512,29 @@ void MainWindow::applyLibraryThumbnail(SchemeLibraryEntry& entry,
         QFile::remove(entry.thumbnailPath);
 
     entry.thumbnailPath = stored;
+}
+
+void MainWindow::deduplicateLibraryEntries()
+{
+    QSet<QString> seen;
+    QVector<SchemeLibraryEntry> unique;
+    unique.reserve(m_librarySchemes.size());
+
+    for (const SchemeLibraryEntry& entry : m_librarySchemes)
+    {
+        QString canonical = canonicalPathForDir(QDir(entry.directory));
+        if (canonical.isEmpty())
+            canonical = QDir::cleanPath(entry.directory);
+        if (canonical.isEmpty())
+            continue;
+        if (seen.contains(canonical))
+            continue;
+        seen.insert(canonical);
+        unique.push_back(entry);
+    }
+
+    if (unique.size() != m_librarySchemes.size())
+        m_librarySchemes = unique;
 }
 
 bool MainWindow::removeLibraryEntry(const QString& id)

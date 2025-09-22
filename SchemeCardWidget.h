@@ -30,6 +30,7 @@ signals:
     void openRequested(const QString& id);
     void addRequested(const QString& id);
     void deleteRequested(const QString& id);
+    void detailsRequested(const QString& id);
 
 protected:
     void mousePressEvent(QMouseEvent* ev) override;
