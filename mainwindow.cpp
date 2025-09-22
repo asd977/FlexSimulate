@@ -271,7 +271,28 @@ void MainWindow::loadSchemeLibrary()
     if (m_schemeLibraryRoot.isEmpty())
         m_schemeLibraryRoot = QDir::cleanPath(defaultRoot);
 
-    QSet<QString> seen;
+    QSet<QString> seenPaths;
+    QSet<QString> seenIds;
+    const auto addLibraryEntry = [&](SchemeLibraryEntry entry) {
+        if (entry.directory.isEmpty())
+            return;
+
+        const QString pathKey = entry.directory.toCaseFolded();
+        if (seenPaths.contains(pathKey))
+            return;
+
+        QString idKey = entry.id.trimmed();
+        entry.id = idKey;
+        if (idKey.isEmpty() || seenIds.contains(idKey.toCaseFolded()))
+        {
+            idKey = QUuid::createUuid().toString(QUuid::WithoutBraces);
+            entry.id = idKey;
+        }
+
+        seenPaths.insert(pathKey);
+        seenIds.insert(idKey.toCaseFolded());
+        m_librarySchemes.push_back(entry);
+    };
     QDir libraryRoot(m_schemeLibraryRoot);
 
     const QString indexFile = libraryRoot.filePath(QStringLiteral("library.json"));
@@ -295,7 +316,7 @@ void MainWindow::loadSchemeLibrary()
                     continue;
                 const QString absoluteDir = libraryRoot.filePath(relDir);
                 const QString canonical = canonicalPathForDir(QDir(absoluteDir));
-                if (canonical.isEmpty() || seen.contains(canonical))
+                if (canonical.isEmpty())
                     continue;
                 if (!QDir(canonical).exists())
                     continue;
@@ -321,9 +342,7 @@ void MainWindow::loadSchemeLibrary()
                     if (!covers.isEmpty())
                         entry.thumbnailPath = QDir::cleanPath(dir.filePath(covers.first()));
                 }
-
-                m_librarySchemes.push_back(entry);
-                seen.insert(canonical);
+                addLibraryEntry(entry);
             }
         }
     }
@@ -342,7 +361,7 @@ void MainWindow::loadSchemeLibrary()
         for (const QFileInfo& info : dirs)
         {
             const QString canonical = canonicalPathForDir(QDir(info.absoluteFilePath()));
-            if (canonical.isEmpty() || seen.contains(canonical))
+            if (canonical.isEmpty())
                 continue;
 
             SchemeLibraryEntry entry;
@@ -358,8 +377,7 @@ void MainWindow::loadSchemeLibrary()
             if (!covers.isEmpty())
                 entry.thumbnailPath = QDir::cleanPath(dir.filePath(covers.first()));
 
-            m_librarySchemes.push_back(entry);
-            seen.insert(canonical);
+            addLibraryEntry(entry);
         }
     }
 
@@ -1158,6 +1176,7 @@ void MainWindow::onGalleryDetailsRequested(const QString& id)
 {
     if (libraryEntryById(id))
     {
+        ui->stackedWidget->setCurrentWidget(ui->MainPage);
         showLibrarySchemeDetail(id);
         return;
     }
@@ -1619,12 +1638,20 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
 {
     SchemeLibraryEntry* entry = libraryEntryById(entryId);
     if (!entry)
+    {
+        clearDetailWidget();
+        setVisualizationVisible(false);
+        updateSelectionInfo();
         return;
+    }
 
     const QString directory = entry->directory;
     if (directory.isEmpty())
     {
         QMessageBox::warning(this, tr("方案详情"), tr("方案库目录不存在或不可访问。"));
+        clearDetailWidget();
+        setVisualizationVisible(false);
+        updateSelectionInfo();
         return;
     }
 
@@ -1633,36 +1660,40 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
         QMessageBox::warning(this, tr("方案详情"),
                              tr("无法访问方案库目录：%1")
                                  .arg(QDir::toNativeSeparators(directory)));
+        clearDetailWidget();
+        setVisualizationVisible(false);
+        updateSelectionInfo();
         return;
     }
 
     const QString entryName = entry->name.isEmpty() ? tr("未命名方案") : entry->name;
+    clearDetailWidget();
+    m_activeSchemeId.clear();
+    m_activeModelId.clear();
 
-    QDialog dialog(this);
-    dialog.setWindowTitle(tr("方案详情 - %1").arg(entryName));
-    dialog.resize(660, 520);
-
-    auto* layout = new QVBoxLayout(&dialog);
-    layout->setContentsMargins(16, 16, 16, 16);
+    auto* container = new QWidget(ui->settingWidget);
+    container->setObjectName(QStringLiteral("librarySchemeDetail"));
+    auto* layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(12);
 
-    auto* titleLabel = new QLabel(entryName, &dialog);
+    auto* titleLabel = new QLabel(entryName, container);
     titleLabel->setStyleSheet("font-size:20px;font-weight:700;color:#1b2b4d;");
     layout->addWidget(titleLabel);
 
     auto* pathLabel = new QLabel(
-        tr("方案目录：%1").arg(QDir::toNativeSeparators(directory)), &dialog);
+        tr("方案目录：%1").arg(QDir::toNativeSeparators(directory)), container);
     pathLabel->setWordWrap(true);
     pathLabel->setStyleSheet("color:#475569;");
     layout->addWidget(pathLabel);
 
     auto* hintLabel = new QLabel(
-        tr("在此页面可以向方案库添加模型，或将已有模型导入当前工程。"), &dialog);
+        tr("在此页面可以向方案库添加模型，或将已有模型导入当前工程。"), container);
     hintLabel->setWordWrap(true);
     hintLabel->setStyleSheet("color:#64748b;");
     layout->addWidget(hintLabel);
 
-    auto* listFrame = new QFrame(&dialog);
+    auto* listFrame = new QFrame(container);
     listFrame->setObjectName("libraryModelFrame");
     listFrame->setStyleSheet(
         "QFrame#libraryModelFrame{background:#ffffff;border:1px solid #d0d5dd;"
@@ -1706,7 +1737,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
     buttonLayout->setSpacing(8);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
 
-    auto* addModelBtn = new QPushButton(tr("添加模型"), &dialog);
+    auto* addModelBtn = new QPushButton(tr("添加模型"), container);
     addModelBtn->setCursor(Qt::PointingHandCursor);
     addModelBtn->setStyleSheet(
         "QPushButton{padding:8px 18px;border-radius:18px;border:none;"
@@ -1715,7 +1746,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
         "QPushButton:pressed{background-color:#1e3a8a;}");
     buttonLayout->addWidget(addModelBtn);
 
-    auto* addToProjectBtn = new QPushButton(tr("添加到工程"), &dialog);
+    auto* addToProjectBtn = new QPushButton(tr("添加到工程"), container);
     addToProjectBtn->setCursor(Qt::PointingHandCursor);
     addToProjectBtn->setStyleSheet(
         "QPushButton{padding:8px 18px;border-radius:18px;border:none;"
@@ -1730,7 +1761,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
         addToProjectBtn->setEnabled(false);
     }
 
-    auto* openDirBtn = new QPushButton(tr("打开方案目录"), &dialog);
+    auto* openDirBtn = new QPushButton(tr("打开方案目录"), container);
     openDirBtn->setCursor(Qt::PointingHandCursor);
     openDirBtn->setStyleSheet(
         "QPushButton{padding:8px 18px;border-radius:18px;"
@@ -1740,16 +1771,6 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
     buttonLayout->addWidget(openDirBtn);
 
     buttonLayout->addStretch(1);
-
-    auto* closeBtn = new QPushButton(tr("关闭"), &dialog);
-    closeBtn->setCursor(Qt::PointingHandCursor);
-    closeBtn->setStyleSheet(
-        "QPushButton{padding:8px 18px;border-radius:18px;"
-        "border:1px solid #cbd5f5;background:#f8fafc;color:#1d4ed8;}"
-        "QPushButton:hover{background:#e0e7ff;}"
-        "QPushButton:pressed{background:#bfdbfe;}");
-    connect(closeBtn, &QPushButton::clicked, &dialog, &QDialog::accept);
-    buttonLayout->addWidget(closeBtn);
 
     layout->addLayout(buttonLayout);
 
@@ -1786,8 +1807,8 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
             [directory]() { QDesktopServices::openUrl(QUrl::fromLocalFile(directory)); });
 
     connect(addModelBtn, &QPushButton::clicked, this,
-            [this, entry, entryName, &dialog, refreshModels]() {
-                QFileDialog dlg(&dialog, tr("选择模型目录"));
+            [this, entry, entryName, refreshModels]() {
+                QFileDialog dlg(this, tr("选择模型目录"));
                 dlg.setFileMode(QFileDialog::Directory);
                 dlg.setOption(QFileDialog::ShowDirsOnly, true);
                 dlg.setOption(QFileDialog::DontUseNativeDialog, true);
@@ -1813,7 +1834,11 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
     connect(addToProjectBtn, &QPushButton::clicked, this,
             [this, entryId]() { onGalleryAddRequested(entryId); });
 
-    dialog.exec();
+    m_currentDetailWidget = container;
+    ui->settingWidget->layout()->addWidget(container);
+    setVisualizationVisible(false);
+    clearVtkScene();
+    updateSelectionInfo(directory, QString());
 }
 
 void MainWindow::refreshCurrentDetail()
