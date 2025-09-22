@@ -19,29 +19,30 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
     setFrameShape(QFrame::NoFrame);
     setCursor(Qt::PointingHandCursor);
     setStyleSheet(
-        "#schemeCard{background:#ffffff;border:1px solid #e4e7f1;"
-        "border-radius:14px;}"
-        "#schemeCard:hover{border:1px solid #1787ff;}"
-        "QLabel#titleLabel{font-weight:600;font-size:15px;color:#1b2b4d;}"
-        "QLabel#hintLabel{color:#8a93a6;font-size:12px;}"
-        "QLabel#imageLabel{background:#f6f7fb;border-radius:12px;"
-        "border:1px dashed #d0d6e5;color:#8a93a6;font-size:13px;"
+        "#schemeCard{background:#ffffff;border:1px solid #dce3f1;"
+        "border-radius:16px;}"
+        "#schemeCard:hover{border:1px solid #2563eb;}"
+        "QLabel#titleLabel{font-weight:600;font-size:15px;color:#0f172a;}"
+        "QLabel#hintLabel{color:#64748b;font-size:12px;}"
+        "QLabel#imageLabel{background:#f8fafc;border-radius:12px;"
+        "border:1px dashed #cbd5f5;color:#8a93b3;font-size:13px;"
         "padding:12px;line-height:20px;}"
         "QToolButton#openButton{border:none;border-radius:12px;padding:4px;"
-        "color:#0b57d0;background:rgba(11,87,208,0.08);}"
-        "QToolButton#openButton:hover{background:rgba(11,87,208,0.16);}"
+        "color:#2563eb;background:rgba(37,99,235,0.12);}" 
+        "QToolButton#openButton:hover{background:rgba(37,99,235,0.2);}" 
+        "QToolButton#openButton:pressed{background:rgba(37,99,235,0.28);}" 
         "QToolButton#deleteButton{border:none;border-radius:12px;"
-        "padding:4px;color:#d93025;"
-        "background:rgba(217,48,37,0.08);}"
-        "QToolButton#deleteButton:hover{background:rgba(217,48,37,0.16);}" );
+        "padding:4px;color:#ef4444;"
+        "background:rgba(239,68,68,0.12);}" 
+        "QToolButton#deleteButton:hover{background:rgba(239,68,68,0.2);}" );
 
     auto* shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(24);
-    shadow->setOffset(0, 8);
-    shadow->setColor(QColor(27, 43, 77, 30));
+    shadow->setBlurRadius(26);
+    shadow->setOffset(0, 10);
+    shadow->setColor(QColor(15, 23, 42, 28));
     setGraphicsEffect(shadow);
 
-    setMinimumSize(240, 300);
+    setMinimumSize(260, 300);
 
     auto *lay = new QVBoxLayout(this);
     lay->setContentsMargins(16,16,16,16);
