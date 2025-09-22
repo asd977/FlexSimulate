@@ -38,7 +38,6 @@ private slots:
     void onTreeItemsReordered();
     void onExternalDrop(const QList<QUrl>& urls, QTreeWidgetItem* target);
     void onGalleryOpenRequested(const QString& id);
-    void onGalleryAddRequested(const QString& id);
     void onGalleryDeleteRequested(const QString& id);
     void onGalleryDetailsRequested(const QString& id);
     void deleteCurrentTreeItem();

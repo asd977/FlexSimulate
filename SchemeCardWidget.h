@@ -15,11 +15,8 @@ public:
 
     void setThumbnail(const QPixmap& pm);
     void setHintText(const QString& text);
-    void setAddButtonVisible(bool visible);
-    void setAddButtonEnabled(bool enabled);
     void setDeleteButtonVisible(bool visible);
     void setDeleteButtonEnabled(bool enabled);
-    void setAddButtonToolTip(const QString& text);
     void setDeleteButtonToolTip(const QString& text);
     void setOpenButtonVisible(bool visible);
     void setOpenButtonEnabled(bool enabled);
@@ -28,7 +25,6 @@ public:
 
 signals:
     void openRequested(const QString& id);
-    void addRequested(const QString& id);
     void deleteRequested(const QString& id);
     void detailsRequested(const QString& id);
 
@@ -44,7 +40,6 @@ private:
     QString m_id;
     QLabel* m_imageLabel;
     QLabel* m_titleLabel;
-    QToolButton* m_addBtn;
     QToolButton* m_deleteBtn;
     QToolButton* m_openBtn;
     QLabel* m_hintLabel;

@@ -27,9 +27,9 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
         "QLabel#imageLabel{background:#f6f7fb;border-radius:12px;"
         "border:1px dashed #d0d6e5;color:#8a93a6;font-size:13px;"
         "padding:12px;line-height:20px;}"
-        "QToolButton#addButton, QToolButton#openButton{border:none;border-radius:12px;padding:4px;"
+        "QToolButton#openButton{border:none;border-radius:12px;padding:4px;"
         "color:#0b57d0;background:rgba(11,87,208,0.08);}"
-        "QToolButton#addButton:hover, QToolButton#openButton:hover{background:rgba(11,87,208,0.16);}"
+        "QToolButton#openButton:hover{background:rgba(11,87,208,0.16);}"
         "QToolButton#deleteButton{border:none;border-radius:12px;"
         "padding:4px;color:#d93025;"
         "background:rgba(217,48,37,0.08);}"
@@ -68,16 +68,6 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
     m_openBtn->setVisible(false);
     header->addWidget(m_openBtn, 0, Qt::AlignRight);
 
-    m_addBtn = new QToolButton(this);
-    m_addBtn->setObjectName("addButton");
-    m_addBtn->setToolTip(tr("添加到当前工程"));
-    m_addBtn->setIcon(QIcon(QStringLiteral(":/icons/icons/add.svg")));
-    m_addBtn->setIconSize(QSize(16, 16));
-    m_addBtn->setAutoRaise(false);
-    m_addBtn->setCursor(Qt::ArrowCursor);
-    m_addBtn->setVisible(false);
-    header->addWidget(m_addBtn, 0, Qt::AlignRight);
-
     m_deleteBtn = new QToolButton(this);
     m_deleteBtn->setObjectName("deleteButton");
     m_deleteBtn->setToolTip(tr("删除此方案"));
@@ -105,9 +95,6 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
     m_hintLabel->setText(tr("点击卡片以查看详情"));
     lay->addWidget(m_hintLabel);
 
-    connect(m_addBtn, &QToolButton::clicked, this, [this]() {
-        emit addRequested(m_id);
-    });
     connect(m_deleteBtn, &QToolButton::clicked, this, [this]() {
         emit deleteRequested(m_id);
     });
@@ -132,18 +119,6 @@ void SchemeCardWidget::setHintText(const QString& text)
         m_hintLabel->setText(text);
 }
 
-void SchemeCardWidget::setAddButtonVisible(bool visible)
-{
-    if (m_addBtn)
-        m_addBtn->setVisible(visible);
-}
-
-void SchemeCardWidget::setAddButtonEnabled(bool enabled)
-{
-    if (m_addBtn)
-        m_addBtn->setEnabled(enabled);
-}
-
 void SchemeCardWidget::setDeleteButtonVisible(bool visible)
 {
     if (m_deleteBtn)
@@ -154,12 +129,6 @@ void SchemeCardWidget::setDeleteButtonEnabled(bool enabled)
 {
     if (m_deleteBtn)
         m_deleteBtn->setEnabled(enabled);
-}
-
-void SchemeCardWidget::setAddButtonToolTip(const QString& text)
-{
-    if (m_addBtn)
-        m_addBtn->setToolTip(text);
 }
 
 void SchemeCardWidget::setDeleteButtonToolTip(const QString& text)
@@ -193,10 +162,9 @@ void SchemeCardWidget::mousePressEvent(QMouseEvent* ev)
 
 void SchemeCardWidget::mouseDoubleClickEvent(QMouseEvent* ev)
 {
-    const bool onAdd = isPointInsideButton(m_addBtn, ev->pos());
     const bool onDelete = isPointInsideButton(m_deleteBtn, ev->pos());
     const bool onOpen = isPointInsideButton(m_openBtn, ev->pos());
-    if (!onAdd && !onDelete && !onOpen)
+    if (!onDelete && !onOpen)
         emit detailsRequested(m_id);
     QFrame::mouseDoubleClickEvent(ev);
 }
