@@ -32,6 +32,7 @@
 #include <QImageReader>
 #include <QLineEdit>
 #include <QMenu>
+#include <QMenuBar>
 #include <QMessageBox>
 #include <QPainter>
 #include <QPlainTextEdit>
@@ -44,12 +45,14 @@
 #include <QSet>
 #include <QShortcut>
 #include <QSplitter>
+#include <QStatusBar>
 #include <QCryptographicHash>
 #include <QStandardPaths>
 #include <QStringList>
 #include <QTreeWidgetItem>
 #include <QUuid>
 #include <QVBoxLayout>
+#include <QWidget>
 #include <algorithm>
 
 #include <QVTKOpenGLNativeWidget.h>
@@ -168,42 +171,151 @@ void MainWindow::setupUiHelpers()
     m_galleryWidget = new SchemeGalleryWidget(this);
     ui->planPageLayout->addWidget(m_galleryWidget);
 
+    if (ui->centralwidget)
+    {
+        ui->centralwidget->setAttribute(Qt::WA_StyledBackground, true);
+        ui->centralwidget->setStyleSheet(QStringLiteral(
+            "QWidget#centralwidget{background:#f1f5f9;}"));
+    }
+
     auto* detailLayout = new QVBoxLayout(ui->settingWidget);
     detailLayout->setContentsMargins(12, 12, 12, 12);
     detailLayout->setSpacing(12);
 
     const QString sectionTitleStyle = QStringLiteral(
         "font-size:15px;font-weight:600;color:#0f172a;"
-        "background:#e2e8f0;border-radius:8px;padding:6px 12px;");
+        "background:qlineargradient(x1:0,y1:0,x2:1,y2:0,"
+        " stop:0 #e2e8f0, stop:1 #f8fafc);"
+        "padding:10px 16px;margin:0;"
+        "border-top-left-radius:12px;border-top-right-radius:12px;"
+        "border-bottom:1px solid #e2e8f0;");
+
     const auto applySectionStyle = [&](QLabel* label) {
         if (label)
             label->setStyleSheet(sectionTitleStyle);
     };
+
+    const auto applyCardStyle = [&](QWidget* container) {
+        if (!container)
+            return;
+        container->setAttribute(Qt::WA_StyledBackground, true);
+        container->setStyleSheet(QStringLiteral(
+            "background:#ffffff;border:1px solid #e2e8f0;border-radius:12px;"));
+    };
+
+    const auto wrapWithCardBody = [](QVBoxLayout* layout, QWidget* child, QWidget* parent) {
+        if (!layout || !child || !parent)
+            return static_cast<QWidget*>(nullptr);
+
+        layout->removeWidget(child);
+        auto* body = new QWidget(parent);
+        body->setAttribute(Qt::WA_StyledBackground, true);
+        body->setStyleSheet(QStringLiteral("background:transparent;"));
+
+        auto* bodyLayout = new QVBoxLayout(body);
+        bodyLayout->setContentsMargins(16, 12, 16, 16);
+        bodyLayout->setSpacing(12);
+
+        child->setParent(body);
+        bodyLayout->addWidget(child);
+        layout->addWidget(body);
+        const int index = layout->indexOf(body);
+        if (index >= 0)
+            layout->setStretch(index, 1);
+        return body;
+    };
+
+    applyCardStyle(ui->navigationFrame);
+    applyCardStyle(ui->detailPanel);
+    applyCardStyle(ui->vtkContainer);
+    applyCardStyle(ui->logPanel);
+
+    wrapWithCardBody(ui->navigationLayout, ui->treeModels, ui->navigationFrame);
+    wrapWithCardBody(ui->detailPanelLayout, ui->detailScrollArea, ui->detailPanel);
+    wrapWithCardBody(ui->vtkContainerLayout, ui->vtkFrame, ui->vtkContainer);
+    wrapWithCardBody(ui->logPanelLayout, ui->logTextEdit, ui->logPanel);
+
     applySectionStyle(ui->navigationTitle);
     applySectionStyle(ui->detailTitle);
     applySectionStyle(ui->vtkTitle);
     applySectionStyle(ui->logTitle);
 
-    ui->treeModels->header()->setStretchLastSection(true);
-    ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
-    ui->treeModels->setEditTriggers(QAbstractItemView::EditKeyPressed |
-                                    QAbstractItemView::SelectedClicked);
+    if (ui->treeModels)
+    {
+        ui->treeModels->header()->setStretchLastSection(true);
+        ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
+        ui->treeModels->setEditTriggers(QAbstractItemView::EditKeyPressed |
+                                        QAbstractItemView::SelectedClicked);
+        ui->treeModels->setAlternatingRowColors(false);
+        ui->treeModels->setStyleSheet(
+            "QTreeWidget{background:transparent;border:none;padding:8px 12px;font-size:13px;color:#0f172a;}"
+            "QTreeView::item{padding:6px 8px;border-radius:8px;margin:2px 0;color:#0f172a;}"
+            "QTreeView::item:selected{background:#e0f2fe;color:#0f172a;}"
+            "QTreeView::item:hover{background:#f1f5f9;}"
+        );
+    }
+
+    if (ui->detailScrollArea)
+    {
+        ui->detailScrollArea->setStyleSheet(
+            "QScrollArea{border:none;background:transparent;}"
+            "QScrollArea QWidget{background:transparent;}");
+    }
 
     ui->mainSplitter->setStretchFactor(0, 0);
     ui->mainSplitter->setStretchFactor(1, 1);
+    ui->mainSplitter->setHandleWidth(6);
+
     ui->contentSplitter->setStretchFactor(0, 0);
     ui->contentSplitter->setStretchFactor(1, 1);
     ui->contentSplitter->setCollapsible(1, true);
+    ui->contentSplitter->setHandleWidth(6);
+
+    const QString splitterHandleStyle = QStringLiteral(
+        "QSplitter::handle{background-color:#e2e8f0;border-radius:3px;}"
+        "QSplitter::handle:hover{background-color:#cbd5f5;}");
+    ui->mainSplitter->setStyleSheet(splitterHandleStyle);
+    ui->contentSplitter->setStyleSheet(splitterHandleStyle);
+
     if (ui->visualizationSplitter)
     {
         ui->visualizationSplitter->setStretchFactor(0, 3);
         ui->visualizationSplitter->setStretchFactor(1, 1);
         ui->visualizationSplitter->setHandleWidth(6);
+        ui->visualizationSplitter->setStyleSheet(splitterHandleStyle);
     }
 
-    ui->logTextEdit->setStyleSheet(
-        "QPlainTextEdit{background:#0f172a;color:#f8fafc;border-radius:6px;padding:6px;}"
-    );
+    if (ui->vtkFrame)
+    {
+        ui->vtkFrame->setAttribute(Qt::WA_StyledBackground, true);
+        ui->vtkFrame->setStyleSheet(QStringLiteral(
+            "QFrame#vtkFrame{background:#0f172a;border-radius:12px;}"));
+    }
+
+    if (ui->logTextEdit)
+    {
+        ui->logTextEdit->setStyleSheet(
+            "QPlainTextEdit{background:#0f172a;color:#f8fafc;border-radius:12px;padding:12px;"
+            "font-family:\"JetBrains Mono\",\"Consolas\",\"Courier New\",monospace;font-size:13px;}"
+            "QPlainTextEdit::viewport{border:none;}"
+        );
+    }
+
+    if (menuBar())
+    {
+        menuBar()->setStyleSheet(QStringLiteral(
+            "QMenuBar{background:#e2e8f0;color:#0f172a;border:none;}"
+            "QMenuBar::item{background:transparent;padding:6px 12px;margin:0 4px;border-radius:6px;}"
+            "QMenuBar::item:selected{background:#cbd5f5;}"
+            "QMenuBar::item:pressed{background:#94a3b8;color:#ffffff;}"));
+    }
+
+    if (statusBar())
+    {
+        statusBar()->setStyleSheet(QStringLiteral(
+            "QStatusBar{background:#e2e8f0;color:#0f172a;border:none;}"
+            "QStatusBar::item{border:none;}"));
+    }
 
     setVisualizationVisible(false);
     updateSelectionInfo();

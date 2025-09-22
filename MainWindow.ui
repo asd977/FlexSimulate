@@ -41,7 +41,7 @@
        </property>
        <layout class="QVBoxLayout" name="navigationLayout">
         <property name="spacing">
-         <number>6</number>
+         <number>0</number>
         </property>
         <property name="leftMargin">
          <number>0</number>
@@ -203,7 +203,7 @@
            <widget class="QWidget" name="detailPanel" native="true">
             <layout class="QVBoxLayout" name="detailPanelLayout">
              <property name="spacing">
-              <number>8</number>
+              <number>0</number>
              </property>
              <property name="leftMargin">
               <number>0</number>
@@ -317,7 +317,7 @@
                 </property>
                 <layout class="QVBoxLayout" name="vtkContainerLayout">
                  <property name="spacing">
-                  <number>8</number>
+                  <number>0</number>
                  </property>
                  <property name="leftMargin">
                   <number>0</number>
@@ -347,10 +347,10 @@
                  <item>
                   <widget class="QFrame" name="vtkFrame">
                    <property name="frameShape">
-                    <enum>QFrame::StyledPanel</enum>
+                    <enum>QFrame::NoFrame</enum>
                    </property>
                    <property name="frameShadow">
-                    <enum>QFrame::Raised</enum>
+                    <enum>QFrame::Plain</enum>
                    </property>
                    <layout class="QVBoxLayout" name="vtkFrameLayout">
                     <property name="spacing">
@@ -389,7 +389,7 @@
                 </property>
                 <layout class="QVBoxLayout" name="logPanelLayout">
                  <property name="spacing">
-                  <number>8</number>
+                  <number>0</number>
                  </property>
                  <property name="leftMargin">
                   <number>0</number>
