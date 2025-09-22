@@ -67,6 +67,7 @@ private:
     struct SchemeRecord {
         QString id;
         QString name;
+        QString libraryId;
         QString workingDirectory;
         QString thumbnailPath;
         QString remarks;
@@ -106,7 +107,8 @@ private:
     void showModelSettings(const QString& modelId);
     QWidget* buildSchemeSettingsWidget(const SchemeRecord& scheme);
     QWidget* buildModelSettingsWidget(const ModelRecord& model);
-    void showLibrarySchemeDetail(const QString& entryId);
+    void showLibrarySchemeDetail(const QString& entryId,
+                                 const QString& projectSchemeId = QString());
     void refreshCurrentDetail();
     void updateToolbarState();
     void setVisualizationVisible(bool visible);
@@ -119,6 +121,8 @@ private:
 
     SchemeRecord* schemeById(const QString& id);
     const SchemeRecord* schemeById(const QString& id) const;
+    SchemeRecord* schemeByLibraryId(const QString& libraryId);
+    const SchemeRecord* schemeByLibraryId(const QString& libraryId) const;
     SchemeRecord* schemeByWorkingDirectory(const QString& canonicalPath);
     ModelRecord* modelById(const QString& id, SchemeRecord** owner = nullptr);
     const ModelRecord* modelById(const QString& id, const SchemeRecord** owner = nullptr) const;
