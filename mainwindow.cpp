@@ -184,11 +184,6 @@ void MainWindow::setupUiHelpers()
     applySectionStyle(ui->vtkTitle);
     applySectionStyle(ui->logTitle);
 
-    if (ui->projectTitleLabel)
-        ui->projectTitleLabel->setText(tr("未打开工程"));
-    if (ui->projectBadge)
-        ui->projectBadge->setToolTip(tr("请选择或创建工程"));
-
     ui->treeModels->header()->setStretchLastSection(true);
     ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->treeModels->setEditTriggers(QAbstractItemView::EditKeyPressed |
@@ -595,25 +590,7 @@ bool MainWindow::ensureProjectStructure(const QString& rootPath)
 
 void MainWindow::updateWindowTitle()
 {
-    const QString base = m_baseWindowTitle.isEmpty()
-                             ? tr("柔性仿真软件")
-                             : m_baseWindowTitle;
-    if (!hasActiveProject())
-    {
-        setWindowTitle(base);
-        if (ui->projectTitleLabel)
-            ui->projectTitleLabel->setText(tr("未打开工程"));
-        if (ui->projectBadge)
-            ui->projectBadge->setToolTip(tr("请选择或创建工程"));
-        return;
-    }
 
-    const QString projectName = projectDisplayName();
-    setWindowTitle(QStringLiteral("%1 - %2").arg(base, projectName));
-    if (ui->projectTitleLabel)
-        ui->projectTitleLabel->setText(projectName);
-    if (ui->projectBadge)
-        ui->projectBadge->setToolTip(QDir::toNativeSeparators(m_projectRoot));
 }
 
 void MainWindow::onNewProjectTriggered()
