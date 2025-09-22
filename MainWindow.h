@@ -9,6 +9,7 @@
 #include <QDir>
 #include <QPair>
 #include <QList>
+#include <QSet>
 #include <vtkSmartPointer.h>
 
 QT_BEGIN_NAMESPACE
@@ -163,6 +164,8 @@ private:
     void openSchemeSettings(const QString& schemeId);
     void removeSchemeById(const QString& id);
     void removeModelById(const QString& id);
+    bool removeModelsByFingerprint(SchemeRecord& scheme,
+                                   const QSet<QString>& fingerprints);
     bool confirmSchemeDeletion(const SchemeRecord& scheme);
     bool confirmModelDeletion(const ModelRecord& model, const SchemeRecord& owner);
     void syncDataFromTree();
