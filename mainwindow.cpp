@@ -184,6 +184,10 @@ void MainWindow::setupUiHelpers()
     applySectionStyle(ui->vtkTitle);
     applySectionStyle(ui->logTitle);
 
+    const int navigationWidth = std::max(ui->navigationFrame->sizeHint().width(),
+                                         ui->treeModels->minimumWidth());
+    ui->navigationFrame->setFixedWidth(navigationWidth);
+
     ui->treeModels->header()->setStretchLastSection(true);
     ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->treeModels->setEditTriggers(QAbstractItemView::EditKeyPressed |
