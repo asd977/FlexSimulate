@@ -169,12 +169,28 @@ void MainWindow::setupUiHelpers()
     ui->planPageLayout->addWidget(m_galleryWidget);
 
     auto* detailLayout = new QVBoxLayout(ui->settingWidget);
-    detailLayout->setContentsMargins(12, 12, 12, 12);
-    detailLayout->setSpacing(12);
+    detailLayout->setContentsMargins(16, 16, 16, 16);
+    detailLayout->setSpacing(16);
+
+    ui->centralwidget->setStyleSheet(QStringLiteral(
+        "#centralwidget{background:#eef2f8;}"
+        "#navigationFrame,#detailPanel,#vtkPanel,#logPanel{"
+        "background:#ffffff;border:1px solid #d8dee9;border-radius:18px;}"
+        "#vtkFrame{background:#f8fafc;border:1px solid #d8dee9;border-radius:14px;}"
+    ));
+    const QList<QWidget*> styledPanels = {ui->navigationFrame, ui->detailPanel,
+                                          ui->vtkPanel, ui->logPanel,
+                                          ui->vtkFrame};
+    for (QWidget* panel : styledPanels)
+    {
+        if (panel)
+            panel->setAttribute(Qt::WA_StyledBackground, true);
+    }
 
     const QString sectionTitleStyle = QStringLiteral(
-        "font-size:15px;font-weight:600;color:#0f172a;"
-        "background:#e2e8f0;border-radius:8px;padding:6px 12px;");
+        "font-size:16px;font-weight:600;color:#0f172a;"
+        "padding:4px 0 4px 12px;border-left:4px solid #2563eb;"
+        "background:transparent;letter-spacing:0.2px;");
     const auto applySectionStyle = [&](QLabel* label) {
         if (label)
             label->setStyleSheet(sectionTitleStyle);
@@ -184,10 +200,36 @@ void MainWindow::setupUiHelpers()
     applySectionStyle(ui->vtkTitle);
     applySectionStyle(ui->logTitle);
 
+    const QString splitterStyle = QStringLiteral(
+        "QSplitter::handle:horizontal{width:10px;background:rgba(15,23,42,0.08);"
+        "margin:0 4px;border-radius:4px;}"
+        "QSplitter::handle:horizontal:hover{background:rgba(37,99,235,0.35);}" 
+        "QSplitter::handle:vertical{height:10px;background:rgba(15,23,42,0.08);"
+        "margin:4px 0;border-radius:4px;}"
+        "QSplitter::handle:vertical:hover{background:rgba(37,99,235,0.35);}" );
+    ui->mainSplitter->setStyleSheet(splitterStyle);
+    ui->contentSplitter->setStyleSheet(splitterStyle);
+    if (ui->visualizationSplitter)
+        ui->visualizationSplitter->setStyleSheet(splitterStyle);
+
+    ui->mainSplitter->setHandleWidth(10);
+    ui->contentSplitter->setHandleWidth(10);
+    if (ui->visualizationSplitter)
+        ui->visualizationSplitter->setHandleWidth(10);
+
     ui->treeModels->header()->setStretchLastSection(true);
     ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->treeModels->setEditTriggers(QAbstractItemView::EditKeyPressed |
                                     QAbstractItemView::SelectedClicked);
+    ui->treeModels->setIndentation(18);
+    ui->treeModels->setStyleSheet(QStringLiteral(
+        "QTreeWidget{background:transparent;border:none;padding:4px;}"
+        "QTreeView::branch{background:transparent;}"
+        "QTreeView::item{height:26px;padding:4px 8px;margin:2px;border-radius:8px;}"
+        "QTreeView::item:!selected:alternate{background:rgba(15,23,42,0.04);}" 
+        "QTreeView::item:hover{background:rgba(37,99,235,0.12);}" 
+        "QTreeView::item:selected{background:#2563eb;color:#ffffff;}"
+        "QTreeView::item:selected:!active{background:#2563eb;color:#ffffff;}"));
 
     ui->mainSplitter->setStretchFactor(0, 0);
     ui->mainSplitter->setStretchFactor(1, 1);
@@ -198,11 +240,16 @@ void MainWindow::setupUiHelpers()
     {
         ui->visualizationSplitter->setStretchFactor(0, 3);
         ui->visualizationSplitter->setStretchFactor(1, 1);
-        ui->visualizationSplitter->setHandleWidth(6);
     }
 
     ui->logTextEdit->setStyleSheet(
-        "QPlainTextEdit{background:#0f172a;color:#f8fafc;border-radius:6px;padding:6px;}"
+        "QPlainTextEdit{background:#0f172a;color:#f8fafc;border-radius:14px;padding:12px;"
+        "font-family:\"JetBrains Mono\",\"Cascadia Code\",\"Consolas\",monospace;font-size:12px;}"
+        "QPlainTextEdit QScrollBar:vertical{background:transparent;width:12px;margin:4px;}"
+        "QPlainTextEdit QScrollBar::handle:vertical{background:rgba(148,163,184,0.6);"
+        "border-radius:6px;}"
+        "QPlainTextEdit QScrollBar::handle:vertical:hover{background:rgba(37,99,235,0.8);}" 
+        "QPlainTextEdit QScrollBar::add-line:vertical,QPlainTextEdit QScrollBar::sub-line:vertical{height:0;}"
     );
 
     setVisualizationVisible(false);

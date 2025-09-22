@@ -6,6 +6,7 @@
 #include <QScrollArea>
 #include <QPixmap>
 #include <QPushButton>
+#include <QFrame>
 
 #include <algorithm>
 
@@ -13,6 +14,35 @@ SchemeGalleryWidget::SchemeGalleryWidget(QWidget *parent)
     : QWidget(parent), ui(new Ui::SchemeGalleryWidget)
 {
     ui->setupUi(this);
+
+    if (ui->verticalLayout_root)
+    {
+        ui->verticalLayout_root->setContentsMargins(24, 24, 24, 24);
+        ui->verticalLayout_root->setSpacing(20);
+    }
+    if (ui->toolbarLayout)
+        ui->toolbarLayout->setSpacing(12);
+
+    if (ui->titleLabel)
+    {
+        ui->titleLabel->setStyleSheet(
+            "font-size:18px;font-weight:700;color:#0f172a;"
+            "padding:4px 0 4px 12px;border-left:4px solid #2563eb;"
+        );
+    }
+
+    if (ui->scrollArea)
+    {
+        ui->scrollArea->setFrameShape(QFrame::NoFrame);
+        ui->scrollArea->setStyleSheet(QStringLiteral(
+            "QScrollArea{background:transparent;border:none;}"
+        ));
+        if (auto* content = ui->scrollArea->widget())
+        {
+            content->setStyleSheet(QStringLiteral("background:transparent;"));
+            content->setAttribute(Qt::WA_StyledBackground, false);
+        }
+    }
 
     if (ui->newSchemeButton)
     {

@@ -41,19 +41,19 @@
        </property>
        <layout class="QVBoxLayout" name="navigationLayout">
         <property name="spacing">
-         <number>6</number>
+         <number>12</number>
         </property>
         <property name="leftMargin">
-         <number>0</number>
+         <number>16</number>
         </property>
         <property name="topMargin">
-         <number>0</number>
+         <number>16</number>
         </property>
         <property name="rightMargin">
-         <number>0</number>
+         <number>16</number>
         </property>
         <property name="bottomMargin">
-         <number>0</number>
+         <number>16</number>
         </property>
         <item>
          <widget class="QLabel" name="navigationTitle">
@@ -203,19 +203,19 @@
            <widget class="QWidget" name="detailPanel" native="true">
             <layout class="QVBoxLayout" name="detailPanelLayout">
              <property name="spacing">
-              <number>8</number>
+              <number>12</number>
              </property>
              <property name="leftMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <property name="topMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <property name="rightMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <property name="bottomMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <item>
               <widget class="QLabel" name="detailTitle">
@@ -289,19 +289,19 @@
            <widget class="QWidget" name="vtkPanel" native="true">
             <layout class="QVBoxLayout" name="vtkPanelLayout">
              <property name="spacing">
-              <number>8</number>
+              <number>12</number>
              </property>
              <property name="leftMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <property name="topMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <property name="rightMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <property name="bottomMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <item>
               <widget class="QSplitter" name="visualizationSplitter">
@@ -347,10 +347,10 @@
                  <item>
                   <widget class="QFrame" name="vtkFrame">
                    <property name="frameShape">
-                    <enum>QFrame::StyledPanel</enum>
+                    <enum>QFrame::NoFrame</enum>
                    </property>
                    <property name="frameShadow">
-                    <enum>QFrame::Raised</enum>
+                    <enum>QFrame::Plain</enum>
                    </property>
                    <layout class="QVBoxLayout" name="vtkFrameLayout">
                     <property name="spacing">
@@ -389,19 +389,19 @@
                 </property>
                 <layout class="QVBoxLayout" name="logPanelLayout">
                  <property name="spacing">
-                  <number>8</number>
+                  <number>12</number>
                  </property>
                  <property name="leftMargin">
-                  <number>0</number>
+                  <number>16</number>
                  </property>
                  <property name="topMargin">
-                  <number>0</number>
+                  <number>16</number>
                  </property>
                  <property name="rightMargin">
-                  <number>0</number>
+                  <number>16</number>
                  </property>
                  <property name="bottomMargin">
-                  <number>0</number>
+                  <number>16</number>
                  </property>
                  <item>
                   <widget class="QLabel" name="logTitle">
