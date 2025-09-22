@@ -87,7 +87,7 @@
       </widget>
       <widget class="QStackedWidget" name="stackedWidget">
        <property name="currentIndex">
-        <number>0</number>
+        <number>2</number>
        </property>
        <widget class="QWidget" name="welcomePage">
         <layout class="QVBoxLayout" name="welcomeLayout">
@@ -234,8 +234,8 @@
                  <rect>
                   <x>0</x>
                   <y>0</y>
-                  <width>21</width>
-                  <height>16</height>
+                  <width>187</width>
+                  <height>819</height>
                  </rect>
                 </property>
                 <layout class="QVBoxLayout" name="scrollAreaLayout">
@@ -260,19 +260,6 @@
                     </size>
                    </property>
                   </widget>
-                 </item>
-                 <item>
-                  <spacer name="detailSpacer">
-                   <property name="orientation">
-                    <enum>Qt::Vertical</enum>
-                   </property>
-                   <property name="sizeHint" stdset="0">
-                    <size>
-                     <width>20</width>
-                     <height>40</height>
-                    </size>
-                   </property>
-                  </spacer>
                  </item>
                 </layout>
                </widget>
