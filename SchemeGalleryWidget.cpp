@@ -84,6 +84,9 @@ void SchemeGalleryWidget::addScheme(const QString& id,
     connect(card, &SchemeCardWidget::addRequested,
             this, &SchemeGalleryWidget::schemeAddRequested);
 
+    connect(card, &SchemeCardWidget::detailsRequested,
+            this, &SchemeGalleryWidget::schemeDetailsRequested);
+
     // 删除
     connect(card, &SchemeCardWidget::deleteRequested,
             this, &SchemeGalleryWidget::schemeDeleteRequested);
