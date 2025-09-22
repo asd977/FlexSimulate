@@ -1667,6 +1667,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
     }
 
     const QString entryName = entry->name.isEmpty() ? tr("未命名方案") : entry->name;
+    const QString previousSchemeId = m_activeSchemeId;
     clearDetailWidget();
     m_activeSchemeId.clear();
     m_activeModelId.clear();
@@ -1688,7 +1689,9 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
     layout->addWidget(pathLabel);
 
     auto* hintLabel = new QLabel(
-        tr("在此页面可以向方案库添加模型，或将已有模型导入当前工程。"), container);
+        tr("在此页面可以向方案库添加模型，或将已有模型导入当前工程。"
+           "请选择下方的模型后点击“添加到工程”。"),
+        container);
     hintLabel->setWordWrap(true);
     hintLabel->setStyleSheet("color:#64748b;");
     layout->addWidget(hintLabel);
@@ -1718,7 +1721,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
 
     auto* listWidget = new QListWidget(listFrame);
     listWidget->setObjectName("libraryModelList");
-    listWidget->setSelectionMode(QAbstractItemView::NoSelection);
+    listWidget->setSelectionMode(QAbstractItemView::ExtendedSelection);
     listWidget->setSpacing(6);
     listWidget->setIconSize(QSize(20, 20));
     listWidget->setFrameShape(QFrame::NoFrame);
@@ -1832,7 +1835,75 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
             });
 
     connect(addToProjectBtn, &QPushButton::clicked, this,
-            [this, entryId]() { onGalleryAddRequested(entryId); });
+            [this, listWidget, previousSchemeId]() {
+                if (!hasActiveProject())
+                {
+                    QMessageBox::information(this, tr("添加到工程"),
+                                             tr("请先新建或打开工程。"));
+                    return;
+                }
+
+                QList<QListWidgetItem*> selectedItems = listWidget->selectedItems();
+                if (selectedItems.isEmpty())
+                {
+                    QMessageBox::information(this, tr("添加到工程"),
+                                             tr("请先在列表中选择要导入的模型。"));
+                    return;
+                }
+
+                if (m_schemes.isEmpty())
+                {
+                    QMessageBox::information(this, tr("添加到工程"),
+                                             tr("当前工程中没有方案，请先创建方案。"));
+                    return;
+                }
+
+                QStringList modelDirectories;
+                for (QListWidgetItem* item : selectedItems)
+                {
+                    const QString dir = item->data(Qt::UserRole).toString();
+                    if (!dir.trimmed().isEmpty())
+                        modelDirectories << dir;
+                }
+                if (modelDirectories.isEmpty())
+                    return;
+
+                QStringList options;
+                QVector<QString> schemeIds;
+                int defaultIndex = -1;
+                for (int i = 0; i < m_schemes.size(); ++i)
+                {
+                    const SchemeRecord& scheme = m_schemes.at(i);
+                    QString displayName = scheme.name.isEmpty()
+                                              ? tr("未命名方案")
+                                              : scheme.name;
+                    const QString optionText =
+                        tr("%1 (%2)").arg(displayName, scheme.id.left(8));
+                    options << optionText;
+                    schemeIds << scheme.id;
+                    if (scheme.id == previousSchemeId)
+                        defaultIndex = i;
+                }
+
+                bool ok = false;
+                const int startIndex = defaultIndex >= 0 ? defaultIndex : 0;
+                const QString choice = QInputDialog::getItem(
+                    this, tr("选择方案"),
+                    tr("请选择要导入模型的方案："),
+                    options, startIndex, false, &ok);
+                if (!ok)
+                    return;
+
+                const int choiceIndex = options.indexOf(choice);
+                if (choiceIndex < 0 || choiceIndex >= schemeIds.size())
+                    return;
+
+                const QString targetSchemeId = schemeIds.at(choiceIndex);
+                const QVector<QString> added =
+                    importModelsIntoScheme(targetSchemeId, modelDirectories);
+                if (!added.isEmpty())
+                    ui->stackedWidget->setCurrentWidget(ui->MainPage);
+            });
 
     m_currentDetailWidget = container;
     ui->settingWidget->layout()->addWidget(container);
