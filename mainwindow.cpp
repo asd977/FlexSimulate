@@ -1292,36 +1292,6 @@ void MainWindow::updateGallery()
         m_galleryWidget->addScheme(entry.id, entry.name, thumb, options);
     }
 
-    for (const SchemeRecord& scheme : m_schemes)
-    {
-        const SchemeLibraryEntry* linkedEntry =
-            scheme.libraryId.isEmpty() ? nullptr : libraryEntryById(scheme.libraryId);
-
-        QPixmap thumb;
-        QString displayName = scheme.name;
-        if (linkedEntry)
-        {
-            thumb = loadLibraryThumbnail(*linkedEntry);
-            if (displayName.trimmed().isEmpty())
-                displayName = linkedEntry->name;
-        }
-        if (thumb.isNull())
-        {
-            thumb = loadSchemeThumbnail(scheme);
-            if (thumb.isNull())
-                thumb = makeSchemePlaceholder(displayName.isEmpty() ? scheme.name : displayName);
-        }
-
-        SchemeGalleryWidget::CardOptions options;
-        options.showOpenButton = true;
-        options.openToolTip = tr("查看方案详情");
-        options.hintText = linkedEntry ? tr("双击查看方案库详情")
-                                       : tr("双击卡片查看详情");
-
-        m_galleryWidget->addScheme(scheme.id,
-                                   displayName.isEmpty() ? scheme.name : displayName,
-                                   thumb, options);
-    }
 }
 
 void MainWindow::selectTreeItem(const QString& schemeId, const QString& modelId)
@@ -2173,8 +2143,25 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
 
     QDir workingDir(scheme->workingDirectory);
     QSet<QString> existingPaths;
-    for (const ModelRecord& model : scheme->models)
-        existingPaths.insert(canonicalPathForDir(QDir(model.directory)));
+    QSet<QString> existingFingerprints;
+    for (ModelRecord& model : scheme->models)
+    {
+        const QString canonicalDir = canonicalPathForDir(QDir(model.directory));
+        if (!canonicalDir.isEmpty())
+            existingPaths.insert(canonicalDir);
+
+        QString fingerprint = model.fingerprint;
+        if (fingerprint.isEmpty())
+            fingerprint = computeModelFingerprint(model.jsonPath);
+        if (!fingerprint.isEmpty())
+        {
+            existingFingerprints.insert(fingerprint);
+            if (model.fingerprint.isEmpty())
+                model.fingerprint = fingerprint;
+        }
+    }
+
+    bool duplicateSkipped = false;
 
     for (const QString& path : paths)
     {
@@ -2190,6 +2177,13 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
         QString jsonPath, batPath;
         if (isModelFolder(src, &jsonPath, &batPath))
         {
+            QString sourceFingerprint = computeModelFingerprint(jsonPath);
+            if (!sourceFingerprint.isEmpty() && existingFingerprints.contains(sourceFingerprint))
+            {
+                duplicateSkipped = true;
+                continue;
+            }
+
             QString destPath = uniqueChildPath(workingDir, src.dirName());
             if (!copyDirectoryRecursively(src.absolutePath(), destPath))
             {
@@ -2210,11 +2204,17 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             model.jsonPath = destDir.filePath(jsonName);
             const QString batName = QFileInfo(batPath).fileName();
             model.batPath = batName.isEmpty() ? QString() : destDir.filePath(batName);
-            if (existingPaths.contains(model.directory))
+            if (model.directory.isEmpty() || existingPaths.contains(model.directory))
             {
                 QDir(destPath).removeRecursively();
                 continue;
             }
+
+            model.fingerprint = sourceFingerprint.isEmpty()
+                                     ? computeModelFingerprint(model.jsonPath)
+                                     : sourceFingerprint;
+            if (!model.fingerprint.isEmpty())
+                existingFingerprints.insert(model.fingerprint);
 
             scheme->models.push_back(model);
             addedIds.push_back(model.id);
@@ -2222,7 +2222,9 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             continue;
         }
 
-        QVector<ModelRecord> nested = scanSchemeFolder(canonicalPathForDir(src));
+        const QString canonicalSource = canonicalPathForDir(src);
+        QVector<ModelRecord> nested =
+            scanSchemeFolder(canonicalSource.isEmpty() ? src.absolutePath() : canonicalSource);
         if (nested.isEmpty())
         {
             if (showError)
@@ -2235,6 +2237,14 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
         for (ModelRecord model : nested)
         {
             const QString sourceDir = model.directory;
+            QString sourceFingerprint = model.fingerprint;
+
+            if (!sourceFingerprint.isEmpty() && existingFingerprints.contains(sourceFingerprint))
+            {
+                duplicateSkipped = true;
+                continue;
+            }
+
             QString destPath = uniqueChildPath(workingDir, QFileInfo(model.directory).fileName());
             if (!copyDirectoryRecursively(sourceDir, destPath))
             {
@@ -2255,11 +2265,17 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             model.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
             model.name = makeUniqueModelName(*scheme, model.name);
 
-            if (existingPaths.contains(model.directory))
+            if (model.directory.isEmpty() || existingPaths.contains(model.directory))
             {
                 QDir(destPath).removeRecursively();
                 continue;
             }
+
+            if (sourceFingerprint.isEmpty())
+                sourceFingerprint = computeModelFingerprint(model.jsonPath);
+            model.fingerprint = sourceFingerprint;
+            if (!model.fingerprint.isEmpty())
+                existingFingerprints.insert(model.fingerprint);
 
             scheme->models.push_back(model);
             addedIds.push_back(model.id);
@@ -2276,6 +2292,12 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
     else
     {
         refreshNavigation(schemeId, m_activeModelId);
+    }
+
+    if (duplicateSkipped && showError)
+    {
+        QMessageBox::information(this, tr("导入模型"),
+                                 tr("所选模型中部分已存在于当前方案，已跳过重复项。"));
     }
 
     return addedIds;
@@ -2429,6 +2451,7 @@ QVector<MainWindow::ModelRecord> MainWindow::scanSchemeFolder(const QString& sch
         model.directory = canonicalPathForDir(child);
         model.jsonPath = jsonPath;
         model.batPath = batPath;
+        model.fingerprint = computeModelFingerprint(model.jsonPath);
         models.push_back(model);
     }
 
@@ -2436,6 +2459,22 @@ QVector<MainWindow::ModelRecord> MainWindow::scanSchemeFolder(const QString& sch
     for (ModelRecord& model : models)
         model.name = makeUniqueName(model.name, taken, tr("未命名模型"));
     return models;
+}
+
+QString MainWindow::computeModelFingerprint(const QString& jsonPath) const
+{
+    if (jsonPath.trimmed().isEmpty())
+        return QString();
+
+    QFile file(jsonPath);
+    if (!file.exists() || !file.open(QIODevice::ReadOnly))
+        return QString();
+
+    QCryptographicHash hash(QCryptographicHash::Sha256);
+    if (!hash.addData(&file))
+        return QString();
+
+    return QString::fromLatin1(hash.result().toHex());
 }
 
 QPixmap MainWindow::makeSchemePlaceholder(const QString& name) const
@@ -3301,6 +3340,9 @@ bool MainWindow::loadSchemesFromStorage()
             model.jsonPath = QDir::cleanPath(mo.value(QStringLiteral("jsonPath")).toString());
             model.batPath = QDir::cleanPath(mo.value(QStringLiteral("batPath")).toString());
             model.remarks = mo.value(QStringLiteral("remarks")).toString();
+            model.fingerprint = mo.value(QStringLiteral("fingerprint")).toString();
+            if (model.fingerprint.isEmpty())
+                model.fingerprint = computeModelFingerprint(model.jsonPath);
             if (model.directory.isEmpty() || model.jsonPath.isEmpty())
                 continue;
             scheme.models.push_back(model);
@@ -3343,6 +3385,10 @@ void MainWindow::saveSchemesToStorage() const
             mo.insert(QStringLiteral("directory"), model.directory);
             mo.insert(QStringLiteral("jsonPath"), model.jsonPath);
             mo.insert(QStringLiteral("batPath"), model.batPath);
+            QString fingerprint = model.fingerprint.isEmpty()
+                                     ? computeModelFingerprint(model.jsonPath)
+                                     : model.fingerprint;
+            mo.insert(QStringLiteral("fingerprint"), fingerprint);
             mo.insert(QStringLiteral("remarks"), model.remarks);
             modelArray.append(mo);
         }

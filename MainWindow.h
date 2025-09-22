@@ -53,6 +53,7 @@ private:
         QString jsonPath;
         QString batPath;
         QString remarks;
+        QString fingerprint;
     };
 
     struct SchemeLibraryEntry {
@@ -136,6 +137,7 @@ private:
                                             bool showError = true);
     bool isModelFolder(const QDir& dir, QString* jsonPath, QString* batPath) const;
     QVector<ModelRecord> scanSchemeFolder(const QString& schemeDir) const;
+    QString computeModelFingerprint(const QString& jsonPath) const;
     QPixmap makeSchemePlaceholder(const QString& name) const;
     QPixmap loadSchemeThumbnail(const SchemeRecord& scheme) const;
     void applySchemeThumbnail(SchemeRecord& scheme, const QString& sourcePath);
