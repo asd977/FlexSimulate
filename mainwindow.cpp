@@ -107,26 +107,6 @@ bool copyDirectoryRecursively(const QString& sourcePath, const QString& targetPa
     return true;
 }
 
-bool moveDirectoryTo(const QString& sourcePath, const QString& targetPath)
-{
-    if (sourcePath == targetPath)
-        return true;
-
-    QDir targetParent = QFileInfo(targetPath).dir();
-    if (!targetParent.exists() && !targetParent.mkpath(QStringLiteral(".")))
-        return false;
-
-    QDir dir;
-    if (dir.rename(sourcePath, targetPath))
-        return true;
-
-    if (!copyDirectoryRecursively(sourcePath, targetPath))
-        return false;
-
-    QDir source(sourcePath);
-    return source.removeRecursively();
-}
-
 QString uniqueChildPath(const QDir& parent, const QString& baseName)
 {
     QString sanitized = baseName.trimmed();
@@ -1817,11 +1797,12 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
         if (isModelFolder(src, &jsonPath, &batPath))
         {
             QString destPath = uniqueChildPath(workingDir, src.dirName());
-            if (!moveDirectoryTo(src.absolutePath(), destPath))
+            if (!copyDirectoryRecursively(src.absolutePath(), destPath))
             {
+                QDir(destPath).removeRecursively();
                 if (showError)
                     QMessageBox::warning(this, tr("导入失败"),
-                                         tr("无法移动模型文件夹：%1")
+                                         tr("无法复制模型文件夹：%1")
                                              .arg(QDir::toNativeSeparators(path)));
                 continue;
             }
@@ -1836,7 +1817,10 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             const QString batName = QFileInfo(batPath).fileName();
             model.batPath = batName.isEmpty() ? QString() : destDir.filePath(batName);
             if (existingPaths.contains(model.directory))
+            {
+                QDir(destPath).removeRecursively();
                 continue;
+            }
 
             scheme->models.push_back(model);
             addedIds.push_back(model.id);
@@ -1856,16 +1840,19 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
 
         for (ModelRecord model : nested)
         {
-            QDir destDir(uniqueChildPath(workingDir, QFileInfo(model.directory).fileName()));
-            if (!moveDirectoryTo(model.directory, destDir.absolutePath()))
+            const QString sourceDir = model.directory;
+            QString destPath = uniqueChildPath(workingDir, QFileInfo(model.directory).fileName());
+            if (!copyDirectoryRecursively(sourceDir, destPath))
             {
+                QDir(destPath).removeRecursively();
                 if (showError)
                     QMessageBox::warning(this, tr("导入失败"),
-                                         tr("无法移动模型文件夹：%1")
-                                             .arg(QDir::toNativeSeparators(model.directory)));
+                                         tr("无法复制模型文件夹：%1")
+                                             .arg(QDir::toNativeSeparators(sourceDir)));
                 continue;
             }
 
+            QDir destDir(destPath);
             model.directory = canonicalPathForDir(destDir);
             const QString jsonName = QFileInfo(model.jsonPath).fileName();
             model.jsonPath = destDir.filePath(jsonName);
@@ -1875,7 +1862,10 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             model.name = makeUniqueModelName(*scheme, model.name);
 
             if (existingPaths.contains(model.directory))
+            {
+                QDir(destPath).removeRecursively();
                 continue;
+            }
 
             scheme->models.push_back(model);
             addedIds.push_back(model.id);
