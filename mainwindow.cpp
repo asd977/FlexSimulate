@@ -811,14 +811,23 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         m_activeSchemeId = schemeId;
         m_activeModelId.clear();
         ui->stackedWidget->setCurrentWidget(ui->MainPage);
-        showSchemeSettings(schemeId);
         clearVtkScene();
         setVisualizationVisible(false);
 
-        if (SchemeRecord* scheme = schemeById(schemeId))
-            updateSelectionInfo(scheme->workingDirectory, scheme->remarks);
+        SchemeRecord* scheme = schemeById(schemeId);
+        if (scheme && !scheme->libraryId.isEmpty() &&
+            libraryEntryById(scheme->libraryId))
+        {
+            showLibrarySchemeDetail(scheme->libraryId, schemeId);
+        }
         else
-            updateSelectionInfo();
+        {
+            showSchemeSettings(schemeId);
+            if (scheme)
+                updateSelectionInfo(scheme->workingDirectory, scheme->remarks);
+            else
+                updateSelectionInfo();
+        }
     }
     else if (type == ModelItem)
     {
@@ -1097,6 +1106,14 @@ void MainWindow::onGalleryAddRequested(const QString& id)
         return;
     }
 
+    SchemeRecord* existing = schemeByLibraryId(entry->id);
+    if (existing)
+    {
+        ui->stackedWidget->setCurrentWidget(ui->MainPage);
+        selectTreeItem(existing->id, QString());
+        return;
+    }
+
     if (entry->directory.isEmpty() || !QDir(entry->directory).exists())
     {
         QMessageBox::warning(this, tr("添加方案"), tr("方案库目录不存在或不可访问。"));
@@ -1112,33 +1129,36 @@ void MainWindow::onGalleryAddRequested(const QString& id)
         return;
     }
 
-    if (!copyDirectoryRecursively(entry->directory, targetDir))
+    if (!ensureDirectoryExists(targetDir))
     {
-        QDir(targetDir).removeRecursively();
         QMessageBox::warning(this, tr("添加方案"),
-                             tr("无法复制方案目录：%1")
-                                 .arg(QDir::toNativeSeparators(entry->directory)));
+                             tr("无法创建方案工作目录。"));
         return;
     }
 
-    const QString importedId = importSchemeFromDirectory(targetDir, false);
-    if (importedId.isEmpty())
+    const QString schemeId = createScheme(entryName, targetDir);
+    if (schemeId.isEmpty())
     {
         QDir(targetDir).removeRecursively();
-        QMessageBox::warning(this, tr("添加方案"), tr("无法导入方案。"));
+        QMessageBox::warning(this, tr("添加方案"), tr("无法在工程中创建方案。"));
         return;
     }
 
-    if (SchemeRecord* scheme = schemeById(importedId))
-    {
-        scheme->name = makeUniqueSchemeName(entryName, scheme->id);
-        persistSchemes();
-        refreshNavigation(importedId);
-    }
+    SchemeRecord* scheme = schemeById(schemeId);
+    if (!scheme)
+        return;
 
-    appendLogMessage(tr("已从方案库添加方案 %1").arg(entryName));
+    scheme->libraryId = entry->id;
+    if (!entry->thumbnailPath.isEmpty())
+        scheme->thumbnailPath = QDir::cleanPath(entry->thumbnailPath);
+    else
+        scheme->thumbnailPath.clear();
+
+    persistSchemes();
+    refreshNavigation(schemeId);
+    appendLogMessage(tr("已将方案库 %1 加入工程").arg(entryName));
     ui->stackedWidget->setCurrentWidget(ui->MainPage);
-    selectTreeItem(importedId, QString());
+    selectTreeItem(schemeId, QString());
 }
 
 void MainWindow::onGalleryDeleteRequested(const QString& id)
@@ -1349,17 +1369,34 @@ void MainWindow::updateGallery()
 
     for (const SchemeRecord& scheme : m_schemes)
     {
-        QPixmap thumb = loadSchemeThumbnail(scheme);
+        const SchemeLibraryEntry* linkedEntry =
+            scheme.libraryId.isEmpty() ? nullptr : libraryEntryById(scheme.libraryId);
+
+        QPixmap thumb;
+        QString displayName = scheme.name;
+        if (linkedEntry)
+        {
+            thumb = loadLibraryThumbnail(*linkedEntry);
+            if (displayName.trimmed().isEmpty())
+                displayName = linkedEntry->name;
+        }
         if (thumb.isNull())
-            thumb = makeSchemePlaceholder(scheme.name);
+        {
+            thumb = loadSchemeThumbnail(scheme);
+            if (thumb.isNull())
+                thumb = makeSchemePlaceholder(displayName.isEmpty() ? scheme.name : displayName);
+        }
 
         SchemeGalleryWidget::CardOptions options;
         options.showAddButton = false;
         options.showOpenButton = true;
         options.openToolTip = tr("查看方案详情");
-        options.hintText = tr("双击卡片查看详情");
+        options.hintText = linkedEntry ? tr("双击查看方案库详情")
+                                       : tr("双击卡片查看详情");
 
-        m_galleryWidget->addScheme(scheme.id, scheme.name, thumb, options);
+        m_galleryWidget->addScheme(scheme.id,
+                                   displayName.isEmpty() ? scheme.name : displayName,
+                                   thumb, options);
     }
 }
 
@@ -1403,10 +1440,16 @@ void MainWindow::clearDetailWidget()
 
 void MainWindow::showSchemeSettings(const QString& schemeId)
 {
-    const SchemeRecord* scheme = schemeById(schemeId);
+    SchemeRecord* scheme = schemeById(schemeId);
     if (!scheme)
     {
         clearDetailWidget();
+        return;
+    }
+
+    if (!scheme->libraryId.isEmpty() && libraryEntryById(scheme->libraryId))
+    {
+        showLibrarySchemeDetail(scheme->libraryId, scheme->id);
         return;
     }
 
@@ -1634,8 +1677,20 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
     return container;
 }
 
-void MainWindow::showLibrarySchemeDetail(const QString& entryId)
+void MainWindow::showLibrarySchemeDetail(const QString& entryId,
+                                         const QString& projectSchemeId)
 {
+    SchemeRecord* linkedScheme = nullptr;
+    if (!projectSchemeId.isEmpty())
+    {
+        linkedScheme = schemeById(projectSchemeId);
+        if (linkedScheme && !linkedScheme->libraryId.isEmpty() &&
+            linkedScheme->libraryId.compare(entryId, Qt::CaseInsensitive) != 0)
+        {
+            linkedScheme = nullptr;
+        }
+    }
+
     SchemeLibraryEntry* entry = libraryEntryById(entryId);
     if (!entry)
     {
@@ -1667,9 +1722,12 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
     }
 
     const QString entryName = entry->name.isEmpty() ? tr("未命名方案") : entry->name;
-    const QString previousSchemeId = m_activeSchemeId;
+    const QString defaultSchemeId = linkedScheme ? linkedScheme->id : m_activeSchemeId;
     clearDetailWidget();
-    m_activeSchemeId.clear();
+    if (linkedScheme)
+        m_activeSchemeId = linkedScheme->id;
+    else
+        m_activeSchemeId.clear();
     m_activeModelId.clear();
 
     auto* container = new QWidget(ui->settingWidget);
@@ -1688,10 +1746,22 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
     pathLabel->setStyleSheet("color:#475569;");
     layout->addWidget(pathLabel);
 
-    auto* hintLabel = new QLabel(
-        tr("在此页面可以向方案库添加模型，或将已有模型导入当前工程。"
-           "请选择下方的模型后点击“添加到工程”。"),
-        container);
+    QString schemeHintName;
+    if (linkedScheme)
+        schemeHintName = linkedScheme->name.isEmpty() ? tr("未命名方案") : linkedScheme->name;
+    QString hintText;
+    if (linkedScheme)
+    {
+        hintText = tr("在此页面可以向方案库添加模型，或将模型导入当前工程的“%1”方案。"
+                      "请选择下方的模型后点击“添加到工程”。")
+                        .arg(schemeHintName);
+    }
+    else
+    {
+        hintText = tr("在此页面可以向方案库添加模型，或将已有模型导入当前工程。"
+                      "请选择下方的模型后点击“添加到工程”。");
+    }
+    auto* hintLabel = new QLabel(hintText, container);
     hintLabel->setWordWrap(true);
     hintLabel->setStyleSheet("color:#64748b;");
     layout->addWidget(hintLabel);
@@ -1834,8 +1904,9 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
                 }
             });
 
+    const QString linkedSchemeId = linkedScheme ? linkedScheme->id : QString();
     connect(addToProjectBtn, &QPushButton::clicked, this,
-            [this, listWidget, previousSchemeId]() {
+            [this, listWidget, linkedSchemeId, defaultSchemeId]() {
                 if (!hasActiveProject())
                 {
                     QMessageBox::information(this, tr("添加到工程"),
@@ -1851,13 +1922,6 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
                     return;
                 }
 
-                if (m_schemes.isEmpty())
-                {
-                    QMessageBox::information(this, tr("添加到工程"),
-                                             tr("当前工程中没有方案，请先创建方案。"));
-                    return;
-                }
-
                 QStringList modelDirectories;
                 for (QListWidgetItem* item : selectedItems)
                 {
@@ -1867,6 +1931,22 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
                 }
                 if (modelDirectories.isEmpty())
                     return;
+
+                if (!linkedSchemeId.isEmpty())
+                {
+                    const QVector<QString> added =
+                        importModelsIntoScheme(linkedSchemeId, modelDirectories);
+                    if (!added.isEmpty())
+                        ui->stackedWidget->setCurrentWidget(ui->MainPage);
+                    return;
+                }
+
+                if (m_schemes.isEmpty())
+                {
+                    QMessageBox::information(this, tr("添加到工程"),
+                                             tr("当前工程中没有方案，请先从方案库添加方案。"));
+                    return;
+                }
 
                 QStringList options;
                 QVector<QString> schemeIds;
@@ -1881,7 +1961,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
                         tr("%1 (%2)").arg(displayName, scheme.id.left(8));
                     options << optionText;
                     schemeIds << scheme.id;
-                    if (scheme.id == previousSchemeId)
+                    if (!defaultSchemeId.isEmpty() && scheme.id == defaultSchemeId)
                         defaultIndex = i;
                 }
 
@@ -1909,7 +1989,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId)
     ui->settingWidget->layout()->addWidget(container);
     setVisualizationVisible(false);
     clearVtkScene();
-    updateSelectionInfo(directory, QString());
+    updateSelectionInfo(directory, linkedScheme ? linkedScheme->remarks : QString());
 }
 
 void MainWindow::refreshCurrentDetail()
@@ -1937,6 +2017,32 @@ const MainWindow::SchemeRecord* MainWindow::schemeById(const QString& id) const
     for (const SchemeRecord& scheme : m_schemes)
     {
         if (scheme.id == id)
+            return &scheme;
+    }
+    return nullptr;
+}
+
+MainWindow::SchemeRecord* MainWindow::schemeByLibraryId(const QString& libraryId)
+{
+    if (libraryId.trimmed().isEmpty())
+        return nullptr;
+
+    for (SchemeRecord& scheme : m_schemes)
+    {
+        if (scheme.libraryId.compare(libraryId, Qt::CaseInsensitive) == 0)
+            return &scheme;
+    }
+    return nullptr;
+}
+
+const MainWindow::SchemeRecord* MainWindow::schemeByLibraryId(const QString& libraryId) const
+{
+    if (libraryId.trimmed().isEmpty())
+        return nullptr;
+
+    for (const SchemeRecord& scheme : m_schemes)
+    {
+        if (scheme.libraryId.compare(libraryId, Qt::CaseInsensitive) == 0)
             return &scheme;
     }
     return nullptr;
@@ -3177,6 +3283,7 @@ bool MainWindow::loadSchemesFromStorage()
         if (scheme.id.isEmpty())
             scheme.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
         scheme.name = obj.value(QStringLiteral("name")).toString();
+        scheme.libraryId = obj.value(QStringLiteral("libraryId")).toString().trimmed();
         scheme.workingDirectory = canonicalPathForDir(QDir(obj.value(QStringLiteral("workingDirectory")).toString()));
         if (scheme.workingDirectory.isEmpty())
             continue;
@@ -3226,6 +3333,7 @@ void MainWindow::saveSchemesToStorage() const
         QJsonObject obj;
         obj.insert(QStringLiteral("id"), scheme.id);
         obj.insert(QStringLiteral("name"), scheme.name);
+        obj.insert(QStringLiteral("libraryId"), scheme.libraryId);
         obj.insert(QStringLiteral("workingDirectory"), scheme.workingDirectory);
         obj.insert(QStringLiteral("thumbnailPath"), scheme.thumbnailPath);
         obj.insert(QStringLiteral("remarks"), scheme.remarks);
