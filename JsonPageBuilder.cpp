@@ -41,9 +41,6 @@ JsonPageBuilder::JsonPageBuilder(const QString& jsonPath, QWidget* parent)
     : QWidget(parent)
     , m_jsonPath(QFileInfo(jsonPath).absoluteFilePath())
 {
-    setWindowTitle(("广汽APP-Demo"));
-    setMinimumWidth(500);
-
     QFileInfo info(m_jsonPath);
     if (info.exists())
     {
@@ -65,51 +62,61 @@ JsonPageBuilder::JsonPageBuilder(const QString& jsonPath, QWidget* parent)
 void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
 {
     auto* mainLayout = new QVBoxLayout(this);
+    mainLayout->setSpacing(12);
+    mainLayout->setContentsMargins(10, 10, 10, 10);
 
     for (int i = 0; i < sections.size(); ++i)
     {
         const QJsonObject sec = sections.at(i).toObject();
         const QString title = sec.value("title").toString();
 
+        // 标题按钮
         auto* titleBtn = new QPushButton(title, this);
         titleBtn->setMinimumHeight(40);
         titleBtn->setStyleSheet(kBtnQss);
-
         mainLayout->addWidget(titleBtn);
         m_titleButtons.push_back(titleBtn);
+
+        // 本分组的网格布局：左列标签，右列输入框
+        auto* grid = new QGridLayout();
+        grid->setHorizontalSpacing(12);
+        grid->setVerticalSpacing(8);
+        grid->setContentsMargins(6, 0, 6, 6);
+        grid->setColumnStretch(0, 0); // label 列不拉伸
+        grid->setColumnStretch(1, 1); // edit 列自适应拉伸
 
         QVector<QLabel*> nameLabels;
         QVector<QLineEdit*> edits;
 
         const QJsonArray dataList = sec.value("data").toArray();
-        for (int j = 0; j < dataList.size(); ++j) {
-            const QJsonObject item = dataList.at(j).toObject();
+        for (int row = 0; row < dataList.size(); ++row) {
+            const QJsonObject item = dataList.at(row).toObject();
             const QString cnName = item.value("cn_name").toString();
             const QJsonValue val = item.value("value");
 
-            auto* h = new QHBoxLayout();
-            auto* lab = new QLabel(cnName + ("："), this);
-            lab->setMinimumWidth(80);
-            lab->setMinimumHeight(40);
+            auto* lab = new QLabel(cnName + QString("："), this);
+            lab->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
 
             auto* edit = new QLineEdit(this);
-            // 将 JSON 值回显为字符串
+            // JSON 值回显为字符串
             if (val.isDouble()) {
                 edit->setText(QString::number(val.toDouble(), 'g', 15));
             } else if (val.isString()) {
                 edit->setText(val.toString());
             } else if (val.isBool()) {
-                edit->setText(val.toBool() ? "1" : "0");
-            } else if (val.isNull() || val.isUndefined()) {
-                edit->setText("");
-            } else {
-                // 其他类型（对象/数组）不在本场景中，转成字符串
-                edit->setText(QString::fromUtf8(QJsonDocument(val.toObject()).toJson(QJsonDocument::Compact)));
+                edit->setText(val.toBool() ? QString("1") : QString("0"));
+            } else if (val.isArray()) {
+                edit->setText(QString::fromUtf8(QJsonDocument(val.toArray())
+                                                .toJson(QJsonDocument::Compact)));
+            } else if (val.isObject()) {
+                edit->setText(QString::fromUtf8(QJsonDocument(val.toObject())
+                                                .toJson(QJsonDocument::Compact)));
+            } else { // null / undefined
+                edit->setText(QString());
             }
 
-            h->addWidget(lab, 1);
-            h->addWidget(edit, 2);
-            mainLayout->addLayout(h);
+            grid->addWidget(lab,  row, 0);
+            grid->addWidget(edit, row, 1);
 
             nameLabels.push_back(lab);
             edits.push_back(edit);
@@ -117,9 +124,12 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
 
         m_labelNameWidgets.push_back(nameLabels);
         m_labelDataWidgets.push_back(edits);
+
+        mainLayout->addLayout(grid);
     }
 
-    m_calculateButton = new QPushButton(("计算"), this);
+    // 计算按钮
+    m_calculateButton = new QPushButton(QString("计算"), this);
     m_calculateButton->setMinimumHeight(40);
     connect(m_calculateButton, &QPushButton::clicked,
             this, &JsonPageBuilder::onCalculateButtonClicked);
@@ -127,8 +137,8 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
     mainLayout->addWidget(m_calculateButton);
     mainLayout->addStretch(1);
     setLayout(mainLayout);
-    resize(400, 600);
 }
+
 
 bool JsonPageBuilder::loadJson(const QString& path, QJsonArray& outSections)
 {
