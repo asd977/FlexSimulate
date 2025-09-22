@@ -242,8 +242,6 @@ void MainWindow::setupConnections()
 
     connect(m_galleryWidget, &SchemeGalleryWidget::schemeOpenRequested,
             this, &MainWindow::onGalleryOpenRequested);
-    connect(m_galleryWidget, &SchemeGalleryWidget::schemeAddRequested,
-            this, &MainWindow::onGalleryAddRequested);
     connect(m_galleryWidget, &SchemeGalleryWidget::schemeDeleteRequested,
             this, &MainWindow::onGalleryDeleteRequested);
     connect(m_galleryWidget, &SchemeGalleryWidget::schemeDetailsRequested,
@@ -1094,73 +1092,6 @@ void MainWindow::onGalleryOpenRequested(const QString& id)
     }
 }
 
-void MainWindow::onGalleryAddRequested(const QString& id)
-{
-    const SchemeLibraryEntry* entry = libraryEntryById(id);
-    if (!entry)
-        return;
-
-    if (!hasActiveProject())
-    {
-        QMessageBox::information(this, tr("添加方案"), tr("请先新建或打开工程。"));
-        return;
-    }
-
-    SchemeRecord* existing = schemeByLibraryId(entry->id);
-    if (existing)
-    {
-        ui->stackedWidget->setCurrentWidget(ui->MainPage);
-        selectTreeItem(existing->id, QString());
-        return;
-    }
-
-    if (entry->directory.isEmpty() || !QDir(entry->directory).exists())
-    {
-        QMessageBox::warning(this, tr("添加方案"), tr("方案库目录不存在或不可访问。"));
-        return;
-    }
-
-    const QString entryName = entry->name.isEmpty() ? tr("未命名方案") : entry->name;
-
-    QString targetDir = makeUniqueWorkspaceSubdir(entryName);
-    if (targetDir.isEmpty())
-    {
-        QMessageBox::warning(this, tr("添加方案"), tr("无法创建方案工作目录。"));
-        return;
-    }
-
-    if (!ensureDirectoryExists(targetDir))
-    {
-        QMessageBox::warning(this, tr("添加方案"),
-                             tr("无法创建方案工作目录。"));
-        return;
-    }
-
-    const QString schemeId = createScheme(entryName, targetDir);
-    if (schemeId.isEmpty())
-    {
-        QDir(targetDir).removeRecursively();
-        QMessageBox::warning(this, tr("添加方案"), tr("无法在工程中创建方案。"));
-        return;
-    }
-
-    SchemeRecord* scheme = schemeById(schemeId);
-    if (!scheme)
-        return;
-
-    scheme->libraryId = entry->id;
-    if (!entry->thumbnailPath.isEmpty())
-        scheme->thumbnailPath = QDir::cleanPath(entry->thumbnailPath);
-    else
-        scheme->thumbnailPath.clear();
-
-    persistSchemes();
-    refreshNavigation(schemeId);
-    appendLogMessage(tr("已将方案库 %1 加入工程").arg(entryName));
-    ui->stackedWidget->setCurrentWidget(ui->MainPage);
-    selectTreeItem(schemeId, QString());
-}
-
 void MainWindow::onGalleryDeleteRequested(const QString& id)
 {
     if (SchemeLibraryEntry* entry = libraryEntryById(id))
@@ -1341,8 +1272,6 @@ void MainWindow::updateGallery()
         return;
 
     m_galleryWidget->clearSchemes();
-    const bool hasProject = hasActiveProject();
-
     for (const SchemeLibraryEntry& entry : m_librarySchemes)
     {
         QPixmap thumb = loadLibraryThumbnail(entry);
@@ -1350,10 +1279,6 @@ void MainWindow::updateGallery()
             thumb = makeSchemePlaceholder(entry.name);
 
         SchemeGalleryWidget::CardOptions options;
-        options.showAddButton = true;
-        options.enableAddButton = hasProject;
-        options.addToolTip = hasProject ? tr("添加到当前工程")
-                                        : tr("请先新建或打开工程。");
         options.showDeleteButton = entry.deletable;
         options.enableDeleteButton = entry.deletable;
         options.deleteToolTip = entry.deletable
@@ -1388,7 +1313,6 @@ void MainWindow::updateGallery()
         }
 
         SchemeGalleryWidget::CardOptions options;
-        options.showAddButton = false;
         options.showOpenButton = true;
         options.openToolTip = tr("查看方案详情");
         options.hintText = linkedEntry ? tr("双击查看方案库详情")
@@ -1944,7 +1868,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 if (m_schemes.isEmpty())
                 {
                     QMessageBox::information(this, tr("添加到工程"),
-                                             tr("当前工程中没有方案，请先从方案库添加方案。"));
+                                             tr("当前工程中没有方案，无法导入模型。"));
                     return;
                 }
 

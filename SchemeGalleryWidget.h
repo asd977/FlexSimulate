@@ -16,14 +16,11 @@ public:
     ~SchemeGalleryWidget();
 
     struct CardOptions {
-        bool showAddButton = false;
-        bool enableAddButton = true;
         bool showDeleteButton = true;
         bool enableDeleteButton = true;
         bool showOpenButton = false;
         bool enableOpenButton = true;
         QString hintText;
-        QString addToolTip;
         QString deleteToolTip;
         QString openToolTip;
     };
@@ -37,7 +34,6 @@ public:
 
 signals:
     void schemeOpenRequested(const QString& id);
-    void schemeAddRequested(const QString& id);
     void schemeDeleteRequested(const QString& id);
     void schemeDetailsRequested(const QString& id);
     void createSchemeRequested();

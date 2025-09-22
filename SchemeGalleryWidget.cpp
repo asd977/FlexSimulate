@@ -59,10 +59,6 @@ void SchemeGalleryWidget::addScheme(const QString& id,
     card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     if (!options.hintText.isEmpty())
         card->setHintText(options.hintText);
-    card->setAddButtonVisible(options.showAddButton);
-    card->setAddButtonEnabled(options.enableAddButton);
-    if (!options.addToolTip.isEmpty())
-        card->setAddButtonToolTip(options.addToolTip);
     card->setDeleteButtonVisible(options.showDeleteButton);
     card->setDeleteButtonEnabled(options.enableDeleteButton);
     if (!options.deleteToolTip.isEmpty())
@@ -80,9 +76,6 @@ void SchemeGalleryWidget::addScheme(const QString& id,
     // 打开设置
     connect(card, &SchemeCardWidget::openRequested,
             this, &SchemeGalleryWidget::schemeOpenRequested);
-
-    connect(card, &SchemeCardWidget::addRequested,
-            this, &SchemeGalleryWidget::schemeAddRequested);
 
     connect(card, &SchemeCardWidget::detailsRequested,
             this, &SchemeGalleryWidget::schemeDetailsRequested);
