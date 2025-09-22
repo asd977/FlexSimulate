@@ -1615,8 +1615,35 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
         return;
     }
 
-    const QString entryName = entry->name.isEmpty() ? tr("未命名方案") : entry->name;
-    const QString defaultSchemeId = linkedScheme ? linkedScheme->id : m_activeSchemeId;
+    if (!linkedScheme)
+        linkedScheme = schemeByLibraryId(entry->id);
+
+    const auto entryDisplayName = [this, entry]() -> QString {
+        const QString trimmed = entry->name.trimmed();
+        return trimmed.isEmpty() ? tr("未命名方案") : trimmed;
+    };
+
+    const auto updateSchemeHint = [this, entry](QLabel* hintLabel) {
+        if (!hintLabel)
+            return;
+
+        const SchemeRecord* linked = schemeByLibraryId(entry->id);
+        if (linked)
+        {
+            const QString schemeName = linked->name.trimmed().isEmpty()
+                                          ? tr("未命名方案")
+                                          : linked->name.trimmed();
+            hintLabel->setText(tr("在此页面可以向方案库添加模型，或将模型导入当前工程的“%1”方案。"
+                                  "请选择下方的模型后点击“添加到工程”。")
+                                  .arg(schemeName));
+        }
+        else
+        {
+            hintLabel->setText(tr("在此页面可以向方案库添加模型，或将已有模型导入当前工程。"
+                                  "请选择下方的模型后点击“添加到工程”。"));
+        }
+    };
+
     clearDetailWidget();
     if (linkedScheme)
         m_activeSchemeId = linkedScheme->id;
@@ -1630,9 +1657,24 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(12);
 
-    auto* titleLabel = new QLabel(entryName, container);
+    auto* titleLayout = new QHBoxLayout();
+    titleLayout->setContentsMargins(0, 0, 0, 0);
+
+    auto* titleLabel = new QLabel(entryDisplayName(), container);
     titleLabel->setStyleSheet("font-size:20px;font-weight:700;color:#1b2b4d;");
-    layout->addWidget(titleLabel);
+    titleLayout->addWidget(titleLabel);
+
+    auto* renameBtn = new QPushButton(tr("重命名"), container);
+    renameBtn->setCursor(Qt::PointingHandCursor);
+    renameBtn->setStyleSheet(
+        "QPushButton{padding:4px 14px;border-radius:16px;"
+        "border:1px solid #cbd5f5;background:#f8faff;color:#1d4ed8;}"
+        "QPushButton:hover{background:#e0e7ff;}"
+        "QPushButton:pressed{background:#bfdbfe;}");
+    titleLayout->addStretch();
+    titleLayout->addWidget(renameBtn);
+
+    layout->addLayout(titleLayout);
 
     auto* pathLabel = new QLabel(
         tr("方案目录：%1").arg(QDir::toNativeSeparators(directory)), container);
@@ -1640,25 +1682,11 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     pathLabel->setStyleSheet("color:#475569;");
     layout->addWidget(pathLabel);
 
-    QString schemeHintName;
-    if (linkedScheme)
-        schemeHintName = linkedScheme->name.isEmpty() ? tr("未命名方案") : linkedScheme->name;
-    QString hintText;
-    if (linkedScheme)
-    {
-        hintText = tr("在此页面可以向方案库添加模型，或将模型导入当前工程的“%1”方案。"
-                      "请选择下方的模型后点击“添加到工程”。")
-                        .arg(schemeHintName);
-    }
-    else
-    {
-        hintText = tr("在此页面可以向方案库添加模型，或将已有模型导入当前工程。"
-                      "请选择下方的模型后点击“添加到工程”。");
-    }
-    auto* hintLabel = new QLabel(hintText, container);
+    auto* hintLabel = new QLabel(QString(), container);
     hintLabel->setWordWrap(true);
     hintLabel->setStyleSheet("color:#64748b;");
     layout->addWidget(hintLabel);
+    updateSchemeHint(hintLabel);
 
     auto* listFrame = new QFrame(container);
     listFrame->setObjectName("libraryModelFrame");
@@ -1766,6 +1794,60 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
 
     refreshModels();
 
+    const auto refreshEntryUi = [entryDisplayName, titleLabel, hintLabel, updateSchemeHint]() {
+        titleLabel->setText(entryDisplayName());
+        updateSchemeHint(hintLabel);
+    };
+
+    connect(renameBtn, &QPushButton::clicked, this,
+            [this, entry, entryDisplayName, refreshEntryUi]() {
+                bool ok = false;
+                const QString currentName = entry->name;
+                const QString newName = QInputDialog::getText(
+                    this, tr("重命名方案"), tr("新的方案名称："), QLineEdit::Normal,
+                    currentName, &ok);
+                if (!ok)
+                    return;
+
+                const QString trimmed = newName.trimmed();
+                if (trimmed.isEmpty())
+                {
+                    QMessageBox::warning(this, tr("重命名方案"), tr("方案名称不能为空。"));
+                    return;
+                }
+
+                if (trimmed == entry->name)
+                {
+                    refreshEntryUi();
+                    return;
+                }
+
+                entry->name = trimmed;
+
+                bool schemeUpdated = false;
+                {
+                    QScopedValueRollback<bool> guard(m_blockTreeSignals, true);
+                    for (SchemeRecord& scheme : m_schemes)
+                    {
+                        if (scheme.libraryId.compare(entry->id, Qt::CaseInsensitive) != 0)
+                            continue;
+
+                        scheme.name = trimmed;
+                        schemeUpdated = true;
+                        auto it = m_schemeItems.find(scheme.id);
+                        if (it != m_schemeItems.end() && it.value())
+                            it.value()->setText(0, scheme.name);
+                    }
+                }
+
+                refreshEntryUi();
+                saveSchemeLibrary();
+                if (schemeUpdated)
+                    persistSchemes();
+                updateGallery();
+                appendLogMessage(tr("已将方案库重命名为 %1").arg(entryDisplayName()));
+            });
+
     connect(listWidget, &QListWidget::itemDoubleClicked, this,
             [](QListWidgetItem* item) {
                 const QString dir = item->data(Qt::UserRole).toString();
@@ -1777,7 +1859,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
             [directory]() { QDesktopServices::openUrl(QUrl::fromLocalFile(directory)); });
 
     connect(addModelBtn, &QPushButton::clicked, this,
-            [this, entry, entryName, refreshModels]() {
+            [this, entry, entryDisplayName, refreshModels]() {
                 QFileDialog dlg(this, tr("选择模型目录"));
                 dlg.setFileMode(QFileDialog::Directory);
                 dlg.setOption(QFileDialog::ShowDirsOnly, true);
@@ -1795,15 +1877,14 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                     refreshModels();
                     appendLogMessage(
                         tr("已向方案库 %1 添加 %2 个模型")
-                            .arg(entryName)
+                            .arg(entryDisplayName())
                             .arg(added.size()));
                     updateGallery();
                 }
             });
 
-    const QString linkedSchemeId = linkedScheme ? linkedScheme->id : QString();
     connect(addToProjectBtn, &QPushButton::clicked, this,
-            [this, listWidget, linkedSchemeId, defaultSchemeId, entry, entryName]() {
+            [this, listWidget, entry, entryDisplayName, refreshEntryUi]() {
                 if (!hasActiveProject())
                 {
                     QMessageBox::information(this, tr("添加到工程"),
@@ -1829,15 +1910,16 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 if (modelDirectories.isEmpty())
                     return;
 
-                QString targetSchemeId = linkedSchemeId;
+                QString targetSchemeId;
+                if (SchemeRecord* linked = schemeByLibraryId(entry->id))
+                    targetSchemeId = linked->id;
                 bool createdNewScheme = false;
+                bool schemeRenamed = false;
                 QString newSchemeDir;
 
-                if (targetSchemeId.isEmpty() && m_schemes.isEmpty())
+                if (targetSchemeId.isEmpty())
                 {
-                    QString schemeName = entryName;
-                    if (schemeName.trimmed().isEmpty())
-                        schemeName = tr("新方案%1").arg(m_schemes.size() + 1);
+                    QString schemeName = entryDisplayName();
 
                     QString workingDir = makeUniqueWorkspaceSubdir(schemeName);
                     if (workingDir.isEmpty())
@@ -1865,13 +1947,28 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
 
                     if (SchemeRecord* scheme = schemeById(createdId))
                     {
-                        if (entry)
-                            scheme->libraryId = entry->id;
+                        scheme->libraryId = entry->id;
+                        scheme->name = schemeName;
                     }
 
                     targetSchemeId = createdId;
                     createdNewScheme = true;
                     newSchemeDir = workingDir;
+                }
+                else
+                {
+                    if (SchemeRecord* scheme = schemeById(targetSchemeId))
+                    {
+                        const QString desiredName = entryDisplayName();
+                        if (scheme->name != desiredName)
+                        {
+                            scheme->name = desiredName;
+                            schemeRenamed = true;
+                            auto it = m_schemeItems.find(scheme->id);
+                            if (it != m_schemeItems.end() && it.value())
+                                it.value()->setText(0, scheme->name);
+                        }
+                    }
                 }
 
                 if (!targetSchemeId.isEmpty())
@@ -1904,51 +2001,13 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                         persistSchemes();
                         refreshNavigation();
                     }
-                    return;
+                    else if (schemeRenamed)
+                    {
+                        persistSchemes();
+                    }
                 }
 
-                if (m_schemes.isEmpty())
-                {
-                    QMessageBox::information(this, tr("添加到工程"),
-                                             tr("当前工程中没有方案，无法导入模型。"));
-                    return;
-                }
-
-                QStringList options;
-                QVector<QString> schemeIds;
-                int defaultIndex = -1;
-                for (int i = 0; i < m_schemes.size(); ++i)
-                {
-                    const SchemeRecord& scheme = m_schemes.at(i);
-                    QString displayName = scheme.name.isEmpty()
-                                              ? tr("未命名方案")
-                                              : scheme.name;
-                    const QString optionText =
-                        tr("%1 (%2)").arg(displayName, scheme.id.left(8));
-                    options << optionText;
-                    schemeIds << scheme.id;
-                    if (!defaultSchemeId.isEmpty() && scheme.id == defaultSchemeId)
-                        defaultIndex = i;
-                }
-
-                bool ok = false;
-                const int startIndex = defaultIndex >= 0 ? defaultIndex : 0;
-                const QString choice = QInputDialog::getItem(
-                    this, tr("选择方案"),
-                    tr("请选择要导入模型的方案："),
-                    options, startIndex, false, &ok);
-                if (!ok)
-                    return;
-
-                const int choiceIndex = options.indexOf(choice);
-                if (choiceIndex < 0 || choiceIndex >= schemeIds.size())
-                    return;
-
-                const QString targetSchemeId = schemeIds.at(choiceIndex);
-                const QVector<QString> added =
-                    importModelsIntoScheme(targetSchemeId, modelDirectories);
-                if (!added.isEmpty())
-                    ui->stackedWidget->setCurrentWidget(ui->MainPage);
+                refreshEntryUi();
             });
 
     m_currentDetailWidget = container;
