@@ -1649,27 +1649,6 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
         return trimmed.isEmpty() ? tr("未命名方案") : trimmed;
     };
 
-    const auto updateSchemeHint = [this, entry](QLabel* hintLabel) {
-        if (!hintLabel)
-            return;
-
-        const SchemeRecord* linked = schemeByLibraryId(entry->id);
-        if (linked)
-        {
-            const QString schemeName = linked->name.trimmed().isEmpty()
-                                          ? tr("未命名方案")
-                                          : linked->name.trimmed();
-            hintLabel->setText(tr("在此页面可以向方案库添加模型，或将模型导入当前工程的“%1”方案。"
-                                  "请选择下方的模型后点击“添加到工程”。")
-                                  .arg(schemeName));
-        }
-        else
-        {
-            hintLabel->setText(tr("在此页面可以向方案库添加模型，或将已有模型导入当前工程。"
-                                  "请选择下方的模型后点击“添加到工程”。"));
-        }
-    };
-
     clearDetailWidget();
     if (linkedScheme)
         m_activeSchemeId = linkedScheme->id;
@@ -1701,18 +1680,6 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     titleLayout->addWidget(renameBtn);
 
     layout->addLayout(titleLayout);
-
-    auto* pathLabel = new QLabel(
-        tr("方案目录：%1").arg(QDir::toNativeSeparators(directory)), container);
-    pathLabel->setWordWrap(true);
-    pathLabel->setStyleSheet("color:#475569;");
-    layout->addWidget(pathLabel);
-
-    auto* hintLabel = new QLabel(QString(), container);
-    hintLabel->setWordWrap(true);
-    hintLabel->setStyleSheet("color:#64748b;");
-    layout->addWidget(hintLabel);
-    updateSchemeHint(hintLabel);
 
     auto* listFrame = new QFrame(container);
     listFrame->setObjectName("libraryModelFrame");
@@ -1761,44 +1728,59 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     buttonLayout->setSpacing(8);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
 
+    const QString actionButtonStyle =
+        QStringLiteral("QPushButton{padding:8px 18px;border-radius:18px;border:none;"
+                       "background-color:#2563eb;color:#ffffff;font-weight:600;}"
+                       "QPushButton:hover{background-color:#1d4ed8;}"
+                       "QPushButton:pressed{background-color:#1e3a8a;}");
+
     auto* addModelBtn = new QPushButton(tr("添加模型"), container);
     addModelBtn->setCursor(Qt::PointingHandCursor);
-    addModelBtn->setStyleSheet(
-        "QPushButton{padding:8px 18px;border-radius:18px;border:none;"
-        "background-color:#2563eb;color:#ffffff;font-weight:600;}"
-        "QPushButton:hover{background-color:#1d4ed8;}"
-        "QPushButton:pressed{background-color:#1e3a8a;}");
+    addModelBtn->setStyleSheet(actionButtonStyle);
     buttonLayout->addWidget(addModelBtn);
+
+    auto* deleteModelBtn = new QPushButton(tr("删除模型"), container);
+    deleteModelBtn->setCursor(Qt::PointingHandCursor);
+    deleteModelBtn->setStyleSheet(actionButtonStyle);
+    deleteModelBtn->setEnabled(false);
+    deleteModelBtn->setToolTip(tr("请选择要删除的模型。"));
+    buttonLayout->addWidget(deleteModelBtn);
 
     auto* addToProjectBtn = new QPushButton(tr("添加到工程"), container);
     addToProjectBtn->setCursor(Qt::PointingHandCursor);
-    addToProjectBtn->setStyleSheet(
-        "QPushButton{padding:8px 18px;border-radius:18px;border:none;"
-        "background-color:#0f766e;color:#ffffff;font-weight:600;}"
-        "QPushButton:hover{background-color:#0d9488;}"
-        "QPushButton:pressed{background-color:#0f766e;}");
+    addToProjectBtn->setStyleSheet(actionButtonStyle);
     buttonLayout->addWidget(addToProjectBtn);
-
-    if (!hasActiveProject())
-    {
-        addToProjectBtn->setToolTip(tr("请先新建或打开工程。"));
-        addToProjectBtn->setEnabled(false);
-    }
 
     auto* openDirBtn = new QPushButton(tr("打开方案目录"), container);
     openDirBtn->setCursor(Qt::PointingHandCursor);
-    openDirBtn->setStyleSheet(
-        "QPushButton{padding:8px 18px;border-radius:18px;"
-        "border:1px solid #cbd5f5;background:#f1f5ff;color:#1d4ed8;}"
-        "QPushButton:hover{background:#e0e7ff;}"
-        "QPushButton:pressed{background:#bfdbfe;}");
+    openDirBtn->setStyleSheet(actionButtonStyle);
     buttonLayout->addWidget(openDirBtn);
 
     buttonLayout->addStretch(1);
 
     layout->addLayout(buttonLayout);
 
-    auto refreshModels = [this, entry, listWidget, emptyLabel, countLabel]() {
+    auto applySelectionState = [this, listWidget, deleteModelBtn, addToProjectBtn]() {
+        const bool hasSelection = !listWidget->selectedItems().isEmpty();
+        deleteModelBtn->setEnabled(hasSelection);
+        deleteModelBtn->setToolTip(
+            hasSelection ? QString() : tr("请选择要删除的模型。"));
+
+        if (!hasActiveProject())
+        {
+            addToProjectBtn->setEnabled(false);
+            addToProjectBtn->setToolTip(tr("请先新建或打开工程。"));
+        }
+        else
+        {
+            addToProjectBtn->setEnabled(hasSelection);
+            addToProjectBtn->setToolTip(
+                hasSelection ? QString() : tr("请选择要导入的模型。"));
+        }
+    };
+
+    auto refreshModels = [this, entry, listWidget, emptyLabel, countLabel,
+                          applySelectionState]() {
         listWidget->clear();
         const QVector<ModelRecord> models = scanSchemeFolder(entry->directory);
         countLabel->setText(tr("%1 个模型").arg(models.size()));
@@ -1814,16 +1796,19 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                          QDir::toNativeSeparators(model.directory)));
             item->setToolTip(QDir::toNativeSeparators(model.jsonPath));
             item->setData(Qt::UserRole, model.directory);
+            item->setData(Qt::UserRole + 1, model.name);
             listWidget->addItem(item);
         }
+        applySelectionState();
     };
 
     refreshModels();
 
-    const auto refreshEntryUi = [entryDisplayName, titleLabel, hintLabel, updateSchemeHint]() {
+    const auto refreshEntryUi = [entryDisplayName, titleLabel]() {
         titleLabel->setText(entryDisplayName());
-        updateSchemeHint(hintLabel);
     };
+
+    connect(listWidget, &QListWidget::itemSelectionChanged, this, applySelectionState);
 
     connect(renameBtn, &QPushButton::clicked, this,
             [this, entry, entryDisplayName, refreshEntryUi]() {
@@ -1909,6 +1894,97 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 }
             });
 
+    connect(deleteModelBtn, &QPushButton::clicked, this,
+            [this, entry, listWidget, entryDisplayName, refreshModels]() {
+                QList<QListWidgetItem*> selectedItems = listWidget->selectedItems();
+                if (selectedItems.isEmpty())
+                    return;
+
+                QStringList modelDirs;
+                QStringList modelNames;
+                modelDirs.reserve(selectedItems.size());
+                modelNames.reserve(selectedItems.size());
+                for (QListWidgetItem* item : selectedItems)
+                {
+                    if (!item)
+                        continue;
+                    const QString dir = item->data(Qt::UserRole).toString();
+                    if (dir.trimmed().isEmpty())
+                        continue;
+                    if (!isPathWithinDirectory(dir, entry->directory))
+                        continue;
+                    modelDirs << dir;
+                    modelNames << item->data(Qt::UserRole + 1).toString();
+                }
+
+                if (modelDirs.isEmpty())
+                    return;
+
+                const QString displayName = entryDisplayName();
+                QString confirmText;
+                if (modelDirs.size() == 1)
+                {
+                    QString modelName = modelNames.value(0).trimmed();
+                    if (modelName.isEmpty())
+                        modelName = tr("未命名模型");
+                    confirmText =
+                        tr("确定要从方案库“%1”中删除模型“%2”吗？")
+                            .arg(displayName, modelName);
+                }
+                else
+                {
+                    confirmText =
+                        tr("确定要从方案库“%1”中删除选中的 %2 个模型吗？")
+                            .arg(displayName)
+                            .arg(modelDirs.size());
+                }
+
+                if (QMessageBox::question(this, tr("删除模型"), confirmText,
+                                          QMessageBox::Yes | QMessageBox::No,
+                                          QMessageBox::No) != QMessageBox::Yes)
+                    return;
+
+                int removedCount = 0;
+                QStringList failed;
+                for (const QString& dir : modelDirs)
+                {
+                    if (dir.trimmed().isEmpty())
+                        continue;
+
+                    QDir folder(dir);
+                    if (!folder.exists())
+                    {
+                        ++removedCount;
+                        continue;
+                    }
+
+                    if (!folder.removeRecursively())
+                    {
+                        failed << QDir::toNativeSeparators(dir);
+                        continue;
+                    }
+
+                    ++removedCount;
+                }
+
+                if (!failed.isEmpty())
+                {
+                    QMessageBox::warning(this, tr("删除模型"),
+                                         tr("无法删除以下模型目录：\n%1")
+                                             .arg(failed.join(QLatin1Char('\n'))));
+                }
+
+                refreshModels();
+
+                if (removedCount > 0)
+                {
+                    appendLogMessage(tr("已从方案库 %1 删除 %2 个模型")
+                                         .arg(displayName)
+                                         .arg(removedCount));
+                    updateGallery();
+                }
+            });
+
     connect(addToProjectBtn, &QPushButton::clicked, this,
             [this, listWidget, entry, entryDisplayName, refreshEntryUi]() {
                 if (!hasActiveProject())
@@ -1921,18 +1997,8 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 QList<QListWidgetItem*> selectedItems = listWidget->selectedItems();
                 if (selectedItems.isEmpty())
                 {
-                    const int total = listWidget->count();
-                    selectedItems.reserve(total);
-                    for (int i = 0; i < total; ++i)
-                    {
-                        if (QListWidgetItem* item = listWidget->item(i))
-                            selectedItems.append(item);
-                    }
-                }
-                if (selectedItems.isEmpty())
-                {
                     QMessageBox::information(this, tr("添加到工程"),
-                                             tr("当前方案未包含可导入的模型。"));
+                                             tr("请选择要导入的模型。"));
                     return;
                 }
 
