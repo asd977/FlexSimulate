@@ -40,6 +40,7 @@ private slots:
     void onGalleryOpenRequested(const QString& id);
     void onGalleryAddRequested(const QString& id);
     void onGalleryDeleteRequested(const QString& id);
+    void onGalleryDetailsRequested(const QString& id);
     void deleteCurrentTreeItem();
     void onNewProjectTriggered();
     void onOpenProjectTriggered();
@@ -105,6 +106,7 @@ private:
     void showModelSettings(const QString& modelId);
     QWidget* buildSchemeSettingsWidget(const SchemeRecord& scheme);
     QWidget* buildModelSettingsWidget(const ModelRecord& model);
+    void showLibrarySchemeDetail(const QString& entryId);
     void refreshCurrentDetail();
     void updateToolbarState();
     void setVisualizationVisible(bool visible);
@@ -124,6 +126,9 @@ private:
     QString createScheme(const QString& name, const QString& workingDir);
     QString importSchemeFromDirectory(const QString& dirPath, bool showError = true);
     QVector<QString> importModelsIntoScheme(const QString& schemeId,
+                                            const QStringList& paths,
+                                            bool showError = true);
+    QStringList importModelsIntoLibraryEntry(SchemeLibraryEntry& entry,
                                             const QStringList& paths,
                                             bool showError = true);
     bool isModelFolder(const QDir& dir, QString* jsonPath, QString* batPath) const;
