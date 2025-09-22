@@ -1696,8 +1696,11 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
         "QFrame#libraryModelFrame{background:#ffffff;border:1px solid #d0d5dd;"
         "border-radius:10px;}"
         "QListWidget#libraryModelList{border:none;background:transparent;}"
-        "QListWidget#libraryModelList::item{padding:10px;border-radius:8px;}"
-        "QListWidget#libraryModelList::item:hover{background:rgba(23,135,255,0.08);}");
+        "QListWidget#libraryModelList::item{padding:10px;border-radius:8px;color:#0f172a;}"
+        "QListWidget#libraryModelList::item:hover{background:rgba(37,99,235,0.12);}" 
+        "QListWidget#libraryModelList::item:selected{background:rgba(37,99,235,0.18);"
+        "border:1px solid rgba(37,99,235,0.35);color:#0f172a;}"
+        "QListWidget#libraryModelList::item:selected:!active{background:rgba(37,99,235,0.15);}");
     auto* listLayout = new QVBoxLayout(listFrame);
     listLayout->setContentsMargins(12, 12, 12, 12);
     listLayout->setSpacing(8);
@@ -1830,7 +1833,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
 
     const QString linkedSchemeId = linkedScheme ? linkedScheme->id : QString();
     connect(addToProjectBtn, &QPushButton::clicked, this,
-            [this, listWidget, linkedSchemeId, defaultSchemeId]() {
+            [this, listWidget, linkedSchemeId, defaultSchemeId, entry, entryName]() {
                 if (!hasActiveProject())
                 {
                     QMessageBox::information(this, tr("添加到工程"),
@@ -1856,12 +1859,81 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 if (modelDirectories.isEmpty())
                     return;
 
-                if (!linkedSchemeId.isEmpty())
+                QString targetSchemeId = linkedSchemeId;
+                bool createdNewScheme = false;
+                QString newSchemeDir;
+
+                if (targetSchemeId.isEmpty() && m_schemes.isEmpty())
+                {
+                    QString schemeName = entryName;
+                    if (schemeName.trimmed().isEmpty())
+                        schemeName = tr("新方案%1").arg(m_schemes.size() + 1);
+
+                    QString workingDir = makeUniqueWorkspaceSubdir(schemeName);
+                    if (workingDir.isEmpty())
+                    {
+                        QMessageBox::warning(this, tr("添加到工程"),
+                                             tr("无法创建方案工作目录。"));
+                        return;
+                    }
+                    if (!ensureDirectoryExists(workingDir))
+                    {
+                        QMessageBox::warning(this, tr("添加到工程"),
+                                             tr("无法创建工作目录：%1")
+                                                 .arg(QDir::toNativeSeparators(workingDir)));
+                        return;
+                    }
+
+                    const QString createdId = createScheme(schemeName, workingDir);
+                    if (createdId.isEmpty())
+                    {
+                        QDir(workingDir).removeRecursively();
+                        QMessageBox::warning(this, tr("添加到工程"),
+                                             tr("无法创建方案记录。"));
+                        return;
+                    }
+
+                    if (SchemeRecord* scheme = schemeById(createdId))
+                    {
+                        if (entry)
+                            scheme->libraryId = entry->id;
+                    }
+
+                    targetSchemeId = createdId;
+                    createdNewScheme = true;
+                    newSchemeDir = workingDir;
+                }
+
+                if (!targetSchemeId.isEmpty())
                 {
                     const QVector<QString> added =
-                        importModelsIntoScheme(linkedSchemeId, modelDirectories);
+                        importModelsIntoScheme(targetSchemeId, modelDirectories);
                     if (!added.isEmpty())
+                    {
                         ui->stackedWidget->setCurrentWidget(ui->MainPage);
+                    }
+                    else if (createdNewScheme)
+                    {
+                        for (int i = 0; i < m_schemes.size(); ++i)
+                        {
+                            if (m_schemes[i].id == targetSchemeId)
+                            {
+                                if (isPathWithinDirectory(m_schemes[i].thumbnailPath,
+                                                          m_schemes[i].workingDirectory))
+                                    QFile::remove(m_schemes[i].thumbnailPath);
+                                m_schemes.removeAt(i);
+                                break;
+                            }
+                        }
+                        if (!newSchemeDir.isEmpty())
+                        {
+                            QDir dir(newSchemeDir);
+                            if (dir.exists())
+                                dir.removeRecursively();
+                        }
+                        persistSchemes();
+                        refreshNavigation();
+                    }
                     return;
                 }
 
