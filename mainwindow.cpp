@@ -1705,12 +1705,18 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     headerLayout->setContentsMargins(0, 0, 0, 0);
     auto* listTitle = new QLabel(tr("模型列表"), listFrame);
     listTitle->setStyleSheet("font-weight:600;color:#1b2b4d;");
+
+    listTitle->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* countLabel = new QLabel(listFrame);
     countLabel->setStyleSheet("color:#64748b;");
     headerLayout->addWidget(listTitle);
     headerLayout->addStretch();
     headerLayout->addWidget(countLabel);
+    countLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     listLayout->addLayout(headerLayout);
+
+
+
 
     auto* listWidget = new QListWidget(listFrame);
     listWidget->setObjectName("libraryModelList");
@@ -1719,6 +1725,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     listWidget->setIconSize(QSize(20, 20));
     listWidget->setFrameShape(QFrame::NoFrame);
     listLayout->addWidget(listWidget);
+
 
     auto* emptyLabel = new QLabel(
         tr("暂无模型，请点击下方“添加模型”按钮导入。"), listFrame);
@@ -3584,7 +3591,7 @@ void MainWindow::displayResultFile(const QString& filePath)
     if (suffix == QStringLiteral("stl"))
     {
         auto reader = vtkSmartPointer<vtkSTLReader>::New();
-        reader->SetFileName(qPrintable(info.absoluteFilePath()));
+        reader->SetFileName(info.absoluteFilePath().toUtf8().constData());
         reader->Update();
 
         auto mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
