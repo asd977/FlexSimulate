@@ -2,6 +2,7 @@
 #include "ui_SchemeGalleryWidget.h"   // 由 .ui 生成
 #include "SchemeCardWidget.h"
 
+#include <QFrame>
 #include <QGridLayout>
 #include <QScrollArea>
 #include <QPixmap>
@@ -13,6 +14,31 @@ SchemeGalleryWidget::SchemeGalleryWidget(QWidget *parent)
     : QWidget(parent), ui(new Ui::SchemeGalleryWidget)
 {
     ui->setupUi(this);
+
+    setAttribute(Qt::WA_StyledBackground, true);
+    if (ui->containerFrame)
+        ui->containerFrame->setAttribute(Qt::WA_StyledBackground, true);
+    if (ui->toolbarWidget)
+        ui->toolbarWidget->setAttribute(Qt::WA_StyledBackground, true);
+
+    const QString styleSheet = QStringLiteral(
+        "QFrame#containerFrame{background:#ffffff;border:1px solid #d6e1f2;border-radius:14px;}"
+        "QWidget#toolbarWidget{background:#f8fafc;border-top-left-radius:14px;border-top-right-radius:14px;"
+        "border-bottom:1px solid #e2e8f0;padding:12px 16px;}"
+        "QLabel#titleLabel{font-size:15px;font-weight:600;color:#0f172a;}"
+        "QScrollArea{border:none;background:transparent;}"
+        "QWidget#scrollAreaWidgetContents{background:transparent;}"
+    );
+    setStyleSheet(styleSheet);
+
+    if (ui->scrollArea)
+    {
+        ui->scrollArea->setFrameShape(QFrame::NoFrame);
+        if (QWidget* viewport = ui->scrollArea->viewport())
+        {
+            viewport->setStyleSheet(QStringLiteral("background:transparent;"));
+        }
+    }
 
     if (ui->newSchemeButton)
     {
