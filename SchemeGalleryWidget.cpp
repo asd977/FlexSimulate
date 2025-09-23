@@ -2,10 +2,12 @@
 #include "ui_SchemeGalleryWidget.h"   // 由 .ui 生成
 #include "SchemeCardWidget.h"
 
+#include <QFrame>
 #include <QGridLayout>
 #include <QScrollArea>
 #include <QPixmap>
 #include <QPushButton>
+#include <QWidget>
 
 #include <algorithm>
 
@@ -13,6 +15,24 @@ SchemeGalleryWidget::SchemeGalleryWidget(QWidget *parent)
     : QWidget(parent), ui(new Ui::SchemeGalleryWidget)
 {
     ui->setupUi(this);
+
+    if (auto* panel = findChild<QFrame*>(QStringLiteral("galleryPanel")))
+    {
+        panel->setAttribute(Qt::WA_StyledBackground, true);
+        panel->setStyleSheet(
+            "QFrame#galleryPanel{background:#ffffff;border:1px solid #d6e1f2;border-radius:14px;}"
+            "QWidget#toolbarWidget{background:#f8fafc;padding:12px 16px;border-top-left-radius:14px;border-top-right-radius:14px;}"
+            "QLabel#titleLabel{font-size:15px;font-weight:600;color:#0f172a;}"
+            "QScrollArea{border:none;background:transparent;}"
+            "QWidget#scrollAreaWidgetContents{background:transparent;}"
+        );
+    }
+
+    if (auto* header = findChild<QWidget*>(QStringLiteral("toolbarWidget")))
+        header->setAttribute(Qt::WA_StyledBackground, true);
+
+    if (ui->scrollArea)
+        ui->scrollArea->setFrameShape(QFrame::NoFrame);
 
     if (ui->newSchemeButton)
     {
