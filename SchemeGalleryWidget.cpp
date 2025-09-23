@@ -2,10 +2,11 @@
 #include "ui_SchemeGalleryWidget.h"   // 由 .ui 生成
 #include "SchemeCardWidget.h"
 
+#include <QFrame>
 #include <QGridLayout>
-#include <QScrollArea>
 #include <QPixmap>
 #include <QPushButton>
+#include <QScrollArea>
 
 #include <algorithm>
 
@@ -14,15 +15,39 @@ SchemeGalleryWidget::SchemeGalleryWidget(QWidget *parent)
 {
     ui->setupUi(this);
 
+    setAttribute(Qt::WA_StyledBackground, true);
+    if (ui->headerFrame)
+        ui->headerFrame->setAttribute(Qt::WA_StyledBackground, true);
+    if (ui->scrollArea)
+    {
+        ui->scrollArea->setFrameShape(QFrame::NoFrame);
+        ui->scrollArea->setAttribute(Qt::WA_StyledBackground, true);
+        if (auto* viewport = ui->scrollArea->viewport())
+        {
+            viewport->setAttribute(Qt::WA_StyledBackground, true);
+            viewport->setStyleSheet(QStringLiteral("background:transparent;"));
+        }
+        if (auto* contents = ui->scrollArea->widget())
+            contents->setAttribute(Qt::WA_StyledBackground, true);
+    }
+
+    const QString style = QStringLiteral(
+        "QWidget#SchemeGalleryWidget{background:#ffffff;border:1px solid #d6e1f2;border-radius:14px;}"
+        "QFrame#headerFrame{background:#f8fafc;border-top-left-radius:14px;border-top-right-radius:14px;"
+        "border-bottom:1px solid #e2e8f0;}"
+        "QLabel#titleLabel{font-size:15px;font-weight:600;color:#0f172a;padding:12px 16px;}"
+        "QPushButton#newSchemeButton{padding:6px 14px;border-radius:16px;background-color:#1d4ed8;color:white;"
+        "font-weight:600;margin:8px 16px 8px 0;}"
+        "QPushButton#newSchemeButton:hover{background-color:#2563eb;}"
+        "QPushButton#newSchemeButton:pressed{background-color:#1e3a8a;}"
+        "QScrollArea{border:none;background:transparent;}"
+        "QWidget#scrollAreaWidgetContents{background:transparent;}"
+    );
+    setStyleSheet(style);
+
     if (ui->newSchemeButton)
     {
         ui->newSchemeButton->setCursor(Qt::PointingHandCursor);
-        ui->newSchemeButton->setStyleSheet(
-            "QPushButton{padding:6px 14px;border-radius:16px;"
-            "background-color:#1d4ed8;color:white;font-weight:600;}"
-            "QPushButton:hover{background-color:#2563eb;}"
-            "QPushButton:pressed{background-color:#1e3a8a;}"
-        );
         connect(ui->newSchemeButton, &QPushButton::clicked,
                 this, &SchemeGalleryWidget::createSchemeRequested);
     }
