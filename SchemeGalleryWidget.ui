@@ -34,7 +34,7 @@
      <item>
       <widget class="QLabel" name="titleLabel">
        <property name="styleSheet">
-        <string notr="true">font-size:16px; font-weight:600;</string>
+        <string notr="true">font-size:18px;font-weight:600;color:#0f172a;</string>
        </property>
        <property name="text">
         <string>方案库</string>
