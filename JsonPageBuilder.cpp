@@ -20,16 +20,9 @@ namespace
 {
 QFileInfo latestResultInfo(const QDir& dir)
 {
-    const QStringList stepPatterns{ QStringLiteral("*.step"), QStringLiteral("*.STEP"),
-                                    QStringLiteral("*.stp"), QStringLiteral("*.STP") };
-    QFileInfoList files = dir.entryInfoList(stepPatterns, QDir::Files,
-                                            QDir::Time | QDir::IgnoreCase);
-    if (!files.isEmpty())
-        return files.first();
-
     const QStringList stlPatterns{ QStringLiteral("*.stl"), QStringLiteral("*.STL") };
-    files = dir.entryInfoList(stlPatterns, QDir::Files,
-                              QDir::Time | QDir::IgnoreCase);
+    QFileInfoList files = dir.entryInfoList(stlPatterns, QDir::Files,
+                                            QDir::Time | QDir::IgnoreCase);
     if (!files.isEmpty())
         return files.first();
     return QFileInfo();
@@ -461,12 +454,8 @@ void JsonPageBuilder::onCalculateButtonClicked()
         if (isNewFile || isUpdated)
         {
             newResultPath = latestResult.absoluteFilePath();
-            const QString suffix = latestResult.suffix().toLower();
-            const QString fileType = (suffix == QStringLiteral("stl")) ? QStringLiteral("STL")
-                                                                       : QStringLiteral("STEP");
-            emit logMessage(tr("检测到新的 %1 输出：%2")
-                                .arg(fileType,
-                                     QDir::toNativeSeparators(newResultPath)));
+            emit logMessage(tr("检测到新的 STL 输出：%1")
+                                .arg(QDir::toNativeSeparators(newResultPath)));
         }
     }
 
