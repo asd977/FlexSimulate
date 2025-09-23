@@ -18,10 +18,18 @@
 
 namespace
 {
-QFileInfo latestStlInfo(const QDir& dir)
+QFileInfo latestResultInfo(const QDir& dir)
 {
-    const QFileInfoList files = dir.entryInfoList(QStringList() << "*.stl" << "*.STL",
-                                                  QDir::Files, QDir::Time | QDir::IgnoreCase);
+    const QStringList stepPatterns{ QStringLiteral("*.step"), QStringLiteral("*.STEP"),
+                                    QStringLiteral("*.stp"), QStringLiteral("*.STP") };
+    QFileInfoList files = dir.entryInfoList(stepPatterns, QDir::Files,
+                                            QDir::Time | QDir::IgnoreCase);
+    if (!files.isEmpty())
+        return files.first();
+
+    const QStringList stlPatterns{ QStringLiteral("*.stl"), QStringLiteral("*.STL") };
+    files = dir.entryInfoList(stlPatterns, QDir::Files,
+                              QDir::Time | QDir::IgnoreCase);
     if (!files.isEmpty())
         return files.first();
     return QFileInfo();
@@ -42,11 +50,35 @@ JsonPageBuilder::JsonPageBuilder(const QString& jsonPath, QWidget* parent)
     , m_jsonPath(QFileInfo(jsonPath).absoluteFilePath())
 {
     QFileInfo info(m_jsonPath);
+    QDir parentDir = info.exists() ? info.dir() : QDir(info.absolutePath());
+
+    // 始终使用 para.json 作为参数文件
+    const QFileInfo paraInfo(parentDir.filePath(QStringLiteral("para.json")));
+    if (!info.exists() || info.fileName().compare(QStringLiteral("para.json"), Qt::CaseInsensitive) != 0)
+    {
+        if (paraInfo.exists())
+        {
+            m_jsonPath = paraInfo.absoluteFilePath();
+            info = paraInfo;
+        }
+    }
+
+    m_modelDirectory = parentDir.absolutePath();
+
     if (info.exists())
     {
         m_datPath = info.dir().filePath(QStringLiteral("Job-2.dat"));
         m_msgPath = info.dir().filePath(QStringLiteral("Job-2.msg"));
     }
+    else
+    {
+        m_datPath = parentDir.filePath(QStringLiteral("Job-2.dat"));
+        m_msgPath = parentDir.filePath(QStringLiteral("Job-2.msg"));
+    }
+
+    const QFileInfo batInfo(parentDir.filePath(QStringLiteral("calculate.bat")));
+    if (batInfo.exists())
+        m_batPath = batInfo.absoluteFilePath();
 
     QJsonArray sections;
     if (!loadJson(m_jsonPath, sections))
@@ -296,8 +328,54 @@ void JsonPageBuilder::onCalculateButtonClicked()
                         .toString("yyyy-MM-dd HH:mm:ss");
 
     QFileInfo jsonInfo(m_jsonPath);
-    QDir workingDir = jsonInfo.exists() ? jsonInfo.dir() : QDir();
-    QFileInfo previousStl = jsonInfo.exists() ? latestStlInfo(workingDir) : QFileInfo();
+    if (!jsonInfo.exists())
+    {
+        const QString warn = tr("未找到参数文件：%1")
+                                 .arg(QDir::toNativeSeparators(m_jsonPath));
+        emit logMessage(warn);
+        QMessageBox::warning(this, tr("警告"), warn);
+        m_calculateButton->setEnabled(true);
+        return;
+    }
+
+    QDir workingDir;
+    if (!m_modelDirectory.isEmpty())
+        workingDir = QDir(m_modelDirectory);
+    else
+        workingDir = jsonInfo.dir();
+
+    if (!workingDir.exists())
+    {
+        const QString warn = tr("模型目录不存在：%1")
+                                 .arg(QDir::toNativeSeparators(workingDir.absolutePath()));
+        emit logMessage(warn);
+        QMessageBox::warning(this, tr("警告"), warn);
+        m_calculateButton->setEnabled(true);
+        return;
+    }
+
+    QFileInfo batInfo;
+    if (!m_batPath.isEmpty())
+        batInfo.setFile(m_batPath);
+    const QString expectedBatPath = workingDir.absoluteFilePath(QStringLiteral("calculate.bat"));
+    if (!batInfo.exists())
+    {
+        batInfo.setFile(expectedBatPath);
+    }
+
+    if (!batInfo.exists())
+    {
+        const QString warn = tr("未找到计算脚本：%1")
+                                 .arg(QDir::toNativeSeparators(expectedBatPath));
+        emit logMessage(warn);
+        QMessageBox::warning(this, tr("警告"), warn);
+        m_calculateButton->setEnabled(true);
+        return;
+    }
+
+    m_batPath = batInfo.absoluteFilePath();
+
+    QFileInfo previousResult = latestResultInfo(workingDir);
 
     emit logMessage(tr("开始计算，保存参数到 %1")
                         .arg(QDir::toNativeSeparators(m_jsonPath)));
@@ -318,10 +396,12 @@ void JsonPageBuilder::onCalculateButtonClicked()
     int exitCode = -1;
     QString stderrText, stdoutText;
     QProcess process;
-    if (jsonInfo.exists())
+    if (workingDir.exists())
         process.setWorkingDirectory(workingDir.absolutePath());
     process.setProcessChannelMode(QProcess::MergedChannels);
-    process.start("cmd", QStringList() << "/c" << "calculate.bat");
+    process.start(QStringLiteral("cmd"),
+                  QStringList() << QStringLiteral("/c")
+                                << QDir::toNativeSeparators(m_batPath));
     const bool finished = process.waitForFinished(-1);
     stdoutText = QString::fromLocal8Bit(process.readAllStandardOutput());
     stderrText = QString::fromLocal8Bit(process.readAllStandardError());
@@ -370,23 +450,27 @@ void JsonPageBuilder::onCalculateButtonClicked()
 
     emit logMessage(message);
 
-    QFileInfo latestStl = jsonInfo.exists() ? latestStlInfo(workingDir) : QFileInfo();
-    QString newStlPath;
-    if (latestStl.exists()) {
-        const bool isNewFile = !previousStl.exists() ||
-                               latestStl.absoluteFilePath() != previousStl.absoluteFilePath();
-        const bool isUpdated = previousStl.exists() &&
-                               latestStl.absoluteFilePath() == previousStl.absoluteFilePath() &&
-                               latestStl.lastModified() > previousStl.lastModified();
+    QFileInfo latestResult = latestResultInfo(workingDir);
+    QString newResultPath;
+    if (latestResult.exists()) {
+        const bool isNewFile = !previousResult.exists() ||
+                               latestResult.absoluteFilePath() != previousResult.absoluteFilePath();
+        const bool isUpdated = previousResult.exists() &&
+                               latestResult.absoluteFilePath() == previousResult.absoluteFilePath() &&
+                               latestResult.lastModified() > previousResult.lastModified();
         if (isNewFile || isUpdated)
         {
-            newStlPath = latestStl.absoluteFilePath();
-            emit logMessage(tr("检测到新的 STL 输出：%1")
-                                .arg(QDir::toNativeSeparators(newStlPath)));
+            newResultPath = latestResult.absoluteFilePath();
+            const QString suffix = latestResult.suffix().toLower();
+            const QString fileType = (suffix == QStringLiteral("stl")) ? QStringLiteral("STL")
+                                                                       : QStringLiteral("STEP");
+            emit logMessage(tr("检测到新的 %1 输出：%2")
+                                .arg(fileType,
+                                     QDir::toNativeSeparators(newResultPath)));
         }
     }
 
-    emit calculationFinished(newStlPath);
+    emit calculationFinished(newResultPath);
 
     QMessageBox::information(this, tr("提示框"),
                              message, QMessageBox::Ok);

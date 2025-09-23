@@ -37,12 +37,15 @@
 #include <QProcess>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QTextStream>
 #include <QScopedValueRollback>
 #include <QScrollBar>
 #include <QScrollArea>
 #include <QSet>
 #include <QShortcut>
 #include <QSplitter>
+#include <QVector>
+#include <QVector3D>
 #include <QCryptographicHash>
 #include <QStandardPaths>
 #include <QStringList>
@@ -51,6 +54,8 @@
 #include <QVBoxLayout>
 #include <QWidget>
 #include <algorithm>
+#include <cmath>
+#include <limits>
 
 #include <QVTKOpenGLNativeWidget.h>
 #include <vtkActor.h>
@@ -62,6 +67,7 @@
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
 #include <vtkSTLReader.h>
+#include <vtkCubeSource.h>
 
 namespace
 {
@@ -125,14 +131,95 @@ QString uniqueChildPath(const QDir& parent, const QString& baseName)
     return candidatePath;
 }
 
-QString latestStlFile(const QString& directory)
+QString latestResultFile(const QString& directory)
 {
     QDir dir(directory);
-    const QFileInfoList files = dir.entryInfoList(QStringList() << "*.stl" << "*.STL",
-                                                  QDir::Files, QDir::Time | QDir::IgnoreCase);
+    const QStringList stepPatterns{ QStringLiteral("*.step"), QStringLiteral("*.STEP"),
+                                    QStringLiteral("*.stp"), QStringLiteral("*.STP") };
+    QFileInfoList files = dir.entryInfoList(stepPatterns, QDir::Files,
+                                            QDir::Time | QDir::IgnoreCase);
+    if (!files.isEmpty())
+        return files.first().absoluteFilePath();
+
+    const QStringList stlPatterns{ QStringLiteral("*.stl"), QStringLiteral("*.STL") };
+    files = dir.entryInfoList(stlPatterns, QDir::Files,
+                              QDir::Time | QDir::IgnoreCase);
     if (!files.isEmpty())
         return files.first().absoluteFilePath();
     return QString();
+}
+
+bool extractBoundingBoxFromStep(const QString& filePath,
+                                QVector3D* minPoint,
+                                QVector3D* maxPoint)
+{
+    if (!minPoint || !maxPoint)
+        return false;
+
+    QFile file(filePath);
+    if (!file.exists() || !file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return false;
+
+    QTextStream stream(&file);
+    stream.setCodec("UTF-8");
+    const QString content = stream.readAll();
+    file.close();
+
+    const QRegularExpression pointRe(
+        QStringLiteral("CARTESIAN_POINT\\s*\\([^\\)]*\\(\\s*([^\\)]+)\\)\\s*\\)"),
+        QRegularExpression::CaseInsensitiveOption |
+            QRegularExpression::DotMatchesEverythingOption);
+    const QRegularExpression numberRe(
+        QStringLiteral("(-?\\d+(?:\\.\\d+)?(?:[eE][+-]?\\d+)?)"));
+
+    auto pointIt = pointRe.globalMatch(content);
+    double minX = std::numeric_limits<double>::max();
+    double minY = std::numeric_limits<double>::max();
+    double minZ = std::numeric_limits<double>::max();
+    double maxX = std::numeric_limits<double>::lowest();
+    double maxY = std::numeric_limits<double>::lowest();
+    double maxZ = std::numeric_limits<double>::lowest();
+    bool hasPoint = false;
+
+    while (pointIt.hasNext())
+    {
+        const QString coords = pointIt.next().captured(1);
+        auto numIt = numberRe.globalMatch(coords);
+        QVector<double> values;
+        while (numIt.hasNext())
+        {
+            bool ok = false;
+            const QString token = numIt.next().captured(1);
+            const double value = token.toDouble(&ok);
+            if (ok)
+                values.push_back(value);
+        }
+
+        for (int i = 0; i + 2 < values.size(); i += 3)
+        {
+            const double x = values.at(i);
+            const double y = values.at(i + 1);
+            const double z = values.at(i + 2);
+            minX = std::min(minX, x);
+            minY = std::min(minY, y);
+            minZ = std::min(minZ, z);
+            maxX = std::max(maxX, x);
+            maxY = std::max(maxY, y);
+            maxZ = std::max(maxZ, z);
+            hasPoint = true;
+        }
+    }
+
+    if (!hasPoint)
+        return false;
+
+    *minPoint = QVector3D(static_cast<float>(minX),
+                          static_cast<float>(minY),
+                          static_cast<float>(minZ));
+    *maxPoint = QVector3D(static_cast<float>(maxX),
+                          static_cast<float>(maxY),
+                          static_cast<float>(maxZ));
+    return true;
 }
 }
 
@@ -1421,12 +1508,16 @@ void MainWindow::showModelSettings(const QString& modelId)
     setVisualizationVisible(true);
     updateSelectionInfo(model->directory, model->remarks);
 
-    const QString stl = latestStlFile(model->directory);
-    if (!stl.isEmpty())
+    const QString resultPath = latestResultFile(model->directory);
+    if (!resultPath.isEmpty())
     {
-        appendLogMessage(tr("加载最近的 STL：%1")
-                             .arg(QDir::toNativeSeparators(stl)));
-        displayStlFile(stl);
+        const QString suffix = QFileInfo(resultPath).suffix().toLower();
+        const QString fileType = (suffix == QStringLiteral("stl")) ? QStringLiteral("STL")
+                                                                   : QStringLiteral("STEP");
+        appendLogMessage(tr("加载最近的 %1：%2")
+                             .arg(fileType,
+                                  QDir::toNativeSeparators(resultPath)));
+        displayResultFile(resultPath);
     }
     else
     {
@@ -1549,14 +1640,19 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
     connect(builder, &JsonPageBuilder::logMessage,
             this, &MainWindow::appendLogMessage);
     connect(builder, &JsonPageBuilder::calculationFinished,
-            this, [this](const QString& stlPath) {
-        if (stlPath.isEmpty())
+            this, [this](const QString& resultPath) {
+        if (resultPath.isEmpty())
         {
-            appendLogMessage(tr("未检测到新的 STL 输出文件"));
+            appendLogMessage(tr("未检测到新的输出文件"));
             return;
         }
-        appendLogMessage(tr("加载 STL：%1").arg(QDir::toNativeSeparators(stlPath)));
-        displayStlFile(stlPath);
+        const QString suffix = QFileInfo(resultPath).suffix().toLower();
+        const QString fileType = (suffix == QStringLiteral("stl")) ? QStringLiteral("STL")
+                                                                   : QStringLiteral("STEP");
+        appendLogMessage(tr("加载 %1：%2")
+                             .arg(fileType,
+                                  QDir::toNativeSeparators(resultPath)));
+        displayResultFile(resultPath);
     });
 
     auto* openBtn = new QPushButton(tr("打开模型目录"), container);
@@ -2733,15 +2829,36 @@ bool MainWindow::isModelFolder(const QDir& dir, QString* jsonPath, QString* batP
     QDir copy(dir);
     const QStringList jsons = copy.entryList(QStringList() << "*.json",
                                              QDir::Files | QDir::NoDotAndDotDot);
+    QString paraFile;
+    for (const QString& file : jsons)
+    {
+        if (file.compare(QStringLiteral("para.json"), Qt::CaseInsensitive) == 0)
+        {
+            paraFile = file;
+            break;
+        }
+    }
+    if (paraFile.isEmpty())
+        return false;
+
     const QStringList bats = copy.entryList(QStringList() << "*.bat",
                                             QDir::Files | QDir::NoDotAndDotDot);
-    if (jsons.isEmpty())
+    QString calcFile;
+    for (const QString& file : bats)
+    {
+        if (file.compare(QStringLiteral("calculate.bat"), Qt::CaseInsensitive) == 0)
+        {
+            calcFile = file;
+            break;
+        }
+    }
+    if (calcFile.isEmpty())
         return false;
 
     if (jsonPath)
-        *jsonPath = copy.absoluteFilePath(jsons.first());
-    if (batPath && !bats.isEmpty())
-        *batPath = copy.absoluteFilePath(bats.first());
+        *jsonPath = copy.absoluteFilePath(paraFile);
+    if (batPath)
+        *batPath = copy.absoluteFilePath(calcFile);
     return true;
 }
 
@@ -3539,7 +3656,7 @@ void MainWindow::appendLogMessage(const QString& message)
         bar->setValue(bar->maximum());
 }
 
-void MainWindow::displayStlFile(const QString& filePath)
+void MainWindow::displayResultFile(const QString& filePath)
 {
     if (filePath.isEmpty())
         return;
@@ -3547,23 +3664,65 @@ void MainWindow::displayStlFile(const QString& filePath)
     QFileInfo info(filePath);
     if (!info.exists())
     {
-        appendLogMessage(tr("未找到 STL 文件：%1")
+        appendLogMessage(tr("未找到结果文件：%1")
                              .arg(QDir::toNativeSeparators(filePath)));
         return;
     }
 
-    auto reader = vtkSmartPointer<vtkSTLReader>::New();
-    reader->SetFileName(qPrintable(info.absoluteFilePath()));
-    reader->Update();
+    vtkSmartPointer<vtkActor> actor;
+    const QString suffix = info.suffix().toLower();
 
-    auto mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-    mapper->SetInputConnection(reader->GetOutputPort());
+    if (suffix == QStringLiteral("stl"))
+    {
+        auto reader = vtkSmartPointer<vtkSTLReader>::New();
+        reader->SetFileName(qPrintable(info.absoluteFilePath()));
+        reader->Update();
 
-    auto actor = vtkSmartPointer<vtkActor>::New();
-    actor->SetMapper(mapper);
-    actor->GetProperty()->SetColor(0.2, 0.45, 0.75);
-    actor->GetProperty()->SetDiffuse(0.8);
-    actor->GetProperty()->SetSpecular(0.3);
+        auto mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+        mapper->SetInputConnection(reader->GetOutputPort());
+
+        actor = vtkSmartPointer<vtkActor>::New();
+        actor->SetMapper(mapper);
+        actor->GetProperty()->SetColor(0.2, 0.45, 0.75);
+        actor->GetProperty()->SetDiffuse(0.8);
+        actor->GetProperty()->SetSpecular(0.3);
+    }
+    else if (suffix == QStringLiteral("step") || suffix == QStringLiteral("stp"))
+    {
+        QVector3D minPoint;
+        QVector3D maxPoint;
+        if (!extractBoundingBoxFromStep(info.absoluteFilePath(), &minPoint, &maxPoint))
+        {
+            appendLogMessage(tr("无法解析 STEP 文件：%1")
+                                 .arg(QDir::toNativeSeparators(info.absoluteFilePath())));
+            return;
+        }
+
+        const QVector3D lengths = maxPoint - minPoint;
+        const QVector3D center = (minPoint + maxPoint) * 0.5f;
+        const double minEdge = 1.0;
+
+        auto cube = vtkSmartPointer<vtkCubeSource>::New();
+        cube->SetCenter(center.x(), center.y(), center.z());
+        cube->SetXLength(std::max(minEdge, std::abs(static_cast<double>(lengths.x()))));
+        cube->SetYLength(std::max(minEdge, std::abs(static_cast<double>(lengths.y()))));
+        cube->SetZLength(std::max(minEdge, std::abs(static_cast<double>(lengths.z()))));
+
+        auto mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
+        mapper->SetInputConnection(cube->GetOutputPort());
+
+        actor = vtkSmartPointer<vtkActor>::New();
+        actor->SetMapper(mapper);
+        actor->GetProperty()->SetRepresentationToWireframe();
+        actor->GetProperty()->SetColor(0.2, 0.45, 0.75);
+        actor->GetProperty()->SetLineWidth(1.5);
+    }
+    else
+    {
+        appendLogMessage(tr("不支持的结果文件类型：%1")
+                             .arg(QDir::toNativeSeparators(info.absoluteFilePath())));
+        return;
+    }
 
     if (!m_renderer)
         return;

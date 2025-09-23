@@ -116,7 +116,7 @@ private:
     void updateSelectionInfo(const QString& path = QString(),
                              const QString& remark = QString());
     void appendLogMessage(const QString& message);
-    void displayStlFile(const QString& filePath);
+    void displayResultFile(const QString& filePath);
     void clearVtkScene();
     QString projectDisplayName() const;
 

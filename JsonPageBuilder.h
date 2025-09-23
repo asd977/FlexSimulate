@@ -45,6 +45,8 @@ private:
     QPushButton* m_calculateButton = nullptr;
 
     QString m_jsonPath;                                   // para.json
+    QString m_modelDirectory;                             // 模型目录
+    QString m_batPath;                                    // calculate.bat
     QString m_datPath = QStringLiteral("Job-2.dat");
     QString m_msgPath = QStringLiteral("Job-2.msg");
 };
