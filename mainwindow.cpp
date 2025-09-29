@@ -172,7 +172,7 @@ void MainWindow::setupUiHelpers()
     if (auto* central = ui->centralwidget)
     {
         central->setAttribute(Qt::WA_StyledBackground, true);
-        central->setStyleSheet(QStringLiteral("QWidget#centralwidget{background:#f1f5f9;}"));
+        central->setStyleSheet(QStringLiteral("QWidget#centralwidget{background:#f5f6f8;}"));
     }
 
     m_galleryWidget = new SchemeGalleryWidget(this);
@@ -194,10 +194,10 @@ void MainWindow::setupUiHelpers()
                                           ? QStringLiteral("QLabel")
                                           : QStringLiteral("QLabel#%1").arg(title->objectName());
         QString style = QStringLiteral(
-            "%1{background:#ffffff;border:1px solid #d6e1f2;border-radius:14px;}"
-            "%2{font-size:15px;font-weight:600;color:#0f172a;padding:12px 16px;"
-            "background:#f8fafc;border-top-left-radius:14px;border-top-right-radius:14px;"
-            "border-bottom:1px solid #e2e8f0;}"
+            "%1{background:#ffffff;border:1px solid #e1e5ec;border-radius:12px;}"
+            "%2{font-size:18px;font-weight:600;color:#111827;padding:14px 18px;"
+            "background:#f9fafb;border-top-left-radius:12px;border-top-right-radius:12px;"
+            "border-bottom:1px solid #e1e5ec;}"
             "%3"
         ).arg(panelSelector, titleSelector, extraStyles);
         panel->setStyleSheet(style);
@@ -206,10 +206,10 @@ void MainWindow::setupUiHelpers()
     applyPanelCard(ui->navigationFrame, ui->navigationTitle,
                    QStringLiteral(
                        "QTreeWidget{border:none;background:transparent;padding:8px 12px;}"
-                       "QTreeWidget::item{padding:6px 4px;}"
-                       "QTreeWidget::item:hover{background:#f1f5f9;}"
-                       "QTreeWidget::item:selected{background:#e2e8f0;color:#0f172a;}"
-                       "QHeaderView::section{background:transparent;border:none;padding:4px 0;font-weight:600;color:#334155;}"
+                       "QTreeWidget::item{padding:6px 4px;font-size:13px;color:#374151;}"
+                       "QTreeWidget::item:hover{background:#eef2f6;}"
+                       "QTreeWidget::item:selected{background:#dbe3ee;color:#111827;}"
+                       "QHeaderView::section{background:transparent;border:none;padding:4px 0;font-weight:600;color:#1f2937;}"
                    ));
 
     applyPanelCard(ui->detailPanel, ui->detailTitle,
@@ -220,16 +220,16 @@ void MainWindow::setupUiHelpers()
 
     applyPanelCard(ui->vtkPanel, ui->vtkTitle,
                    QStringLiteral(
-                       "QFrame#vtkFrame{border:none;background:transparent;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
-                       "QVTKOpenGLNativeWidget{border:none;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
+                       "QFrame#vtkFrame{border:none;background:transparent;border-bottom-left-radius:12px;border-bottom-right-radius:12px;}"
+                       "QVTKOpenGLNativeWidget{border:none;border-bottom-left-radius:12px;border-bottom-right-radius:12px;}"
                    ));
 
     applyPanelCard(ui->logPanel, ui->logTitle);
 
     const QString splitterStyle = QStringLiteral(
-        "QSplitter::handle{background:#cbd5f5;}"
-        "QSplitter::handle:horizontal{width:8px;margin:0 4px;border-radius:4px;}"
-        "QSplitter::handle:vertical{height:8px;margin:4px 0;border-radius:4px;}"
+        "QSplitter::handle{background:#e2e5ec;}"
+        "QSplitter::handle:horizontal{width:6px;margin:0 3px;border-radius:3px;}"
+        "QSplitter::handle:vertical{height:6px;margin:3px 0;border-radius:3px;}"
     );
     ui->mainSplitter->setStyleSheet(splitterStyle);
     ui->contentSplitter->setStyleSheet(splitterStyle);
@@ -247,6 +247,25 @@ void MainWindow::setupUiHelpers()
     ui->contentSplitter->setStretchFactor(0, 0);
     ui->contentSplitter->setStretchFactor(1, 1);
     ui->contentSplitter->setCollapsible(1, true);
+    if (ui->contentSplitter)
+    {
+        QList<int> sizes = ui->contentSplitter->sizes();
+        bool invalid = sizes.size() < 2;
+        if (!invalid)
+        {
+            invalid = true;
+            for (int size : sizes)
+            {
+                if (size > 0)
+                {
+                    invalid = false;
+                    break;
+                }
+            }
+        }
+        if (invalid)
+            ui->contentSplitter->setSizes(defaultContentSplitterSizes());
+    }
     if (ui->visualizationSplitter)
     {
         ui->visualizationSplitter->setStretchFactor(0, 3);
@@ -255,8 +274,8 @@ void MainWindow::setupUiHelpers()
     }
 
     ui->logTextEdit->setStyleSheet(
-        "QPlainTextEdit{background:#0f172a;color:#f8fafc;border:none;"
-        "border-bottom-left-radius:14px;border-bottom-right-radius:14px;padding:12px;"
+        "QPlainTextEdit{background:#f8fafc;color:#1f2937;border:none;"
+        "border-bottom-left-radius:12px;border-bottom-right-radius:12px;padding:12px;"
         "font-family:\"JetBrains Mono\", \"Source Code Pro\", monospace;}"
     );
 
@@ -3625,16 +3644,42 @@ void MainWindow::setVisualizationVisible(bool visible)
 
         if (!m_lastSplitterSizes.isEmpty())
         {
-            ui->contentSplitter->setSizes(m_lastSplitterSizes);
+            QList<int> sizes = m_lastSplitterSizes;
+            bool invalid = sizes.size() < 2;
+            if (!invalid)
+            {
+                invalid = true;
+                for (int size : sizes)
+                {
+                    if (size > 0)
+                    {
+                        invalid = false;
+                        break;
+                    }
+                }
+            }
+            if (invalid)
+                sizes = defaultContentSplitterSizes();
+            ui->contentSplitter->setSizes(sizes);
         }
         else
         {
             QList<int> sizes = ui->contentSplitter->sizes();
-            if (sizes.size() < 2 || (sizes.at(0) == 0 && sizes.at(1) == 0))
+            bool invalid = sizes.size() < 2;
+            if (!invalid)
             {
-                sizes.clear();
-                sizes << 1 << 1;
+                invalid = true;
+                for (int size : sizes)
+                {
+                    if (size > 0)
+                    {
+                        invalid = false;
+                        break;
+                    }
+                }
             }
+            if (invalid)
+                sizes = defaultContentSplitterSizes();
             ui->contentSplitter->setSizes(sizes);
         }
 
@@ -3684,6 +3729,13 @@ void MainWindow::setVisualizationVisible(bool visible)
 
 void MainWindow::updateSelectionInfo(const QString& path, const QString& remark)
 {
+}
+
+QList<int> MainWindow::defaultContentSplitterSizes() const
+{
+    QList<int> sizes;
+    sizes << 360 << 840;
+    return sizes;
 }
 
 void MainWindow::appendLogMessage(const QString& message)
