@@ -816,7 +816,19 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
 
     const int type = current->data(0, TypeRole).toInt();
 
-    if (type == SchemeItem)
+    if (type == LibraryItem)
+    {
+        m_activeSchemeId.clear();
+        m_activeModelId.clear();
+        clearDetailWidget();
+        clearVtkScene();
+        setVisualizationVisible(false);
+        if (ui->stackedWidget)
+            ui->stackedWidget->setCurrentWidget(ui->planPage);
+        updateGallery();
+        updateSelectionInfo();
+    }
+    else if (type == SchemeItem)
     {
         const QString schemeId = current->data(0, IdRole).toString();
         m_activeSchemeId = schemeId;
@@ -879,7 +891,7 @@ void MainWindow::onTreeItemChanged(QTreeWidgetItem* item, int column)
         return;
 
     const int type = item->data(0, TypeRole).toInt();
-    if (type == ProjectItem)
+    if (type == ProjectItem || type == LibraryItem)
         return;
 
     const QString id = item->data(0, IdRole).toString();
@@ -967,7 +979,20 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
     else
     {
         const int type = item->data(0, TypeRole).toInt();
-        if (type == ProjectItem)
+        if (type == LibraryItem)
+        {
+            menu.addAction(tr("查看总成库"), this, [this]() {
+                if (ui->stackedWidget)
+                    ui->stackedWidget->setCurrentWidget(ui->planPage);
+                updateGallery();
+            });
+            if (hasActiveProject())
+            {
+                menu.addSeparator();
+                menu.addAction(tr("导入总成"), this, &MainWindow::promptAddScheme);
+            }
+        }
+        else if (type == ProjectItem)
         {
             if (!m_projectRoot.isEmpty())
             {
@@ -1146,7 +1171,7 @@ void MainWindow::deleteCurrentTreeItem()
         return;
 
     const int type = item->data(0, TypeRole).toInt();
-    if (type == ProjectItem)
+    if (type == ProjectItem || type == LibraryItem)
         return;
     const QString id = item->data(0, IdRole).toString();
 
@@ -1202,8 +1227,15 @@ void MainWindow::rebuildTree()
     m_projectRootItem = nullptr;
     m_libraryRootItem = nullptr;
 
+    const QIcon libraryIcon(QStringLiteral(":/icons/icons/gallery.svg"));
     const QIcon schemeIcon(QStringLiteral(":/icons/icons/plan.svg"));
     const QIcon modelIcon(QStringLiteral(":/icons/icons/model.svg"));
+
+    m_libraryRootItem = new QTreeWidgetItem(ui->treeModels);
+    m_libraryRootItem->setText(0, tr("总成库"));
+    m_libraryRootItem->setIcon(0, libraryIcon);
+    m_libraryRootItem->setData(0, TypeRole, LibraryItem);
+    m_libraryRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
     QTreeWidgetItem* schemeParent = ui->treeModels->invisibleRootItem();
     if (hasActiveProject())
