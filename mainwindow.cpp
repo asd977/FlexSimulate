@@ -674,7 +674,7 @@ void MainWindow::onNewProjectTriggered()
     bool ok = false;
     const QString name = QInputDialog::getText(
         this, tr("新建工程"), tr("工程名称："), QLineEdit::Normal,
-        tr("新工程"), &ok);
+        tr("NewProject"), &ok);
     if (!ok)
         return;
 
@@ -725,81 +725,39 @@ void MainWindow::onOpenProjectTriggered()
 
 void MainWindow::onAddLibraryScheme()
 {
-    const QString defaultName = tr("新方案%1").arg(m_librarySchemes.size() + 1);
+    const QString defaultName = tr("NewAssembly%1").arg(m_librarySchemes.size() + 1);
     SchemeSettingsDialog dlg(defaultName, QString(), false, this);
-    dlg.setDirectoryHint(tr("方案库目录将在软件运行目录中自动生成"));
+    dlg.setDirectoryHint(tr("总成库目录将在软件运行目录中自动生成"));
     if (dlg.exec() != QDialog::Accepted)
         return;
 
     const QString name = dlg.schemeName();
     if (name.isEmpty())
     {
-        QMessageBox::warning(this, tr("创建方案库"), tr("方案名称不能为空"));
+        QMessageBox::warning(this, tr("创建总成库"), tr("总成名称不能为空"));
         return;
     }
 
     QString directory = makeUniqueLibrarySubdir(name);
     if (directory.isEmpty())
     {
-        QMessageBox::warning(this, tr("创建方案库"), tr("无法创建方案库目录"));
+        QMessageBox::warning(this, tr("创建总成库"), tr("无法创建总成库目录"));
         return;
     }
 
     if (!ensureDirectoryExists(directory))
     {
-        QMessageBox::warning(this, tr("创建方案库"),
+        QMessageBox::warning(this, tr("创建总成库"),
                              tr("无法创建目录：%1")
                                  .arg(QDir::toNativeSeparators(directory)));
         return;
-    }
-
-    QString templatePath;
-    const QVector<QPair<QString, QString>> templates = availableSchemeTemplates();
-    if (!templates.isEmpty())
-    {
-        QStringList options;
-        options << tr("空白方案");
-        for (const auto& info : templates)
-            options << info.first;
-
-        bool ok = true;
-        const QString choice = QInputDialog::getItem(
-            this, tr("方案模板"), tr("请选择通用方案模板："), options, 0, false, &ok);
-        if (!ok)
-        {
-            QDir(directory).removeRecursively();
-            return;
-        }
-        if (choice != options.first())
-        {
-            for (const auto& info : templates)
-            {
-                if (info.first == choice)
-                {
-                    templatePath = info.second;
-                    break;
-                }
-            }
-        }
-    }
-
-    if (!templatePath.isEmpty())
-    {
-        if (!copyDirectoryRecursively(templatePath, directory))
-        {
-            QDir(directory).removeRecursively();
-            QMessageBox::warning(this, tr("创建方案库"),
-                                 tr("无法复制模板目录：%1")
-                                     .arg(QDir::toNativeSeparators(templatePath)));
-            return;
-        }
     }
 
     const QString canonical = canonicalPathForDir(QDir(directory));
     if (canonical.isEmpty())
     {
         QDir(directory).removeRecursively();
-        QMessageBox::warning(this, tr("创建方案库"), tr("无法解析方案库目录"));
+        QMessageBox::warning(this, tr("创建总成库"), tr("无法解析总成库目录"));
         return;
     }
 
@@ -827,7 +785,7 @@ void MainWindow::onAddLibraryScheme()
 
     saveSchemeLibrary();
     updateGallery();
-    appendLogMessage(tr("已创建方案库 %1").arg(name));
+    appendLogMessage(tr("已创建总成库 %1").arg(name));
 }
 
 void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidgetItem*)
@@ -938,7 +896,7 @@ void MainWindow::onTreeItemChanged(QTreeWidgetItem* item, int column)
             const QString trimmed = item->text(0).trimmed();
             if (trimmed.isEmpty())
             {
-                QMessageBox::warning(this, tr("重命名方案"), tr("方案名称不能为空。"));
+                QMessageBox::warning(this, tr("重命名总成"), tr("总成名称不能为空。"));
                 restoreText(scheme->name);
                 return;
             }
@@ -946,7 +904,7 @@ void MainWindow::onTreeItemChanged(QTreeWidgetItem* item, int column)
             const QString unique = makeUniqueSchemeName(trimmed, scheme->id);
             if (unique.compare(trimmed, Qt::CaseSensitive) != 0)
             {
-                QMessageBox::warning(this, tr("重命名方案"), tr("已存在同名方案，请输入其他名称。"));
+                QMessageBox::warning(this, tr("重命名总成"), tr("已存在同名总成，请输入其他名称。"));
                 restoreText(scheme->name);
                 return;
             }
@@ -979,7 +937,7 @@ void MainWindow::onTreeItemChanged(QTreeWidgetItem* item, int column)
             const QString unique = makeUniqueModelName(*owner, trimmed, model->id);
             if (unique.compare(trimmed, Qt::CaseSensitive) != 0)
             {
-                QMessageBox::warning(this, tr("重命名模型"), tr("该方案下已存在同名模型。"));
+                QMessageBox::warning(this, tr("重命名模型"), tr("该总成下已存在同名模型。"));
                 restoreText(model->name);
                 return;
             }
@@ -1004,21 +962,21 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
 
     if (!item)
     {
-        menu.addAction(tr("导入方案"), this, &MainWindow::promptAddScheme);
+        menu.addAction(tr("导入总成"), this, &MainWindow::promptAddScheme);
     }
     else
     {
         const int type = item->data(0, TypeRole).toInt();
         if (type == LibraryItem)
         {
-            menu.addAction(tr("查看方案库"), this, [this]() {
+            menu.addAction(tr("查看总成库"), this, [this]() {
                 ui->stackedWidget->setCurrentWidget(ui->planPage);
                 updateGallery();
             });
             if (hasActiveProject())
             {
                 menu.addSeparator();
-                menu.addAction(tr("导入方案"), this, &MainWindow::promptAddScheme);
+                menu.addAction(tr("导入总成"), this, &MainWindow::promptAddScheme);
             }
         }
         else if (type == ProjectItem)
@@ -1029,23 +987,23 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
                     QDesktopServices::openUrl(QUrl::fromLocalFile(m_projectRoot));
                 });
             }
-            menu.addAction(tr("导入方案"), this, &MainWindow::promptAddScheme);
+            menu.addAction(tr("导入总成"), this, &MainWindow::promptAddScheme);
         }
         else if (type == SchemeItem)
         {
             const QString schemeId = item->data(0, IdRole).toString();
-            menu.addAction(tr("方案设置"), this, [this, schemeId]() {
+            menu.addAction(tr("总成设置"), this, [this, schemeId]() {
                 openSchemeSettings(schemeId);
             });
             menu.addAction(tr("添加模型"), this, [this, schemeId]() {
                 promptAddModel(schemeId);
             });
-            menu.addAction(tr("打开方案目录"), this, [this, schemeId]() {
+            menu.addAction(tr("打开总成目录"), this, [this, schemeId]() {
                 if (SchemeRecord* scheme = schemeById(schemeId))
                     QDesktopServices::openUrl(QUrl::fromLocalFile(scheme->workingDirectory));
             });
             menu.addSeparator();
-            menu.addAction(tr("删除方案"), this, [this, schemeId]() {
+            menu.addAction(tr("删除总成"), this, [this, schemeId]() {
                 if (SchemeRecord* scheme = schemeById(schemeId))
                 {
                     if (confirmSchemeDeletion(*scheme))
@@ -1152,19 +1110,19 @@ void MainWindow::onGalleryDeleteRequested(const QString& id)
     {
         if (!entry->deletable)
         {
-            QMessageBox::information(this, tr("删除方案库"), tr("此方案属于内置模板，无法删除。"));
+            QMessageBox::information(this, tr("删除总成库"), tr("此总成属于内置模板，无法删除。"));
             return;
         }
-        const QString entryName = entry->name.isEmpty() ? tr("未命名方案") : entry->name;
-        const QString text = tr("确定要从方案库中删除“%1”吗？").arg(entryName);
-        if (QMessageBox::question(this, tr("删除方案库"), text,
+        const QString entryName = entry->name.isEmpty() ? tr("Untitled Assembly") : entry->name;
+        const QString text = tr("确定要从总成库中删除“%1”吗？").arg(entryName);
+        if (QMessageBox::question(this, tr("删除总成库"), text,
                                   QMessageBox::Yes | QMessageBox::No,
                                   QMessageBox::No) == QMessageBox::Yes)
         {
             if (removeLibraryEntry(id))
             {
                 updateGallery();
-                appendLogMessage(tr("已删除方案库 %1").arg(entryName));
+                appendLogMessage(tr("已删除总成库 %1").arg(entryName));
             }
         }
         return;
@@ -1261,7 +1219,7 @@ void MainWindow::rebuildTree()
     const QIcon modelIcon(QStringLiteral(":/icons/icons/model.svg"));
 
     m_libraryRootItem = new QTreeWidgetItem(ui->treeModels);
-    m_libraryRootItem->setText(0, tr("方案库"));
+    m_libraryRootItem->setText(0, tr("总成库"));
     m_libraryRootItem->setIcon(0, libraryIcon);
     m_libraryRootItem->setData(0, TypeRole, LibraryItem);
     m_libraryRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
@@ -1336,11 +1294,11 @@ void MainWindow::updateGallery()
         options.showDeleteButton = entry.deletable;
         options.enableDeleteButton = entry.deletable;
         options.deleteToolTip = entry.deletable
-                                     ? tr("从方案库中删除此方案")
+                                     ? tr("从总成库中删除此总成")
                                      : tr("内置模板不可删除");
         options.showOpenButton = true;
         options.enableOpenButton = true;
-        options.openToolTip = tr("打开方案所在目录");
+        options.openToolTip = tr("打开总成所在目录");
         options.hintText = tr("双击卡片查看详情");
 
         m_galleryWidget->addScheme(entry.id, entry.name, thumb, options);
@@ -1445,7 +1403,7 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(12);
 
-    auto* title = new QLabel(tr("方案：%1").arg(scheme.name), container);
+    auto* title = new QLabel(tr("总成：%1").arg(scheme.name), container);
     title->setStyleSheet("font-size:18px;font-weight:600;color:#0f172a;");
     layout->addWidget(title);
 
@@ -1522,7 +1480,7 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
     });
     buttonRow->addWidget(addBtn);
 
-    auto* openBtn = new QPushButton(tr("打开方案目录"), container);
+    auto* openBtn = new QPushButton(tr("打开总成目录"), container);
     openBtn->setCursor(Qt::PointingHandCursor);
     openBtn->setStyleSheet(
         "QPushButton{padding:8px 18px;border-radius:18px;"
@@ -1628,7 +1586,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     const QString directory = entry->directory;
     if (directory.isEmpty())
     {
-        QMessageBox::warning(this, tr("方案详情"), tr("方案库目录不存在或不可访问。"));
+        QMessageBox::warning(this, tr("总成详情"), tr("总成库目录不存在或不可访问。"));
         clearDetailWidget();
         setVisualizationVisible(false);
         updateSelectionInfo();
@@ -1637,8 +1595,8 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
 
     if (!ensureDirectoryExists(directory))
     {
-        QMessageBox::warning(this, tr("方案详情"),
-                             tr("无法访问方案库目录：%1")
+        QMessageBox::warning(this, tr("总成详情"),
+                             tr("无法访问总成库目录：%1")
                                  .arg(QDir::toNativeSeparators(directory)));
         clearDetailWidget();
         setVisualizationVisible(false);
@@ -1651,7 +1609,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
 
     const auto entryDisplayName = [this, entry]() -> QString {
         const QString trimmed = entry->name.trimmed();
-        return trimmed.isEmpty() ? tr("未命名方案") : trimmed;
+        return trimmed.isEmpty() ? tr("Untitled Assembly") : trimmed;
     };
 
     clearDetailWidget();
@@ -1763,7 +1721,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     addToProjectBtn->setStyleSheet(actionButtonStyle);
     buttonLayout->addWidget(addToProjectBtn);
 
-    auto* openDirBtn = new QPushButton(tr("打开方案目录"), container);
+    auto* openDirBtn = new QPushButton(tr("打开总成目录"), container);
     openDirBtn->setCursor(Qt::PointingHandCursor);
     openDirBtn->setStyleSheet(actionButtonStyle);
     buttonLayout->addWidget(openDirBtn);
@@ -1827,7 +1785,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 bool ok = false;
                 const QString currentName = entry->name;
                 const QString newName = QInputDialog::getText(
-                    this, tr("重命名方案"), tr("新的方案名称："), QLineEdit::Normal,
+                    this, tr("重命名总成"), tr("新的总成名称："), QLineEdit::Normal,
                     currentName, &ok);
                 if (!ok)
                     return;
@@ -1835,7 +1793,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 const QString trimmed = newName.trimmed();
                 if (trimmed.isEmpty())
                 {
-                    QMessageBox::warning(this, tr("重命名方案"), tr("方案名称不能为空。"));
+                    QMessageBox::warning(this, tr("重命名总成"), tr("总成名称不能为空。"));
                     return;
                 }
 
@@ -1868,14 +1826,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 if (schemeUpdated)
                     persistSchemes();
                 updateGallery();
-                appendLogMessage(tr("已将方案库重命名为 %1").arg(entryDisplayName()));
-            });
-
-    connect(listWidget, &QListWidget::itemDoubleClicked, this,
-            [](QListWidgetItem* item) {
-                const QString dir = item->data(Qt::UserRole).toString();
-                if (!dir.isEmpty())
-                    QDesktopServices::openUrl(QUrl::fromLocalFile(dir));
+                appendLogMessage(tr("已将总成库重命名为 %1").arg(entryDisplayName()));
             });
 
     connect(openDirBtn, &QPushButton::clicked, this,
@@ -1899,7 +1850,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 {
                     refreshModels();
                     appendLogMessage(
-                        tr("已向方案库 %1 添加 %2 个模型")
+                        tr("已向总成库 %1 添加 %2 个模型")
                             .arg(entryDisplayName())
                             .arg(added.size()));
                     updateGallery();
@@ -1948,15 +1899,15 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 {
                     QString modelName = modelNames.value(0).trimmed();
                     if (modelName.isEmpty())
-                        modelName = tr("未命名模型");
+                        modelName = tr("Untitled Model");
                     confirmText =
-                        tr("确定要从方案库“%1”中删除模型“%2”吗？")
+                        tr("确定要从总成库“%1”中删除模型“%2”吗？")
                             .arg(displayName, modelName);
                 }
                 else
                 {
                     confirmText =
-                        tr("确定要从方案库“%1”中删除选中的 %2 个模型吗？")
+                        tr("确定要从总成库“%1”中删除选中的 %2 个模型吗？")
                             .arg(displayName)
                             .arg(modelDirs.size());
                 }
@@ -2000,7 +1951,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
 
                 if (removedCount > 0)
                 {
-                    appendLogMessage(tr("已从方案库 %1 删除 %2 个模型")
+                    appendLogMessage(tr("已从总成库 %1 删除 %2 个模型")
                                          .arg(displayName)
                                          .arg(removedCount));
                     updateGallery();
@@ -2082,7 +2033,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
             if (workingDir.isEmpty())
             {
                 QMessageBox::warning(this, tr("添加到工程"),
-                                     tr("无法创建方案工作目录。"));
+                                     tr("无法创建总成工作目录。"));
                 return;
             }
             if (!ensureDirectoryExists(workingDir))
@@ -2098,7 +2049,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
             {
                 QDir(workingDir).removeRecursively();
                 QMessageBox::warning(this, tr("添加到工程"),
-                                     tr("无法创建方案记录。"));
+                                     tr("无法创建总成记录。"));
                 return;
             }
 
@@ -2460,7 +2411,7 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
     {
         if (showError)
             QMessageBox::warning(this, tr("导入失败"),
-                                 tr("无法创建方案工作目录：%1")
+                                 tr("无法创建总成工作目录：%1")
                                      .arg(QDir::toNativeSeparators(scheme->workingDirectory)));
         return addedIds;
     }
@@ -2621,7 +2572,7 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
     if (duplicateSkipped && showError)
     {
         QMessageBox::information(this, tr("导入模型"),
-                                 tr("所选模型中部分已存在于当前方案，已跳过重复项。"));
+                                 tr("所选模型中部分已存在于当前总成，已跳过重复项。"));
     }
 
     return addedIds;
@@ -2635,7 +2586,7 @@ QStringList MainWindow::importModelsIntoLibraryEntry(SchemeLibraryEntry& entry,
     if (entry.directory.isEmpty())
     {
         if (showError)
-            QMessageBox::warning(this, tr("导入模型"), tr("方案库目录不存在。"));
+            QMessageBox::warning(this, tr("导入模型"), tr("总成库目录不存在。"));
         return added;
     }
 
@@ -2643,7 +2594,7 @@ QStringList MainWindow::importModelsIntoLibraryEntry(SchemeLibraryEntry& entry,
     {
         if (showError)
             QMessageBox::warning(this, tr("导入模型"),
-                                 tr("无法创建或访问方案库目录：%1")
+                                 tr("无法创建或访问总成库目录：%1")
                                      .arg(QDir::toNativeSeparators(entry.directory)));
         return added;
     }
@@ -2675,7 +2626,7 @@ QStringList MainWindow::importModelsIntoLibraryEntry(SchemeLibraryEntry& entry,
                 if (showError)
                     QMessageBox::information(
                         this, tr("导入模型"),
-                        tr("请选择方案库目录以外的模型文件夹。"));
+                        tr("请选择总成库目录以外的模型文件夹。"));
                 continue;
             }
         }
@@ -2802,7 +2753,7 @@ QVector<MainWindow::ModelRecord> MainWindow::scanSchemeFolder(const QString& sch
 
     QSet<QString> taken;
     for (ModelRecord& model : models)
-        model.name = makeUniqueName(model.name, taken, tr("未命名模型"));
+        model.name = makeUniqueName(model.name, taken, tr("Untitled Model"));
     return models;
 }
 
@@ -2911,48 +2862,6 @@ bool MainWindow::isPathWithinDirectory(const QString& filePath,
     return true;
 }
 
-QVector<QPair<QString, QString>> MainWindow::availableSchemeTemplates() const
-{
-    QVector<QPair<QString, QString>> templates;
-    QSet<QString> seen;
-    for (const QString& rootPath : templateSearchRoots())
-    {
-        QDir root(rootPath);
-        if (!root.exists())
-            continue;
-
-        const QFileInfoList entries =
-            root.entryInfoList(QDir::Dirs | QDir::NoDotAndDotDot);
-        for (const QFileInfo& info : entries)
-        {
-            const QString canonical = canonicalPathForDir(QDir(info.absoluteFilePath()));
-            if (canonical.isEmpty() || seen.contains(canonical))
-                continue;
-            templates.append({info.fileName(), canonical});
-            seen.insert(canonical);
-        }
-    }
-    for (const SchemeLibraryEntry& entry : m_librarySchemes)
-    {
-        if (entry.directory.isEmpty())
-            continue;
-        if (seen.contains(entry.directory))
-            continue;
-        templates.append({entry.name, entry.directory});
-        seen.insert(entry.directory);
-    }
-    return templates;
-}
-
-QStringList MainWindow::templateSearchRoots() const
-{
-    return {
-        QDir::current().absoluteFilePath(QStringLiteral("sample_data")),
-        QCoreApplication::applicationDirPath() + QStringLiteral("/sample_data"),
-        QCoreApplication::applicationDirPath() + QStringLiteral("/../sample_data")
-    };
-}
-
 QString MainWindow::schemeLibraryRoot() const
 {
     return m_schemeLibraryRoot;
@@ -2970,7 +2879,7 @@ QString MainWindow::makeUniqueLibrarySubdir(const QString& baseName) const
 
     QString sanitized = baseName.trimmed();
     if (sanitized.isEmpty())
-        sanitized = QStringLiteral("Scheme");
+        sanitized = QStringLiteral("Assembly");
     sanitized.replace(QRegularExpression("\\s+"), "_");
 
     QString candidate = dir.filePath(sanitized);
@@ -3087,11 +2996,11 @@ void MainWindow::promptAddScheme()
 {
     if (!hasActiveProject())
     {
-        QMessageBox::information(this, tr("创建方案"), tr("请先新建或打开工程。"));
+        QMessageBox::information(this, tr("创建总成"), tr("请先新建或打开工程。"));
         return;
     }
 
-    const QString defaultName = tr("新方案%1").arg(m_schemes.size() + 1);
+    const QString defaultName = tr("NewAssembly%1").arg(m_schemes.size() + 1);
     SchemeSettingsDialog dlg(defaultName, QString(), false, this);
     dlg.setDirectoryHint(tr("工作目录将在工程中自动生成"));
     if (dlg.exec() != QDialog::Accepted)
@@ -3100,65 +3009,23 @@ void MainWindow::promptAddScheme()
     const QString name = dlg.schemeName();
     if (name.isEmpty())
     {
-        QMessageBox::warning(this, tr("创建方案"), tr("方案名称不能为空"));
+        QMessageBox::warning(this, tr("创建总成"), tr("总成名称不能为空"));
         return;
     }
 
     QString directory = makeUniqueWorkspaceSubdir(name);
     if (directory.isEmpty())
     {
-        QMessageBox::warning(this, tr("创建方案"), tr("无法创建方案工作目录"));
+        QMessageBox::warning(this, tr("创建总成"), tr("无法创建总成工作目录"));
         return;
     }
 
     if (!ensureDirectoryExists(directory))
     {
-        QMessageBox::warning(this, tr("创建方案"),
+        QMessageBox::warning(this, tr("创建总成"),
                              tr("无法创建工作目录：%1")
                                  .arg(QDir::toNativeSeparators(directory)));
         return;
-    }
-
-    QString templatePath;
-    const QVector<QPair<QString, QString>> templates = availableSchemeTemplates();
-    if (!templates.isEmpty())
-    {
-        QStringList options;
-        options << tr("空白方案");
-        for (const auto& info : templates)
-            options << info.first;
-
-        bool ok = true;
-        const QString choice = QInputDialog::getItem(
-            this, tr("方案模板"), tr("请选择通用方案模板："), options, 0, false, &ok);
-        if (!ok)
-        {
-            QDir(directory).removeRecursively();
-            return;
-        }
-        if (choice != options.first())
-        {
-            for (const auto& info : templates)
-            {
-                if (info.first == choice)
-                {
-                    templatePath = info.second;
-                    break;
-                }
-            }
-        }
-    }
-
-    if (!templatePath.isEmpty())
-    {
-        if (!copyDirectoryRecursively(templatePath, directory))
-        {
-            QDir(directory).removeRecursively();
-            QMessageBox::warning(this, tr("创建方案"),
-                                 tr("无法复制模板目录：%1")
-                                     .arg(QDir::toNativeSeparators(templatePath)));
-            return;
-        }
     }
 
     const QString id = importSchemeFromDirectory(directory, false);
@@ -3172,7 +3039,7 @@ void MainWindow::promptAddScheme()
         persistSchemes();
         refreshNavigation(id);
         ui->stackedWidget->setCurrentWidget(ui->MainPage);
-        appendLogMessage(tr("已创建方案 %1").arg(name));
+        appendLogMessage(tr("已创建总成 %1").arg(name));
     }
     else
     {
@@ -3225,12 +3092,12 @@ void MainWindow::openSchemeSettings(const QString& schemeId)
 bool MainWindow::confirmSchemeDeletion(const SchemeRecord& scheme)
 {
     const QString schemeName = scheme.name.isEmpty()
-                                  ? tr("未命名方案")
+                                  ? tr("Untitled Assembly")
                                   : scheme.name;
     const QString text =
-        tr("确定要删除方案“%1”吗？此操作将删除方案下的所有模型。")
+        tr("确定要删除总成“%1”吗？此操作将删除总成下的所有模型。")
             .arg(schemeName);
-    return QMessageBox::question(this, tr("删除方案"), text,
+    return QMessageBox::question(this, tr("删除总成"), text,
                                  QMessageBox::Yes | QMessageBox::No,
                                  QMessageBox::No) == QMessageBox::Yes;
 }
@@ -3239,13 +3106,13 @@ bool MainWindow::confirmModelDeletion(const ModelRecord& model,
                                       const SchemeRecord& owner)
 {
     const QString modelName = model.name.isEmpty()
-                                  ? tr("未命名模型")
+                                  ? tr("Untitled Model")
                                   : model.name;
     const QString schemeName = owner.name.isEmpty()
-                                   ? tr("未命名方案")
+                                   ? tr("Untitled Assembly")
                                    : owner.name;
     const QString text =
-        tr("确定要从方案“%1”中删除模型“%2”吗？")
+        tr("确定要从总成“%1”中删除模型“%2”吗？")
             .arg(schemeName, modelName);
     return QMessageBox::question(this, tr("删除模型"), text,
                                  QMessageBox::Yes | QMessageBox::No,
@@ -3269,7 +3136,7 @@ void MainWindow::removeSchemeById(const QString& id)
             }
             persistSchemes();
             refreshNavigation();
-            appendLogMessage(tr("已删除方案"));
+            appendLogMessage(tr("已删除总成"));
             return;
         }
     }
@@ -3398,7 +3265,7 @@ void MainWindow::syncDataFromTree()
 QString MainWindow::projectDisplayName() const
 {
     if (!hasActiveProject())
-        return tr("未命名工程");
+        return tr("Untitled Project");
 
     QFileInfo info(m_projectRoot);
     QString name = info.fileName();
@@ -3441,7 +3308,7 @@ QString MainWindow::makeUniqueSchemeName(const QString& desired,
             continue;
         taken.insert(scheme.name.trimmed().toLower());
     }
-    return makeUniqueName(desired, taken, tr("未命名方案"));
+    return makeUniqueName(desired, taken, tr("Untitled Assembly"));
 }
 
 QString MainWindow::makeUniqueModelName(const SchemeRecord& scheme,
@@ -3455,14 +3322,14 @@ QString MainWindow::makeUniqueModelName(const SchemeRecord& scheme,
             continue;
         taken.insert(model.name.trimmed().toLower());
     }
-    return makeUniqueName(desired, taken, tr("未命名模型"));
+    return makeUniqueName(desired, taken, tr("Untitled Model"));
 }
 
 void MainWindow::ensureUniqueModelNames(SchemeRecord& scheme) const
 {
     QSet<QString> taken;
     for (ModelRecord& model : scheme.models)
-        model.name = makeUniqueName(model.name, taken, tr("未命名模型"));
+        model.name = makeUniqueName(model.name, taken, tr("Untitled Model"));
 }
 
 void MainWindow::ensureUniqueSchemeAndModelNames()
@@ -3470,7 +3337,7 @@ void MainWindow::ensureUniqueSchemeAndModelNames()
     QSet<QString> taken;
     for (SchemeRecord& scheme : m_schemes)
     {
-        scheme.name = makeUniqueName(scheme.name, taken, tr("未命名方案"));
+        scheme.name = makeUniqueName(scheme.name, taken, tr("Untitled Assembly"));
         ensureUniqueModelNames(scheme);
     }
 }

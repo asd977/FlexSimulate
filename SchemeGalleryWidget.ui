@@ -11,7 +11,7 @@
    </rect>
   </property>
   <property name="windowTitle">
-   <string>方案库</string>
+   <string>总成库</string>
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_root">
    <property name="spacing">
@@ -37,7 +37,7 @@
         <string notr="true">font-size:16px; font-weight:600;</string>
        </property>
        <property name="text">
-        <string>方案库</string>
+        <string>总成库</string>
        </property>
       </widget>
      </item>
@@ -63,7 +63,7 @@
         </size>
        </property>
        <property name="text">
-        <string>新建方案</string>
+        <string>新建总成</string>
        </property>
        <property name="icon">
         <iconset resource="resources.qrc">

@@ -15,6 +15,7 @@
 #include <QFileInfoList>
 #include <QStringList>
 #include <QDir>
+#include <QProgressDialog>
 
 namespace
 {
@@ -316,9 +317,14 @@ QString JsonPageBuilder::extractErrorMsgFromDat(const QString& content)
 
 void JsonPageBuilder::onCalculateButtonClicked()
 {
-    m_calculateButton->setEnabled(false);
-    const QString now = QDateTime::currentDateTime()
-                        .toString("yyyy-MM-dd HH:mm:ss");
+    if (m_process)
+        return;
+
+    if (m_calculateButton)
+        m_calculateButton->setEnabled(false);
+
+    m_calculationTimestamp = QDateTime::currentDateTime()
+                                 .toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
 
     QFileInfo jsonInfo(m_jsonPath);
     if (!jsonInfo.exists())
@@ -327,7 +333,8 @@ void JsonPageBuilder::onCalculateButtonClicked()
                                  .arg(QDir::toNativeSeparators(m_jsonPath));
         emit logMessage(warn);
         QMessageBox::warning(this, tr("警告"), warn);
-        m_calculateButton->setEnabled(true);
+        if (m_calculateButton)
+            m_calculateButton->setEnabled(true);
         return;
     }
 
@@ -343,7 +350,8 @@ void JsonPageBuilder::onCalculateButtonClicked()
                                  .arg(QDir::toNativeSeparators(workingDir.absolutePath()));
         emit logMessage(warn);
         QMessageBox::warning(this, tr("警告"), warn);
-        m_calculateButton->setEnabled(true);
+        if (m_calculateButton)
+            m_calculateButton->setEnabled(true);
         return;
     }
 
@@ -352,9 +360,7 @@ void JsonPageBuilder::onCalculateButtonClicked()
         batInfo.setFile(m_batPath);
     const QString expectedBatPath = workingDir.absoluteFilePath(QStringLiteral("calculate.bat"));
     if (!batInfo.exists())
-    {
         batInfo.setFile(expectedBatPath);
-    }
 
     if (!batInfo.exists())
     {
@@ -362,106 +368,222 @@ void JsonPageBuilder::onCalculateButtonClicked()
                                  .arg(QDir::toNativeSeparators(expectedBatPath));
         emit logMessage(warn);
         QMessageBox::warning(this, tr("警告"), warn);
-        m_calculateButton->setEnabled(true);
+        if (m_calculateButton)
+            m_calculateButton->setEnabled(true);
         return;
     }
 
     m_batPath = batInfo.absoluteFilePath();
 
     QFileInfo previousResult = latestResultInfo(workingDir);
+    m_previousResultPath = previousResult.exists() ? previousResult.absoluteFilePath() : QString();
+    m_previousResultModified = previousResult.exists() ? previousResult.lastModified()
+                                                       : QDateTime();
+    m_pendingWorkingDirectory = workingDir.absolutePath();
+    m_pendingStdOut.clear();
+    m_pendingStdErr.clear();
 
     emit logMessage(tr("开始计算，保存参数到 %1")
                         .arg(QDir::toNativeSeparators(m_jsonPath)));
 
-    // 1) 先保存 JSON
-    if (!saveJson(m_jsonPath)) {
+    if (!saveJson(m_jsonPath))
+    {
         const QString warn = tr("保存 JSON 失败：%1")
                                  .arg(QDir::toNativeSeparators(m_jsonPath));
         emit logMessage(warn);
         QMessageBox::warning(this, tr("警告"), warn);
-        m_calculateButton->setEnabled(true);
+        m_pendingWorkingDirectory.clear();
+        m_previousResultPath.clear();
+        m_previousResultModified = QDateTime();
+        if (m_calculateButton)
+            m_calculateButton->setEnabled(true);
         return;
     }
 
     emit logMessage(tr("已保存参数，开始执行计算脚本"));
 
-    // 2) 执行外部命令（Windows 下：cmd /c calculate.bat）
-    int exitCode = -1;
-    QString stderrText, stdoutText;
-    QProcess process;
-    if (workingDir.exists())
-        process.setWorkingDirectory(workingDir.absolutePath());
-    process.setProcessChannelMode(QProcess::MergedChannels);
-    process.start(QStringLiteral("cmd"),
-                  QStringList() << QStringLiteral("/c")
-                                << QDir::toNativeSeparators(m_batPath));
-    const bool finished = process.waitForFinished(-1);
-    stdoutText = QString::fromLocal8Bit(process.readAllStandardOutput());
-    stderrText = QString::fromLocal8Bit(process.readAllStandardError());
-    exitCode = finished ? process.exitCode() : -1;
-
-    if (!finished) {
-        emit logMessage(tr("计算脚本执行异常：%1")
-                            .arg(process.errorString()));
+    ensureProgressDialog();
+    if (m_progressDialog)
+    {
+        m_progressDialog->setLabelText(tr("正在计算，请稍候..."));
+        m_progressDialog->setRange(0, 0);
+        m_progressDialog->show();
     }
+
+    resetCalculationState();
+
+    m_process = new QProcess(this);
+    if (workingDir.exists())
+        m_process->setWorkingDirectory(workingDir.absolutePath());
+    m_process->setProcessChannelMode(QProcess::SeparateChannels);
+
+    connect(m_process, &QProcess::readyReadStandardOutput,
+            this, &JsonPageBuilder::handleProcessOutput);
+    connect(m_process, &QProcess::readyReadStandardError,
+            this, &JsonPageBuilder::handleProcessOutput);
+    connect(m_process, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+            this, &JsonPageBuilder::handleProcessFinished);
+    connect(m_process, &QProcess::errorOccurred,
+            this, &JsonPageBuilder::handleProcessError);
+
+    m_process->start(QStringLiteral("cmd"),
+                     QStringList() << QStringLiteral("/c")
+                                   << QDir::toNativeSeparators(m_batPath));
+}
+
+void JsonPageBuilder::handleProcessOutput()
+{
+    if (!m_process)
+        return;
+
+    const QByteArray out = m_process->readAllStandardOutput();
+    if (!out.isEmpty())
+        m_pendingStdOut.append(QString::fromLocal8Bit(out));
+
+    const QByteArray err = m_process->readAllStandardError();
+    if (!err.isEmpty())
+        m_pendingStdErr.append(QString::fromLocal8Bit(err));
+}
+
+void JsonPageBuilder::handleProcessFinished(int exitCode, QProcess::ExitStatus status)
+{
+    handleProcessOutput();
+    QString failureReason;
+    if (status != QProcess::NormalExit && m_process)
+        failureReason = m_process->errorString();
+    finalizeCalculation(exitCode, status == QProcess::NormalExit, failureReason);
+}
+
+void JsonPageBuilder::handleProcessError(QProcess::ProcessError error)
+{
+    if (!m_process)
+        return;
+
+    if (error == QProcess::FailedToStart)
+    {
+        handleProcessOutput();
+        const QString failure = tr("计算脚本启动失败：%1").arg(m_process->errorString());
+        emit logMessage(failure);
+        finalizeCalculation(-1, false, failure);
+    }
+}
+
+void JsonPageBuilder::finalizeCalculation(int exitCode, bool finishedSuccessfully,
+                                          const QString& failureReason)
+{
+    if (m_progressDialog)
+    {
+        m_progressDialog->hide();
+        m_progressDialog->deleteLater();
+        m_progressDialog = nullptr;
+    }
+
+    QString stdoutText = m_pendingStdOut;
+    QString stderrText = m_pendingStdErr;
+    m_pendingStdOut.clear();
+    m_pendingStdErr.clear();
 
     if (!stdoutText.trimmed().isEmpty())
         emit logMessage(tr("输出：%1").arg(stdoutText.trimmed()));
     if (!stderrText.trimmed().isEmpty())
         emit logMessage(tr("错误：%1").arg(stderrText.trimmed()));
 
+    QString timestamp = m_calculationTimestamp;
+    if (timestamp.isEmpty())
+        timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+    m_calculationTimestamp.clear();
+
     QString message;
-    if (exitCode == 0) {
-        message = tr("计算成功，时间：%1").arg(now);
-    }
+    if (finishedSuccessfully && exitCode == 0)
+        message = tr("计算成功，时间：%1").arg(timestamp);
 
-    // 3) 检测 .msg
-    if (QFile::exists(m_msgPath)) {
-        const QString all = readWholeFile(m_msgPath);
-        const QString err = extractErrorMsgFromMsg(all);
-        if (!err.isEmpty()) {
-            message = tr("错误信息：%1 时间：%2").arg(err, now);
+    if (!failureReason.trimmed().isEmpty())
+        message = failureReason;
+
+    if (finishedSuccessfully)
+    {
+        if (QFile::exists(m_msgPath))
+        {
+            const QString all = readWholeFile(m_msgPath);
+            const QString err = extractErrorMsgFromMsg(all);
+            if (!err.isEmpty())
+                message = tr("错误信息：%1 时间：%2").arg(err, timestamp);
+        }
+        else if (QFile::exists(m_datPath))
+        {
+            const QString all = readWholeFile(m_datPath);
+            const QString err = extractErrorMsgFromDat(all);
+            if (!err.isEmpty())
+                message = tr("错误信息：%1 时间：%2").arg(err, timestamp);
         }
     }
-    // 4) 否则检测 .dat
-    else if (QFile::exists(m_datPath)) {
-        const QString all = readWholeFile(m_datPath);
-        QString err = extractErrorMsgFromDat(all);
-        if (!err.isEmpty()) {
-            message = tr("错误信息：%1 时间：%2").arg(err, now);
-        }
-    }
 
-    if (message.isEmpty()) {
-        // 兜底信息：既无错误也无成功码
-        message = tr("计算结束，退出码 %1 时间：%2")
-                      .arg(exitCode)
-                      .arg(now);
+    if (message.isEmpty())
+    {
+        const QString base = finishedSuccessfully
+                                 ? tr("计算结束，退出码 %1 时间：%2")
+                                 : tr("计算脚本执行异常，退出码 %1 时间：%2");
+        message = base.arg(exitCode).arg(timestamp);
         if (!stderrText.trimmed().isEmpty())
             message += QStringLiteral("\n%1").arg(stderrText.trimmed());
     }
 
-    emit logMessage(message);
-
-    QFileInfo latestResult = latestResultInfo(workingDir);
     QString newResultPath;
-    if (latestResult.exists()) {
-        const bool isNewFile = !previousResult.exists() ||
-                               latestResult.absoluteFilePath() != previousResult.absoluteFilePath();
-        const bool isUpdated = previousResult.exists() &&
-                               latestResult.absoluteFilePath() == previousResult.absoluteFilePath() &&
-                               latestResult.lastModified() > previousResult.lastModified();
-        if (isNewFile || isUpdated)
+    if (!m_pendingWorkingDirectory.isEmpty())
+    {
+        QDir workingDir(m_pendingWorkingDirectory);
+        QFileInfo latestResult = latestResultInfo(workingDir);
+        if (latestResult.exists())
         {
-            newResultPath = latestResult.absoluteFilePath();
-            emit logMessage(tr("检测到新的 STL 输出：%1")
-                                .arg(QDir::toNativeSeparators(newResultPath)));
+            const bool isNewFile = m_previousResultPath.isEmpty() ||
+                                   latestResult.absoluteFilePath() != m_previousResultPath;
+            const bool isUpdated = !m_previousResultPath.isEmpty() &&
+                                   latestResult.absoluteFilePath() == m_previousResultPath &&
+                                   latestResult.lastModified() > m_previousResultModified;
+            if (isNewFile || isUpdated)
+            {
+                newResultPath = latestResult.absoluteFilePath();
+                emit logMessage(tr("检测到新的 STL 输出：%1")
+                                    .arg(QDir::toNativeSeparators(newResultPath)));
+            }
         }
     }
 
+    emit logMessage(message);
     emit calculationFinished(newResultPath);
+    QMessageBox::information(this, tr("提示框"), message, QMessageBox::Ok);
 
-    QMessageBox::information(this, tr("提示框"),
-                             message, QMessageBox::Ok);
-    m_calculateButton->setEnabled(true);
+    resetCalculationState();
+
+    if (m_calculateButton)
+        m_calculateButton->setEnabled(true);
+
+    m_pendingWorkingDirectory.clear();
+    m_previousResultPath.clear();
+    m_previousResultModified = QDateTime();
+}
+
+void JsonPageBuilder::resetCalculationState()
+{
+    if (!m_process)
+        return;
+
+    m_process->disconnect(this);
+    m_process->deleteLater();
+    m_process = nullptr;
+}
+
+void JsonPageBuilder::ensureProgressDialog()
+{
+    if (m_progressDialog)
+        return;
+
+    auto* dialog = new QProgressDialog(tr("正在计算，请稍候..."), QString(), 0, 0, this);
+    dialog->setWindowModality(Qt::WindowModal);
+    dialog->setWindowTitle(tr("正在计算"));
+    dialog->setCancelButton(nullptr);
+    dialog->setAutoClose(false);
+    dialog->setAutoReset(false);
+    dialog->setMinimumDuration(0);
+    m_progressDialog = dialog;
 }
