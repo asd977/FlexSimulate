@@ -1,4 +1,5 @@
-﻿#include "JsonPageBuilder.h"
+#include "JsonPageBuilder.h"
+#include "StyleConstants.h"
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
@@ -30,14 +31,13 @@ QFileInfo latestResultInfo(const QDir& dir)
 }
 }
 
-static const char* kBtnQss =
-    "QPushButton {"
-    "  background-color: #e0e9f4;"
-    "  color: black;"
-    "  border: none;"
-    "  text-align: left;"
-    "  font-size: 15pt;"
-    "}";
+static const char* kSectionButtonQss =
+    "QPushButton{"
+    "background:#f4f4f5;border:1px solid #e5e7eb;border-radius:8px;"
+    "color:#1f2937;text-align:left;font-size:14px;font-weight:600;"
+    "padding:10px 14px;}"
+    "QPushButton:hover{background:#e7e7e9;}"
+    "QPushButton:pressed{background:#d4d4d8;}";
 
 JsonPageBuilder::JsonPageBuilder(const QString& jsonPath, QWidget* parent)
     : QWidget(parent)
@@ -88,8 +88,8 @@ JsonPageBuilder::JsonPageBuilder(const QString& jsonPath, QWidget* parent)
 void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
 {
     auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(12);
-    mainLayout->setContentsMargins(10, 10, 10, 10);
+    mainLayout->setSpacing(16);
+    mainLayout->setContentsMargins(16, 16, 16, 16);
 
     for (int i = 0; i < sections.size(); ++i)
     {
@@ -99,15 +99,16 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
         // 标题按钮
         auto* titleBtn = new QPushButton(title, this);
         titleBtn->setMinimumHeight(40);
-        titleBtn->setStyleSheet(kBtnQss);
+        titleBtn->setCursor(Qt::PointingHandCursor);
+        titleBtn->setStyleSheet(QString::fromLatin1(kSectionButtonQss));
         mainLayout->addWidget(titleBtn);
         m_titleButtons.push_back(titleBtn);
 
         // 本分组的网格布局：左列标签，右列输入框
         auto* grid = new QGridLayout();
         grid->setHorizontalSpacing(12);
-        grid->setVerticalSpacing(8);
-        grid->setContentsMargins(6, 0, 6, 6);
+        grid->setVerticalSpacing(10);
+        grid->setContentsMargins(6, 6, 6, 6);
         grid->setColumnStretch(0, 0); // label 列不拉伸
         grid->setColumnStretch(1, 1); // edit 列自适应拉伸
 
@@ -122,8 +123,14 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
 
             auto* lab = new QLabel(cnName + QString("："), this);
             lab->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+            lab->setStyleSheet("color:#374151;font-size:13px;font-weight:500;");
 
             auto* edit = new QLineEdit(this);
+            edit->setStyleSheet(
+                "QLineEdit{border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;"
+                "background:#ffffff;color:#111827;font-size:13px;}"
+                "QLineEdit:focus{border-color:#1f2937;}"
+            );
             // JSON 值回显为字符串
             if (val.isDouble()) {
                 edit->setText(QString::number(val.toDouble(), 'g', 15));
@@ -157,6 +164,8 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
     // 计算按钮
     m_calculateButton = new QPushButton(QString("计算"), this);
     m_calculateButton->setMinimumHeight(40);
+    m_calculateButton->setCursor(Qt::PointingHandCursor);
+    m_calculateButton->setStyleSheet(StyleConstants::primaryButton());
     connect(m_calculateButton, &QPushButton::clicked,
             this, &JsonPageBuilder::onCalculateButtonClicked);
 
