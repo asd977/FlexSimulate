@@ -16,6 +16,8 @@
 #include <QStringList>
 #include <QDir>
 #include <QProgressDialog>
+#include <QDesktopServices>
+#include <QUrl>
 
 namespace
 {
@@ -154,13 +156,26 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
         mainLayout->addLayout(grid);
     }
 
-    // 计算按钮
-    m_calculateButton = new QPushButton(QString("计算"), this);
+    auto* buttonRow = new QHBoxLayout();
+    buttonRow->setSpacing(12);
+    buttonRow->setContentsMargins(0, 10, 0, 0);
+
+    m_openModelDirectoryButton = new QPushButton(tr("打开模型目录"), this);
+    m_openModelDirectoryButton->setMinimumHeight(40);
+    m_openModelDirectoryButton->setCursor(Qt::PointingHandCursor);
+    connect(m_openModelDirectoryButton, &QPushButton::clicked,
+            this, &JsonPageBuilder::onOpenModelDirectoryClicked);
+    buttonRow->addWidget(m_openModelDirectoryButton);
+
+    m_calculateButton = new QPushButton(tr("计算"), this);
     m_calculateButton->setMinimumHeight(40);
+    m_calculateButton->setCursor(Qt::PointingHandCursor);
     connect(m_calculateButton, &QPushButton::clicked,
             this, &JsonPageBuilder::onCalculateButtonClicked);
+    buttonRow->addWidget(m_calculateButton);
 
-    mainLayout->addWidget(m_calculateButton);
+    buttonRow->addStretch(1);
+    mainLayout->addLayout(buttonRow);
     mainLayout->addStretch(1);
     setLayout(mainLayout);
 }
@@ -313,6 +328,24 @@ QString JsonPageBuilder::extractErrorMsgFromDat(const QString& content)
         last = m.captured(1);
     }
     return cleanText(last);
+}
+
+void JsonPageBuilder::onOpenModelDirectoryClicked()
+{
+    if (m_modelDirectory.isEmpty())
+        return;
+
+    QDir dir(m_modelDirectory);
+    if (!dir.exists())
+    {
+        const QString warn = tr("模型目录不存在：%1")
+                                 .arg(QDir::toNativeSeparators(dir.absolutePath()));
+        emit logMessage(warn);
+        QMessageBox::warning(this, tr("警告"), warn);
+        return;
+    }
+
+    QDesktopServices::openUrl(QUrl::fromLocalFile(dir.absolutePath()));
 }
 
 void JsonPageBuilder::onCalculateButtonClicked()

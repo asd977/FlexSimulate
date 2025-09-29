@@ -1554,19 +1554,6 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
         displayResultFile(resultPath);
     });
 
-    auto* openBtn = new QPushButton(tr("打开模型目录"), container);
-    openBtn->setCursor(Qt::PointingHandCursor);
-    openBtn->setStyleSheet(
-        "QPushButton{padding:8px 18px;border-radius:18px;"
-        "border:1px solid #cbd5f5;background:#f8faff;color:#1d4ed8;}"
-        "QPushButton:hover{background:#e0e7ff;}"
-        "QPushButton:pressed{background:#bfdbfe;}"
-    );
-    connect(openBtn, &QPushButton::clicked, this, [path = model.directory]() {
-        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
-    });
-    layout->addWidget(openBtn, 0, Qt::AlignLeft);
-
     return container;
 }
 
