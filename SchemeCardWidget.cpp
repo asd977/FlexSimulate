@@ -55,12 +55,12 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
     m_titleLabel->setObjectName("titleLabel");
     m_titleLabel->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
     m_titleLabel->setWordWrap(true);
-    m_titleLabel->setText(tr("未命名方案"));
+    m_titleLabel->setText(tr("Untitled Assembly"));
     header->addWidget(m_titleLabel, 1);
 
     m_openBtn = new QToolButton(this);
     m_openBtn->setObjectName("openButton");
-    m_openBtn->setToolTip(tr("打开方案目录"));
+    m_openBtn->setToolTip(tr("打开总成目录"));
     m_openBtn->setIcon(QIcon(QStringLiteral(":/icons/icons/folder.svg")));
     m_openBtn->setIconSize(QSize(16, 16));
     m_openBtn->setAutoRaise(false);
@@ -70,7 +70,7 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
 
     m_deleteBtn = new QToolButton(this);
     m_deleteBtn->setObjectName("deleteButton");
-    m_deleteBtn->setToolTip(tr("删除此方案"));
+    m_deleteBtn->setToolTip(tr("删除此总成"));
     m_deleteBtn->setIcon(style()->standardIcon(QStyle::SP_TrashIcon));
     m_deleteBtn->setIconSize(QSize(16, 16));
     m_deleteBtn->setAutoRaise(false);

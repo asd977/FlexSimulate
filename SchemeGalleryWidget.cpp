@@ -54,7 +54,7 @@ void SchemeGalleryWidget::addScheme(const QString& id,
 
     // 创建卡片
     auto* card = new SchemeCardWidget(id, this);
-    card->setTitle(name.isEmpty() ? QStringLiteral("未命名方案") : name);
+    card->setTitle(name.isEmpty() ? QStringLiteral("Untitled Assembly") : name);
     if (!thumb.isNull()) card->setThumbnail(thumb);
     card->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Preferred);
     if (!options.hintText.isEmpty())

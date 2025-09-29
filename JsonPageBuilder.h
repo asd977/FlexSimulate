@@ -7,6 +7,11 @@
 #include <QLineEdit>
 #include <QJsonArray>
 #include <QJsonObject>
+#include <QPointer>
+#include <QProcess>
+#include <QDateTime>
+
+class QProgressDialog;
 
 class JsonPageBuilder : public QWidget
 {
@@ -21,6 +26,9 @@ signals:
 
 private slots:
     void onCalculateButtonClicked();
+    void handleProcessFinished(int exitCode, QProcess::ExitStatus status);
+    void handleProcessError(QProcess::ProcessError error);
+    void handleProcessOutput();
 
 private:
     void buildUiFromJson(const QJsonArray& sections);
@@ -35,6 +43,10 @@ private:
     static QString extractErrorMsgFromMsg(const QString& content);
     static QString extractErrorMsgFromDat(const QString& content);
     static QString cleanText(QString s);
+    void finalizeCalculation(int exitCode, bool finishedSuccessfully,
+                             const QString& failureReason = QString());
+    void resetCalculationState();
+    void ensureProgressDialog();
 
 private:
     // 对应 Python 中的三个列表
@@ -49,4 +61,12 @@ private:
     QString m_batPath;                                    // calculate.bat
     QString m_datPath = QStringLiteral("Job-2.dat");
     QString m_msgPath = QStringLiteral("Job-2.msg");
+    QProcess* m_process = nullptr;
+    QPointer<QProgressDialog> m_progressDialog;
+    QString m_pendingStdOut;
+    QString m_pendingStdErr;
+    QString m_pendingWorkingDirectory;
+    QString m_previousResultPath;
+    QDateTime m_previousResultModified;
+    QString m_calculationTimestamp;
 };

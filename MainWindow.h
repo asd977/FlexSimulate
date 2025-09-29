@@ -147,8 +147,6 @@ private:
     void applySchemeThumbnail(SchemeRecord& scheme, const QString& sourcePath);
     QString storeSchemeThumbnail(const QString& schemeDir, const QString& sourcePath) const;
     bool isPathWithinDirectory(const QString& filePath, const QString& directory) const;
-    QVector<QPair<QString, QString>> availableSchemeTemplates() const;
-    QStringList templateSearchRoots() const;
     bool hasActiveProject() const;
     void loadSchemeLibrary();
     void saveSchemeLibrary() const;

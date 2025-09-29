@@ -20,7 +20,7 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     : QDialog(parent)
     , m_directoryEditable(allowDirectoryChange)
 {
-    setWindowTitle(tr("方案设置"));
+    setWindowTitle(tr("总成设置"));
     resize(520, 360);
 
     auto* v = new QVBoxLayout(this);
@@ -32,9 +32,9 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     v->addWidget(m_title);
 
     auto* nameRow = new QHBoxLayout();
-    nameRow->addWidget(new QLabel(tr("方案名称："), this));
+    nameRow->addWidget(new QLabel(tr("总成名称："), this));
     m_nameEdit = new QLineEdit(schemeName, this);
-    m_nameEdit->setPlaceholderText(tr("请输入方案名称"));
+    m_nameEdit->setPlaceholderText(tr("请输入总成名称"));
     nameRow->addWidget(m_nameEdit, 1);
     v->addLayout(nameRow);
 
@@ -53,7 +53,7 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     if (allowDirectoryChange)
         connect(m_browseButton, &QPushButton::clicked, this, &SchemeSettingsDialog::browseForDirectory);
 
-    auto* thumbTitle = new QLabel(tr("方案封面"), this);
+    auto* thumbTitle = new QLabel(tr("总成封面"), this);
     thumbTitle->setStyleSheet("font-weight:600;");
     v->addWidget(thumbTitle);
 

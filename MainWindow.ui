@@ -78,7 +78,7 @@
           </property>
           <column>
            <property name="text">
-            <string>方案库</string>
+            <string>总成库</string>
            </property>
           </column>
          </widget>
