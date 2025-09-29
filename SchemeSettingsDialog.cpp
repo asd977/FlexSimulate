@@ -12,6 +12,37 @@
 #include <QFileInfo>
 #include <QPixmap>
 
+namespace
+{
+const QString kPrimaryTextColor = QStringLiteral("#1f2937");
+const QString kSecondaryTextColor = QStringLiteral("#6b7280");
+const QString kMutedTextColor = QStringLiteral("#9ca3af");
+const QString kBorderColor = QStringLiteral("#d1d5db");
+const QString kAccentColor = QStringLiteral("#2d5cf6");
+
+QString primaryButtonStyle()
+{
+    return QStringLiteral(
+        "QPushButton{padding:8px 18px;border-radius:8px;border:none;"
+        "background:%1;color:#ffffff;font-weight:600;}"
+        "QPushButton:hover{background:#2448d8;}"
+        "QPushButton:pressed{background:#1b36ad;}"
+        "QPushButton:disabled{background:#bfc7f5;color:#e9edff;}"
+    ).arg(kAccentColor);
+}
+
+QString secondaryButtonStyle()
+{
+    return QStringLiteral(
+        "QPushButton{padding:8px 18px;border-radius:8px;"
+        "border:1px solid %1;background:#ffffff;color:%2;font-weight:500;}"
+        "QPushButton:hover{background:#f3f4f6;}"
+        "QPushButton:pressed{background:#e5e7eb;}"
+        "QPushButton:disabled{color:%3;border-color:#e5e7eb;}"
+    ).arg(kBorderColor, kPrimaryTextColor, kMutedTextColor);
+}
+}
+
 SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
                                            const QString& workingDirectory,
                                            bool allowDirectoryChange,
@@ -28,25 +59,40 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     v->setSpacing(12);
 
     m_title = new QLabel(tr("正在编辑：%1").arg(schemeName), this);
-    m_title->setStyleSheet("font-weight:600;font-size:14px;");
+    m_title->setStyleSheet(QStringLiteral("font-weight:600;font-size:16px;color:%1;")
+                               .arg(kPrimaryTextColor));
     v->addWidget(m_title);
 
     auto* nameRow = new QHBoxLayout();
-    nameRow->addWidget(new QLabel(tr("总成名称："), this));
+    auto* nameLabel = new QLabel(tr("总成名称："), this);
+    nameLabel->setStyleSheet(QStringLiteral("color:%1;font-weight:500;").arg(kPrimaryTextColor));
+    nameRow->addWidget(nameLabel);
     m_nameEdit = new QLineEdit(schemeName, this);
     m_nameEdit->setPlaceholderText(tr("请输入总成名称"));
+    m_nameEdit->setStyleSheet(QStringLiteral(
+        "QLineEdit{border:1px solid %1;border-radius:6px;padding:6px 8px;color:%2;}"
+        "QLineEdit:focus{border-color:%3;}"
+    ).arg(kBorderColor, kPrimaryTextColor, kAccentColor));
     nameRow->addWidget(m_nameEdit, 1);
     v->addLayout(nameRow);
 
     auto* dirRow = new QHBoxLayout();
     dirRow->setSpacing(8);
-    dirRow->addWidget(new QLabel(tr("工作目录："), this));
+    auto* dirLabel = new QLabel(tr("工作目录："), this);
+    dirLabel->setStyleSheet(QStringLiteral("color:%1;font-weight:500;").arg(kPrimaryTextColor));
+    dirRow->addWidget(dirLabel);
     m_directoryEdit = new QLineEdit(workingDirectory, this);
     m_directoryEdit->setPlaceholderText(tr("请选择模型计算的工作目录"));
     m_directoryEdit->setReadOnly(!allowDirectoryChange);
+    m_directoryEdit->setStyleSheet(QStringLiteral(
+        "QLineEdit{border:1px solid %1;border-radius:6px;padding:6px 8px;color:%2;background:%4;}"
+        "QLineEdit:read-only{color:%3;}"
+        "QLineEdit:focus{border-color:%5;}"
+    ).arg(kBorderColor, kPrimaryTextColor, kSecondaryTextColor, allowDirectoryChange ? QStringLiteral("#ffffff") : QStringLiteral("#f5f6f8"), kAccentColor));
     dirRow->addWidget(m_directoryEdit, 1);
     m_browseButton = new QPushButton(tr("浏览..."), this);
     m_browseButton->setEnabled(allowDirectoryChange);
+    m_browseButton->setStyleSheet(secondaryButtonStyle());
     dirRow->addWidget(m_browseButton);
     v->addLayout(dirRow);
 
@@ -54,7 +100,7 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
         connect(m_browseButton, &QPushButton::clicked, this, &SchemeSettingsDialog::browseForDirectory);
 
     auto* thumbTitle = new QLabel(tr("总成封面"), this);
-    thumbTitle->setStyleSheet("font-weight:600;");
+    thumbTitle->setStyleSheet(QStringLiteral("font-weight:600;color:%1;").arg(kPrimaryTextColor));
     v->addWidget(thumbTitle);
 
     auto* thumbRow = new QHBoxLayout();
@@ -65,19 +111,23 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     m_thumbnailPreview->setMinimumSize(260, 160);
     m_thumbnailPreview->setAlignment(Qt::AlignCenter);
     m_thumbnailPreview->setWordWrap(true);
-    m_thumbnailPreview->setStyleSheet("background:#f6f7fb;"
-                                      "border:1px dashed #d0d6e5;"
-                                      "border-radius:8px;"
-                                      "color:#8a93a6;"
-                                      "padding:12px;line-height:20px;");
+    m_thumbnailPreview->setStyleSheet(QStringLiteral(
+        "background:#f8f9fb;"
+        "border:1px solid %1;"
+        "border-radius:8px;"
+        "color:%2;"
+        "padding:12px;line-height:20px;"
+    ).arg(kBorderColor, kMutedTextColor));
     thumbRow->addWidget(m_thumbnailPreview, 1);
 
     auto* thumbButtons = new QVBoxLayout();
     thumbButtons->setContentsMargins(0, 0, 0, 0);
     thumbButtons->setSpacing(8);
     m_thumbnailButton = new QPushButton(tr("选择图片..."), this);
+    m_thumbnailButton->setStyleSheet(primaryButtonStyle());
     thumbButtons->addWidget(m_thumbnailButton);
     m_clearThumbnailButton = new QPushButton(tr("清除图片"), this);
+    m_clearThumbnailButton->setStyleSheet(secondaryButtonStyle());
     thumbButtons->addWidget(m_clearThumbnailButton);
     thumbButtons->addStretch(1);
     thumbRow->addLayout(thumbButtons, 0);

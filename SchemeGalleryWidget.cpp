@@ -17,12 +17,13 @@ SchemeGalleryWidget::SchemeGalleryWidget(QWidget *parent)
     if (ui->newSchemeButton)
     {
         ui->newSchemeButton->setCursor(Qt::PointingHandCursor);
-        ui->newSchemeButton->setStyleSheet(
-            "QPushButton{padding:6px 14px;border-radius:16px;"
-            "background-color:#1d4ed8;color:white;font-weight:600;}"
-            "QPushButton:hover{background-color:#2563eb;}"
-            "QPushButton:pressed{background-color:#1e3a8a;}"
-        );
+        ui->newSchemeButton->setStyleSheet(QStringLiteral(
+            "QPushButton{padding:8px 18px;border-radius:8px;border:none;"
+            "background:#2d5cf6;color:#ffffff;font-weight:600;}"
+            "QPushButton:hover{background:#2448d8;}"
+            "QPushButton:pressed{background:#1b36ad;}"
+            "QPushButton:disabled{background:#bfc7f5;color:#e9edff;}"
+        ));
         connect(ui->newSchemeButton, &QPushButton::clicked,
                 this, &SchemeGalleryWidget::createSchemeRequested);
     }

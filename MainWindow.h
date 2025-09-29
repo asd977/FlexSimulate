@@ -183,6 +183,7 @@ private:
     void persistSchemes();
     QString makeUniqueWorkspaceSubdir(const QString& baseName) const;
     QString workspaceRoot() const;
+    QList<int> defaultContentSplitterSizes() const;
 
     Ui::MainWindow *ui;
     SchemeGalleryWidget* m_galleryWidget = nullptr;

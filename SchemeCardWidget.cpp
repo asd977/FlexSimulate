@@ -19,26 +19,25 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
     setFrameShape(QFrame::NoFrame);
     setCursor(Qt::PointingHandCursor);
     setStyleSheet(
-        "#schemeCard{background:#ffffff;border:1px solid #e4e7f1;"
-        "border-radius:14px;}"
-        "#schemeCard:hover{border:1px solid #1787ff;}"
-        "QLabel#titleLabel{font-weight:600;font-size:15px;color:#1b2b4d;}"
-        "QLabel#hintLabel{color:#8a93a6;font-size:12px;}"
-        "QLabel#imageLabel{background:#f6f7fb;border-radius:12px;"
-        "border:1px dashed #d0d6e5;color:#8a93a6;font-size:13px;"
+        "#schemeCard{background:#ffffff;border:1px solid #dce0e8;"
+        "border-radius:12px;}"
+        "#schemeCard:hover{border-color:#b7c2d3;box-shadow:0 10px 20px rgba(15,23,42,0.08);}"
+        "QLabel#titleLabel{font-weight:600;font-size:15px;color:#1f2937;}"
+        "QLabel#hintLabel{color:#6b7280;font-size:12px;}"
+        "QLabel#imageLabel{background:#f8f9fb;border-radius:10px;"
+        "border:1px solid #d1d5db;color:#9ca3af;font-size:13px;"
         "padding:12px;line-height:20px;}"
-        "QToolButton#openButton{border:none;border-radius:12px;padding:4px;"
-        "color:#0b57d0;background:rgba(11,87,208,0.08);}"
-        "QToolButton#openButton:hover{background:rgba(11,87,208,0.16);}"
-        "QToolButton#deleteButton{border:none;border-radius:12px;"
-        "padding:4px;color:#d93025;"
-        "background:rgba(217,48,37,0.08);}"
-        "QToolButton#deleteButton:hover{background:rgba(217,48,37,0.16);}" );
+        "QToolButton#openButton{border:none;border-radius:10px;padding:4px 6px;"
+        "color:#1f2937;background:#edf1f9;}"
+        "QToolButton#openButton:hover{background:#e3e7f0;}"
+        "QToolButton#deleteButton{border:none;border-radius:10px;"
+        "padding:4px 6px;color:#b91c1c;background:#f3f4f6;}"
+        "QToolButton#deleteButton:hover{background:#e5e7eb;}" );
 
     auto* shadow = new QGraphicsDropShadowEffect(this);
-    shadow->setBlurRadius(24);
+    shadow->setBlurRadius(18);
     shadow->setOffset(0, 8);
-    shadow->setColor(QColor(27, 43, 77, 30));
+    shadow->setColor(QColor(15, 23, 42, 28));
     setGraphicsEffect(shadow);
 
     setMinimumSize(240, 300);
