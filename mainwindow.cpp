@@ -238,6 +238,7 @@ void MainWindow::setupUiHelpers()
         ui->visualizationSplitter->setStyleSheet(splitterStyle);
 
     ui->treeModels->header()->setStretchLastSection(true);
+    ui->treeModels->setHeaderHidden(true);
     ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->treeModels->setEditTriggers(QAbstractItemView::EditKeyPressed |
                                     QAbstractItemView::SelectedClicked);
