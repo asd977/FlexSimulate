@@ -25,6 +25,7 @@ signals:
     void calculationFinished(const QString& stlPath);
 
 private slots:
+    void onOpenModelDirectoryClicked();
     void onCalculateButtonClicked();
     void handleProcessFinished(int exitCode, QProcess::ExitStatus status);
     void handleProcessError(QProcess::ProcessError error);
@@ -54,6 +55,7 @@ private:
     QVector<QVector<QLabel*>> m_labelNameWidgets;        // 每组内的标签（中文名）
     QVector<QVector<QLineEdit*>> m_labelDataWidgets;     // 每组内的输入框（值）
 
+    QPushButton* m_openModelDirectoryButton = nullptr;
     QPushButton* m_calculateButton = nullptr;
 
     QString m_jsonPath;                                   // para.json
