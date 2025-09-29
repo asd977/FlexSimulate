@@ -1,10 +1,11 @@
-﻿#include "MainWindow.h"
+#include "MainWindow.h"
 #include "ui_MainWindow.h"
 
 #include "JsonPageBuilder.h"
 #include "SchemeGalleryWidget.h"
 #include "SchemeSettingsDialog.h"
 #include "SchemeTreeWidget.h"
+#include "StyleConstants.h"
 
 #include <QAction>
 #include <QApplication>
@@ -172,7 +173,7 @@ void MainWindow::setupUiHelpers()
     if (auto* central = ui->centralwidget)
     {
         central->setAttribute(Qt::WA_StyledBackground, true);
-        central->setStyleSheet(QStringLiteral("QWidget#centralwidget{background:#f1f5f9;}"));
+        central->setStyleSheet(QStringLiteral("QWidget#centralwidget{background:#f5f5f5;}"));
     }
 
     m_galleryWidget = new SchemeGalleryWidget(this);
@@ -194,10 +195,9 @@ void MainWindow::setupUiHelpers()
                                           ? QStringLiteral("QLabel")
                                           : QStringLiteral("QLabel#%1").arg(title->objectName());
         QString style = QStringLiteral(
-            "%1{background:#ffffff;border:1px solid #d6e1f2;border-radius:14px;}"
-            "%2{font-size:15px;font-weight:600;color:#0f172a;padding:12px 16px;"
-            "background:#f8fafc;border-top-left-radius:14px;border-top-right-radius:14px;"
-            "border-bottom:1px solid #e2e8f0;}"
+            "%1{background:#ffffff;border:1px solid #e5e7eb;border-radius:12px;}"
+            "%2{font-size:16px;font-weight:600;color:#111827;padding:16px 20px;"
+            "border-top-left-radius:12px;border-top-right-radius:12px;border-bottom:1px solid #f3f4f6;}"
             "%3"
         ).arg(panelSelector, titleSelector, extraStyles);
         panel->setStyleSheet(style);
@@ -205,11 +205,12 @@ void MainWindow::setupUiHelpers()
 
     applyPanelCard(ui->navigationFrame, ui->navigationTitle,
                    QStringLiteral(
-                       "QTreeWidget{border:none;background:transparent;padding:8px 12px;}"
-                       "QTreeWidget::item{padding:6px 4px;}"
-                       "QTreeWidget::item:hover{background:#f1f5f9;}"
-                       "QTreeWidget::item:selected{background:#e2e8f0;color:#0f172a;}"
-                       "QHeaderView::section{background:transparent;border:none;padding:4px 0;font-weight:600;color:#334155;}"
+                       "QLabel#navigationTitle{font-size:15px;}"
+                       "QTreeWidget{border:none;background:transparent;padding:12px 16px;}"
+                       "QTreeWidget::item{padding:6px 6px;border-radius:6px;}"
+                       "QTreeWidget::item:hover{background:#f3f4f6;}"
+                       "QTreeWidget::item:selected{background:#e5e7eb;color:#111827;}"
+                       "QHeaderView::section{background:transparent;border:none;padding:4px 0;font-weight:600;color:#6b7280;}"
                    ));
 
     applyPanelCard(ui->detailPanel, ui->detailTitle,
@@ -227,9 +228,9 @@ void MainWindow::setupUiHelpers()
     applyPanelCard(ui->logPanel, ui->logTitle);
 
     const QString splitterStyle = QStringLiteral(
-        "QSplitter::handle{background:#cbd5f5;}"
-        "QSplitter::handle:horizontal{width:8px;margin:0 4px;border-radius:4px;}"
-        "QSplitter::handle:vertical{height:8px;margin:4px 0;border-radius:4px;}"
+        "QSplitter::handle{background:#e5e7eb;}"
+        "QSplitter::handle:horizontal{width:6px;margin:0 4px;border-radius:3px;}"
+        "QSplitter::handle:vertical{height:6px;margin:4px 0;border-radius:3px;}"
     );
     ui->mainSplitter->setStyleSheet(splitterStyle);
     ui->contentSplitter->setStyleSheet(splitterStyle);
@@ -244,19 +245,22 @@ void MainWindow::setupUiHelpers()
 
     ui->mainSplitter->setStretchFactor(0, 0);
     ui->mainSplitter->setStretchFactor(1, 1);
+    ui->mainSplitter->setSizes(QList<int>{280, 960});
     ui->contentSplitter->setStretchFactor(0, 0);
     ui->contentSplitter->setStretchFactor(1, 1);
+    ui->contentSplitter->setSizes(QList<int>{360, 840});
     ui->contentSplitter->setCollapsible(1, true);
     if (ui->visualizationSplitter)
     {
         ui->visualizationSplitter->setStretchFactor(0, 3);
         ui->visualizationSplitter->setStretchFactor(1, 1);
         ui->visualizationSplitter->setHandleWidth(6);
+        ui->visualizationSplitter->setSizes(QList<int>{500, 240});
     }
 
     ui->logTextEdit->setStyleSheet(
-        "QPlainTextEdit{background:#0f172a;color:#f8fafc;border:none;"
-        "border-bottom-left-radius:14px;border-bottom-right-radius:14px;padding:12px;"
+        "QPlainTextEdit{background:#ffffff;color:#1f2937;border:none;"
+        "border-bottom-left-radius:12px;border-bottom-right-radius:12px;padding:12px;"
         "font-family:\"JetBrains Mono\", \"Source Code Pro\", monospace;}"
     );
 
@@ -1436,16 +1440,18 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
     layout->setSpacing(12);
 
     auto* title = new QLabel(tr("总成：%1").arg(scheme.name), container);
-    title->setStyleSheet("font-size:18px;font-weight:600;color:#0f172a;");
+    title->setStyleSheet("font-size:18px;font-weight:600;color:#111827;");
     layout->addWidget(title);
 
     auto* listFrame = new QFrame(container);
     listFrame->setObjectName("modelListFrame");
     listFrame->setStyleSheet(
-        "QFrame#modelListFrame{background:#ffffff;border:1px solid #d0d5dd;border-radius:10px;}"
+        "QFrame#modelListFrame{background:#ffffff;border:1px solid #e5e7eb;border-radius:10px;}"
         "QListWidget#modelList{border:none;background:transparent;}"
-        "QListWidget#modelList::item{padding:10px;border-radius:8px;}"
-        "QListWidget#modelList::item:hover{background:rgba(23,135,255,0.08);}");
+        "QListWidget#modelList::item{padding:10px;border-radius:8px;color:#111827;}"
+        "QListWidget#modelList::item:hover{background:#f3f4f6;}"
+        "QListWidget#modelList::item:selected{background:#e5e7eb;color:#111827;}"
+    );
     auto* listLayout = new QVBoxLayout(listFrame);
     listLayout->setContentsMargins(12, 12, 12, 12);
     listLayout->setSpacing(8);
@@ -1453,9 +1459,9 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
     auto* listHeader = new QHBoxLayout();
     listHeader->setContentsMargins(0, 0, 0, 0);
     auto* listTitle = new QLabel(tr("模型列表"), listFrame);
-    listTitle->setStyleSheet("font-weight:600;color:#1b2b4d;");
+    listTitle->setStyleSheet("font-weight:600;color:#111827;");
     auto* listCount = new QLabel(tr("%1 个模型").arg(scheme.models.size()), listFrame);
-    listCount->setStyleSheet("color:#64748b;");
+    listCount->setStyleSheet("color:#6b7280;");
     listHeader->addWidget(listTitle);
     listHeader->addStretch();
     listHeader->addWidget(listCount);
@@ -1472,7 +1478,7 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
 
     auto* emptyLabel = new QLabel(tr("暂无模型，请点击“添加模型”按钮导入。"), listFrame);
     emptyLabel->setAlignment(Qt::AlignCenter);
-    emptyLabel->setStyleSheet("color:#94a3b8;");
+    emptyLabel->setStyleSheet("color:#9ca3af;");
     emptyLabel->setVisible(scheme.models.isEmpty());
     emptyLabel->setMargin(12);
     listLayout->addWidget(emptyLabel);
@@ -1501,12 +1507,7 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
     buttonRow->setContentsMargins(0, 0, 0, 0);
     auto* addBtn = new QPushButton(tr("添加模型"), container);
     addBtn->setCursor(Qt::PointingHandCursor);
-    addBtn->setStyleSheet(
-        "QPushButton{padding:8px 18px;border-radius:18px;border:none;"
-        "background-color:#2563eb;color:#ffffff;font-weight:600;}"
-        "QPushButton:hover{background-color:#1d4ed8;}"
-        "QPushButton:pressed{background-color:#1e3a8a;}"
-    );
+    addBtn->setStyleSheet(StyleConstants::primaryButton());
     connect(addBtn, &QPushButton::clicked, this, [this, sid = scheme.id]() {
         promptAddModel(sid);
     });
@@ -1514,12 +1515,7 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
 
     auto* openBtn = new QPushButton(tr("打开总成目录"), container);
     openBtn->setCursor(Qt::PointingHandCursor);
-    openBtn->setStyleSheet(
-        "QPushButton{padding:8px 18px;border-radius:18px;"
-        "border:1px solid #cbd5f5;background:#f1f5ff;color:#1d4ed8;}"
-        "QPushButton:hover{background:#e0e7ff;}"
-        "QPushButton:pressed{background:#bfdbfe;}"
-    );
+    openBtn->setStyleSheet(StyleConstants::secondaryButton());
     connect(openBtn, &QPushButton::clicked, this, [path = scheme.workingDirectory]() {
         QDesktopServices::openUrl(QUrl::fromLocalFile(path));
     });
@@ -1556,12 +1552,7 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
 
     auto* openBtn = new QPushButton(tr("打开模型目录"), container);
     openBtn->setCursor(Qt::PointingHandCursor);
-    openBtn->setStyleSheet(
-        "QPushButton{padding:8px 18px;border-radius:18px;"
-        "border:1px solid #cbd5f5;background:#f8faff;color:#1d4ed8;}"
-        "QPushButton:hover{background:#e0e7ff;}"
-        "QPushButton:pressed{background:#bfdbfe;}"
-    );
+    openBtn->setStyleSheet(StyleConstants::secondaryButton());
     connect(openBtn, &QPushButton::clicked, this, [path = model.directory]() {
         QDesktopServices::openUrl(QUrl::fromLocalFile(path));
     });
@@ -1578,26 +1569,26 @@ QWidget* MainWindow::buildProjectInfoWidget()
     layout->setSpacing(12);
 
     auto* title = new QLabel(tr("工程：%1").arg(projectDisplayName()), container);
-    title->setStyleSheet("font-size:20px;font-weight:700;color:#1b2b4d;");
+    title->setStyleSheet("font-size:20px;font-weight:600;color:#111827;");
     layout->addWidget(title);
 
     auto* pathLabel = new QLabel(
         tr("目录：%1").arg(QDir::toNativeSeparators(m_projectRoot)), container);
-    pathLabel->setStyleSheet("color:#475569;");
+    pathLabel->setStyleSheet("color:#4b5563;font-size:13px;");
     pathLabel->setWordWrap(true);
     layout->addWidget(pathLabel);
 
     auto* frame = new QFrame(container);
     frame->setObjectName(QStringLiteral("projectInfoFrame"));
     frame->setStyleSheet(
-        "QFrame#projectInfoFrame{background:#ffffff;border:1px solid #d0d5dd;"
-        "border-radius:10px;}");
+        "QFrame#projectInfoFrame{background:#ffffff;border:1px solid #e5e7eb;"
+        "border-radius:12px;}");
     auto* frameLayout = new QVBoxLayout(frame);
     frameLayout->setContentsMargins(16, 16, 16, 16);
     frameLayout->setSpacing(12);
 
     auto* remarkLabel = new QLabel(tr("工程备注"), frame);
-    remarkLabel->setStyleSheet("font-weight:600;color:#1b2b4d;");
+    remarkLabel->setStyleSheet("font-weight:600;color:#111827;font-size:14px;");
     frameLayout->addWidget(remarkLabel);
 
     auto* remarkEdit = new QPlainTextEdit(frame);
@@ -1605,9 +1596,9 @@ QWidget* MainWindow::buildProjectInfoWidget()
     remarkEdit->setPlainText(m_projectRemarks);
     remarkEdit->setMinimumHeight(100);
     remarkEdit->setStyleSheet(
-        "QPlainTextEdit{border:1px solid #cbd5f5;border-radius:8px;"
-        "background:#f8fafc;color:#0f172a;}"
-        "QPlainTextEdit:focus{border-color:#2563eb;background:#ffffff;}");
+        "QPlainTextEdit{border:1px solid #d1d5db;border-radius:8px;"
+        "background:#ffffff;color:#111827;font-size:13px;padding:8px;}"
+        "QPlainTextEdit:focus{border-color:#1f2937;}");
     frameLayout->addWidget(remarkEdit);
 
     auto* buttonRow = new QHBoxLayout();
@@ -1616,22 +1607,13 @@ QWidget* MainWindow::buildProjectInfoWidget()
 
     auto* saveBtn = new QPushButton(tr("保存备注"), frame);
     saveBtn->setCursor(Qt::PointingHandCursor);
-    saveBtn->setStyleSheet(
-        "QPushButton{padding:8px 18px;border-radius:18px;border:none;"
-        "background:#2563eb;color:#ffffff;font-weight:600;}"
-        "QPushButton:disabled{background:#94a3b8;}"
-        "QPushButton:hover:!disabled{background:#1d4ed8;}"
-        "QPushButton:pressed:!disabled{background:#1e3a8a;}");
+    saveBtn->setStyleSheet(StyleConstants::primaryButton());
     saveBtn->setEnabled(false);
     buttonRow->addWidget(saveBtn);
 
     auto* openBtn = new QPushButton(tr("打开工程目录"), frame);
     openBtn->setCursor(Qt::PointingHandCursor);
-    openBtn->setStyleSheet(
-        "QPushButton{padding:8px 18px;border-radius:18px;"
-        "border:1px solid #cbd5f5;background:#f8faff;color:#1d4ed8;}"
-        "QPushButton:hover{background:#e0e7ff;}"
-        "QPushButton:pressed{background:#bfdbfe;}");
+    openBtn->setStyleSheet(StyleConstants::secondaryButton());
     buttonRow->addWidget(openBtn);
     buttonRow->addStretch(1);
     frameLayout->addLayout(buttonRow);
@@ -1639,7 +1621,7 @@ QWidget* MainWindow::buildProjectInfoWidget()
     auto* timeFrame = new QFrame(frame);
     timeFrame->setObjectName(QStringLiteral("projectTimeFrame"));
     timeFrame->setStyleSheet(
-        "QFrame#projectTimeFrame{background:#f8fafc;border:1px dashed #cbd5f5;"
+        "QFrame#projectTimeFrame{background:#f9fafb;border:1px solid #e5e7eb;"
         "border-radius:10px;}");
     auto* timeLayout = new QVBoxLayout(timeFrame);
     timeLayout->setContentsMargins(12, 12, 12, 12);
@@ -1649,11 +1631,11 @@ QWidget* MainWindow::buildProjectInfoWidget()
     createdRow->setSpacing(6);
     createdRow->setContentsMargins(0, 0, 0, 0);
     auto* createdTitle = new QLabel(tr("创建时间"), timeFrame);
-    createdTitle->setStyleSheet("font-weight:600;color:#1b2b4d;");
+    createdTitle->setStyleSheet("font-weight:600;color:#111827;");
     createdRow->addWidget(createdTitle);
     createdRow->addStretch();
     auto* createdValue = new QLabel(timeFrame);
-    createdValue->setStyleSheet("color:#475569;");
+    createdValue->setStyleSheet("color:#4b5563;");
     createdValue->setTextInteractionFlags(Qt::TextSelectableByMouse);
     createdRow->addWidget(createdValue);
     timeLayout->addLayout(createdRow);
@@ -1792,16 +1774,12 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     titleLayout->setContentsMargins(0, 0, 0, 0);
 
     auto* titleLabel = new QLabel(entryDisplayName(), container);
-    titleLabel->setStyleSheet("font-size:20px;font-weight:700;color:#1b2b4d;");
+    titleLabel->setStyleSheet("font-size:20px;font-weight:600;color:#111827;");
     titleLayout->addWidget(titleLabel);
 
     auto* renameBtn = new QPushButton(tr("重命名"), container);
     renameBtn->setCursor(Qt::PointingHandCursor);
-    renameBtn->setStyleSheet(
-        "QPushButton{padding:4px 14px;border-radius:16px;"
-        "border:1px solid #cbd5f5;background:#f8faff;color:#1d4ed8;}"
-        "QPushButton:hover{background:#e0e7ff;}"
-        "QPushButton:pressed{background:#bfdbfe;}");
+    renameBtn->setStyleSheet(StyleConstants::secondaryButton());
     titleLayout->addStretch();
     titleLayout->addWidget(renameBtn);
 
@@ -1810,14 +1788,13 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     auto* listFrame = new QFrame(container);
     listFrame->setObjectName("libraryModelFrame");
     listFrame->setStyleSheet(
-        "QFrame#libraryModelFrame{background:#ffffff;border:1px solid #d0d5dd;"
+        "QFrame#libraryModelFrame{background:#ffffff;border:1px solid #e5e7eb;"
         "border-radius:10px;}"
         "QListWidget#libraryModelList{border:none;background:transparent;}"
-        "QListWidget#libraryModelList::item{padding:10px;border-radius:8px;color:#0f172a;}"
-        "QListWidget#libraryModelList::item:hover{background:rgba(37,99,235,0.12);}" 
-        "QListWidget#libraryModelList::item:selected{background:rgba(37,99,235,0.18);"
-        "border:1px solid rgba(37,99,235,0.35);color:#0f172a;}"
-        "QListWidget#libraryModelList::item:selected:!active{background:rgba(37,99,235,0.15);}");
+        "QListWidget#libraryModelList::item{padding:10px;border-radius:8px;color:#111827;}"
+        "QListWidget#libraryModelList::item:hover{background:#f3f4f6;}"
+        "QListWidget#libraryModelList::item:selected{background:#e5e7eb;color:#111827;border:1px solid #d1d5db;}"
+    );
     auto* listLayout = new QVBoxLayout(listFrame);
     listLayout->setContentsMargins(12, 12, 12, 12);
     listLayout->setSpacing(8);
@@ -1825,11 +1802,11 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     auto* headerLayout = new QHBoxLayout();
     headerLayout->setContentsMargins(0, 0, 0, 0);
     auto* listTitle = new QLabel(tr("模型列表"), listFrame);
-    listTitle->setStyleSheet("font-weight:600;color:#1b2b4d;");
+    listTitle->setStyleSheet("font-weight:600;color:#111827;");
 
     listTitle->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     auto* countLabel = new QLabel(listFrame);
-    countLabel->setStyleSheet("color:#64748b;");
+    countLabel->setStyleSheet("color:#6b7280;");
     headerLayout->addWidget(listTitle);
     headerLayout->addStretch();
     headerLayout->addWidget(countLabel);
@@ -1851,7 +1828,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     auto* emptyLabel = new QLabel(
         tr("暂无模型，请点击下方“添加模型”按钮导入。"), listFrame);
     emptyLabel->setAlignment(Qt::AlignCenter);
-    emptyLabel->setStyleSheet("color:#94a3b8;");
+    emptyLabel->setStyleSheet("color:#9ca3af;");
     emptyLabel->setMargin(12);
     listLayout->addWidget(emptyLabel);
 
@@ -1861,32 +1838,26 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     buttonLayout->setSpacing(8);
     buttonLayout->setContentsMargins(0, 0, 0, 0);
 
-    const QString actionButtonStyle =
-        QStringLiteral("QPushButton{padding:8px 18px;border-radius:18px;border:none;"
-                       "background-color:#2563eb;color:#ffffff;font-weight:600;}"
-                       "QPushButton:hover{background-color:#1d4ed8;}"
-                       "QPushButton:pressed{background-color:#1e3a8a;}");
-
     auto* addModelBtn = new QPushButton(tr("添加模型"), container);
     addModelBtn->setCursor(Qt::PointingHandCursor);
-    addModelBtn->setStyleSheet(actionButtonStyle);
+    addModelBtn->setStyleSheet(StyleConstants::primaryButton());
     buttonLayout->addWidget(addModelBtn);
 
     auto* deleteModelBtn = new QPushButton(tr("删除模型"), container);
     deleteModelBtn->setCursor(Qt::PointingHandCursor);
-    deleteModelBtn->setStyleSheet(actionButtonStyle);
+    deleteModelBtn->setStyleSheet(StyleConstants::secondaryButton());
     deleteModelBtn->setEnabled(false);
     deleteModelBtn->setToolTip(tr("请选择要删除的模型。"));
     buttonLayout->addWidget(deleteModelBtn);
 
     auto* addToProjectBtn = new QPushButton(tr("添加到工程"), container);
     addToProjectBtn->setCursor(Qt::PointingHandCursor);
-    addToProjectBtn->setStyleSheet(actionButtonStyle);
+    addToProjectBtn->setStyleSheet(StyleConstants::primaryButton());
     buttonLayout->addWidget(addToProjectBtn);
 
     auto* openDirBtn = new QPushButton(tr("打开总成目录"), container);
     openDirBtn->setCursor(Qt::PointingHandCursor);
-    openDirBtn->setStyleSheet(actionButtonStyle);
+    openDirBtn->setStyleSheet(StyleConstants::secondaryButton());
     buttonLayout->addWidget(openDirBtn);
 
     buttonLayout->addStretch(1);

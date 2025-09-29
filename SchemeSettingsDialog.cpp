@@ -1,4 +1,5 @@
-﻿#include "SchemeSettingsDialog.h"
+#include "SchemeSettingsDialog.h"
+#include "StyleConstants.h"
 #include <QVBoxLayout>
 #include <QHBoxLayout>
 #include <QDialogButtonBox>
@@ -28,12 +29,17 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     v->setSpacing(12);
 
     m_title = new QLabel(tr("正在编辑：%1").arg(schemeName), this);
-    m_title->setStyleSheet("font-weight:600;font-size:14px;");
+    m_title->setStyleSheet("font-weight:600;font-size:16px;color:#111827;");
     v->addWidget(m_title);
 
     auto* nameRow = new QHBoxLayout();
     nameRow->addWidget(new QLabel(tr("总成名称："), this));
     m_nameEdit = new QLineEdit(schemeName, this);
+    m_nameEdit->setStyleSheet(
+        "QLineEdit{border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;"
+        "background:#ffffff;color:#111827;}"
+        "QLineEdit:focus{border-color:#1f2937;}"
+    );
     m_nameEdit->setPlaceholderText(tr("请输入总成名称"));
     nameRow->addWidget(m_nameEdit, 1);
     v->addLayout(nameRow);
@@ -42,11 +48,17 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     dirRow->setSpacing(8);
     dirRow->addWidget(new QLabel(tr("工作目录："), this));
     m_directoryEdit = new QLineEdit(workingDirectory, this);
+    m_directoryEdit->setStyleSheet(
+        "QLineEdit{border:1px solid #d1d5db;border-radius:6px;padding:6px 8px;"
+        "background:#ffffff;color:#111827;}"
+        "QLineEdit:focus{border-color:#1f2937;}"
+    );
     m_directoryEdit->setPlaceholderText(tr("请选择模型计算的工作目录"));
     m_directoryEdit->setReadOnly(!allowDirectoryChange);
     dirRow->addWidget(m_directoryEdit, 1);
     m_browseButton = new QPushButton(tr("浏览..."), this);
     m_browseButton->setEnabled(allowDirectoryChange);
+    m_browseButton->setStyleSheet(StyleConstants::secondaryButton());
     dirRow->addWidget(m_browseButton);
     v->addLayout(dirRow);
 
@@ -54,7 +66,7 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
         connect(m_browseButton, &QPushButton::clicked, this, &SchemeSettingsDialog::browseForDirectory);
 
     auto* thumbTitle = new QLabel(tr("总成封面"), this);
-    thumbTitle->setStyleSheet("font-weight:600;");
+    thumbTitle->setStyleSheet("font-weight:600;color:#111827;");
     v->addWidget(thumbTitle);
 
     auto* thumbRow = new QHBoxLayout();
@@ -65,10 +77,10 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     m_thumbnailPreview->setMinimumSize(260, 160);
     m_thumbnailPreview->setAlignment(Qt::AlignCenter);
     m_thumbnailPreview->setWordWrap(true);
-    m_thumbnailPreview->setStyleSheet("background:#f6f7fb;"
-                                      "border:1px dashed #d0d6e5;"
+    m_thumbnailPreview->setStyleSheet("background:#f9fafb;"
+                                      "border:1px dashed #d1d5db;"
                                       "border-radius:8px;"
-                                      "color:#8a93a6;"
+                                      "color:#6b7280;"
                                       "padding:12px;line-height:20px;");
     thumbRow->addWidget(m_thumbnailPreview, 1);
 
@@ -76,8 +88,10 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     thumbButtons->setContentsMargins(0, 0, 0, 0);
     thumbButtons->setSpacing(8);
     m_thumbnailButton = new QPushButton(tr("选择图片..."), this);
+    m_thumbnailButton->setStyleSheet(StyleConstants::primaryButton());
     thumbButtons->addWidget(m_thumbnailButton);
     m_clearThumbnailButton = new QPushButton(tr("清除图片"), this);
+    m_clearThumbnailButton->setStyleSheet(StyleConstants::secondaryButton());
     thumbButtons->addWidget(m_clearThumbnailButton);
     thumbButtons->addStretch(1);
     thumbRow->addLayout(thumbButtons, 0);
@@ -93,6 +107,11 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     connect(btns, &QDialogButtonBox::accepted, this, &QDialog::accept);
     connect(btns, &QDialogButtonBox::rejected, this, &QDialog::reject);
     v->addWidget(btns);
+
+    if (auto* okBtn = btns->button(QDialogButtonBox::Ok))
+        okBtn->setStyleSheet(StyleConstants::primaryButton());
+    if (auto* cancelBtn = btns->button(QDialogButtonBox::Cancel))
+        cancelBtn->setStyleSheet(StyleConstants::secondaryButton());
 
     setThumbnailPath(thumbnailPath);
 }
