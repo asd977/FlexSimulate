@@ -122,6 +122,7 @@ private:
     void displayResultFile(const QString& filePath);
     void clearVtkScene();
     QString projectDisplayName() const;
+    QList<int> defaultContentSplitterSizes() const;
 
     SchemeRecord* schemeById(const QString& id);
     const SchemeRecord* schemeById(const QString& id) const;

@@ -23,16 +23,29 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     setWindowTitle(tr("总成设置"));
     resize(520, 360);
 
+    setStyleSheet(QStringLiteral(
+        "QDialog{background:#ffffff;}"
+        "QLabel{color:#1f2937;}"
+        "QLineEdit{border:1px solid #d6dae2;border-radius:8px;padding:6px 10px;font-size:14px;color:#111827;}"
+        "QLineEdit:disabled{background:#f3f4f6;color:#9ca3af;}"
+        "QPushButton{background:#2563eb;color:#ffffff;border:none;border-radius:8px;padding:8px 14px;font-size:14px;font-weight:600;}"
+        "QPushButton:disabled{background:#93c5fd;color:#ffffff;}"
+        "QPushButton:hover:!disabled{background:#1d4ed8;}"
+        "QPushButton:pressed:!disabled{background:#1e40af;}"
+    ));
+
     auto* v = new QVBoxLayout(this);
     v->setContentsMargins(16, 16, 16, 16);
     v->setSpacing(12);
 
     m_title = new QLabel(tr("正在编辑：%1").arg(schemeName), this);
-    m_title->setStyleSheet("font-weight:600;font-size:14px;");
+    m_title->setStyleSheet("font-weight:600;font-size:18px;color:#111827;");
     v->addWidget(m_title);
 
     auto* nameRow = new QHBoxLayout();
-    nameRow->addWidget(new QLabel(tr("总成名称："), this));
+    auto* nameLabel = new QLabel(tr("总成名称："), this);
+    nameLabel->setStyleSheet(QStringLiteral("font-size:14px;font-weight:500;color:#374151;"));
+    nameRow->addWidget(nameLabel);
     m_nameEdit = new QLineEdit(schemeName, this);
     m_nameEdit->setPlaceholderText(tr("请输入总成名称"));
     nameRow->addWidget(m_nameEdit, 1);
@@ -40,7 +53,9 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
 
     auto* dirRow = new QHBoxLayout();
     dirRow->setSpacing(8);
-    dirRow->addWidget(new QLabel(tr("工作目录："), this));
+    auto* dirLabel = new QLabel(tr("工作目录："), this);
+    dirLabel->setStyleSheet(QStringLiteral("font-size:14px;font-weight:500;color:#374151;"));
+    dirRow->addWidget(dirLabel);
     m_directoryEdit = new QLineEdit(workingDirectory, this);
     m_directoryEdit->setPlaceholderText(tr("请选择模型计算的工作目录"));
     m_directoryEdit->setReadOnly(!allowDirectoryChange);
@@ -54,7 +69,7 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
         connect(m_browseButton, &QPushButton::clicked, this, &SchemeSettingsDialog::browseForDirectory);
 
     auto* thumbTitle = new QLabel(tr("总成封面"), this);
-    thumbTitle->setStyleSheet("font-weight:600;");
+    thumbTitle->setStyleSheet("font-weight:600;font-size:15px;color:#111827;");
     v->addWidget(thumbTitle);
 
     auto* thumbRow = new QHBoxLayout();
@@ -65,16 +80,16 @@ SchemeSettingsDialog::SchemeSettingsDialog(const QString& schemeName,
     m_thumbnailPreview->setMinimumSize(260, 160);
     m_thumbnailPreview->setAlignment(Qt::AlignCenter);
     m_thumbnailPreview->setWordWrap(true);
-    m_thumbnailPreview->setStyleSheet("background:#f6f7fb;"
-                                      "border:1px dashed #d0d6e5;"
-                                      "border-radius:8px;"
-                                      "color:#8a93a6;"
+    m_thumbnailPreview->setStyleSheet("background:#f9fafc;"
+                                      "border:1px dashed #d6dae2;"
+                                      "border-radius:10px;"
+                                      "color:#6b7280;"
                                       "padding:12px;line-height:20px;");
     thumbRow->addWidget(m_thumbnailPreview, 1);
 
     auto* thumbButtons = new QVBoxLayout();
     thumbButtons->setContentsMargins(0, 0, 0, 0);
-    thumbButtons->setSpacing(8);
+    thumbButtons->setSpacing(12);
     m_thumbnailButton = new QPushButton(tr("选择图片..."), this);
     thumbButtons->addWidget(m_thumbnailButton);
     m_clearThumbnailButton = new QPushButton(tr("清除图片"), this);
