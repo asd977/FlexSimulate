@@ -12,7 +12,6 @@
 #include <QDateTime>
 #include <QDesktopServices>
 #include <QDir>
-#include <QDirIterator>
 #include <QFile>
 #include <QFileDialog>
 #include <QFileInfo>
@@ -37,6 +36,7 @@
 #include <QProcess>
 #include <QPushButton>
 #include <QRegularExpression>
+#include <QLocale>
 #include <QScopedValueRollback>
 #include <QScrollBar>
 #include <QScrollArea>
@@ -237,6 +237,7 @@ void MainWindow::setupUiHelpers()
         ui->visualizationSplitter->setStyleSheet(splitterStyle);
 
     ui->treeModels->header()->setStretchLastSection(true);
+    ui->treeModels->setHeaderHidden(true);
     ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
     ui->treeModels->setEditTriggers(QAbstractItemView::EditKeyPressed |
                                     QAbstractItemView::SelectedClicked);
@@ -544,6 +545,9 @@ void MainWindow::enterProjectlessState()
     m_projectRoot.clear();
     m_workspaceRoot.clear();
     m_storageFilePath.clear();
+    m_projectRemarks.clear();
+    m_projectCreatedAt = QDateTime();
+    m_projectUpdatedAt = QDateTime();
     m_activeSchemeId.clear();
     m_activeModelId.clear();
     m_schemes.clear();
@@ -617,10 +621,17 @@ bool MainWindow::openProjectAt(const QString& path, bool silent)
 
     m_storageFilePath = canonicalDir.filePath(QStringLiteral("schemes.json"));
 
+    m_projectRemarks.clear();
+    m_projectCreatedAt = QDateTime();
+    m_projectUpdatedAt = QDateTime();
+
     m_schemes.clear();
     if (!loadSchemesFromStorage())
     {
         m_schemes.clear();
+        const QDateTime now = QDateTime::currentDateTimeUtc();
+        m_projectCreatedAt = now;
+        m_projectUpdatedAt = now;
         persistSchemes();
     }
 
@@ -811,7 +822,8 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         clearDetailWidget();
         clearVtkScene();
         setVisualizationVisible(false);
-        ui->stackedWidget->setCurrentWidget(ui->planPage);
+        if (ui->stackedWidget)
+            ui->stackedWidget->setCurrentWidget(ui->planPage);
         updateGallery();
         updateSelectionInfo();
     }
@@ -859,10 +871,9 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
     {
         m_activeSchemeId.clear();
         m_activeModelId.clear();
-        clearDetailWidget();
-        clearVtkScene();
-        setVisualizationVisible(false);
-        updateSelectionInfo(m_projectRoot, QString());
+        if (ui->stackedWidget)
+            ui->stackedWidget->setCurrentWidget(ui->MainPage);
+        showProjectInfo();
     }
     else
     {
@@ -970,7 +981,8 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
         if (type == LibraryItem)
         {
             menu.addAction(tr("查看总成库"), this, [this]() {
-                ui->stackedWidget->setCurrentWidget(ui->planPage);
+                if (ui->stackedWidget)
+                    ui->stackedWidget->setCurrentWidget(ui->planPage);
                 updateGallery();
             });
             if (hasActiveProject())
@@ -1003,7 +1015,7 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
                     QDesktopServices::openUrl(QUrl::fromLocalFile(scheme->workingDirectory));
             });
             menu.addSeparator();
-            menu.addAction(tr("删除总成"), this, [this, schemeId]() {
+            menu.addAction(tr("移除总成"), this, [this, schemeId]() {
                 if (SchemeRecord* scheme = schemeById(schemeId))
                 {
                     if (confirmSchemeDeletion(*scheme))
@@ -1020,7 +1032,7 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
                     QDesktopServices::openUrl(QUrl::fromLocalFile(model->directory));
             });
             menu.addSeparator();
-            menu.addAction(tr("删除模型"), this, [this, modelId]() {
+            menu.addAction(tr("移除模型"), this, [this, modelId]() {
                 SchemeRecord* owner = nullptr;
                 if (ModelRecord* model = modelById(modelId, &owner))
                 {
@@ -1059,7 +1071,7 @@ void MainWindow::onExternalDrop(const QList<QUrl>& urls, QTreeWidgetItem* target
             targetSchemeId = target->data(0, IdRole).toString();
         else if (type == ModelItem)
             targetSchemeId = target->data(0, SchemeRole).toString();
-        else if (type == ProjectItem || type == LibraryItem)
+        else if (type == ProjectItem)
             targetSchemeId.clear();
     }
 
@@ -1344,6 +1356,26 @@ void MainWindow::clearDetailWidget()
     m_currentDetailWidget = nullptr;
 }
 
+void MainWindow::showProjectInfo()
+{
+    if (!hasActiveProject())
+    {
+        clearDetailWidget();
+        clearVtkScene();
+        setVisualizationVisible(false);
+        updateSelectionInfo();
+        return;
+    }
+
+    clearDetailWidget();
+    m_currentDetailWidget = buildProjectInfoWidget();
+    if (auto* layout = ui->settingWidget->layout())
+        layout->addWidget(m_currentDetailWidget);
+    setVisualizationVisible(false);
+    clearVtkScene();
+    updateSelectionInfo(m_projectRoot, m_projectRemarks);
+}
+
 void MainWindow::showSchemeSettings(const QString& schemeId)
 {
     SchemeRecord* scheme = schemeById(schemeId);
@@ -1535,6 +1567,137 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
     });
     layout->addWidget(openBtn, 0, Qt::AlignLeft);
 
+    return container;
+}
+
+QWidget* MainWindow::buildProjectInfoWidget()
+{
+    auto* container = new QWidget(ui->settingWidget);
+    auto* layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(12);
+
+    auto* title = new QLabel(tr("工程：%1").arg(projectDisplayName()), container);
+    title->setStyleSheet("font-size:20px;font-weight:700;color:#1b2b4d;");
+    layout->addWidget(title);
+
+    auto* pathLabel = new QLabel(
+        tr("目录：%1").arg(QDir::toNativeSeparators(m_projectRoot)), container);
+    pathLabel->setStyleSheet("color:#475569;");
+    pathLabel->setWordWrap(true);
+    layout->addWidget(pathLabel);
+
+    auto* frame = new QFrame(container);
+    frame->setObjectName(QStringLiteral("projectInfoFrame"));
+    frame->setStyleSheet(
+        "QFrame#projectInfoFrame{background:#ffffff;border:1px solid #d0d5dd;"
+        "border-radius:10px;}");
+    auto* frameLayout = new QVBoxLayout(frame);
+    frameLayout->setContentsMargins(16, 16, 16, 16);
+    frameLayout->setSpacing(12);
+
+    auto* remarkLabel = new QLabel(tr("工程备注"), frame);
+    remarkLabel->setStyleSheet("font-weight:600;color:#1b2b4d;");
+    frameLayout->addWidget(remarkLabel);
+
+    auto* remarkEdit = new QPlainTextEdit(frame);
+    remarkEdit->setPlaceholderText(tr("请输入工程备注"));
+    remarkEdit->setPlainText(m_projectRemarks);
+    remarkEdit->setMinimumHeight(100);
+    remarkEdit->setStyleSheet(
+        "QPlainTextEdit{border:1px solid #cbd5f5;border-radius:8px;"
+        "background:#f8fafc;color:#0f172a;}"
+        "QPlainTextEdit:focus{border-color:#2563eb;background:#ffffff;}");
+    frameLayout->addWidget(remarkEdit);
+
+    auto* buttonRow = new QHBoxLayout();
+    buttonRow->setSpacing(8);
+    buttonRow->setContentsMargins(0, 0, 0, 0);
+
+    auto* saveBtn = new QPushButton(tr("保存备注"), frame);
+    saveBtn->setCursor(Qt::PointingHandCursor);
+    saveBtn->setStyleSheet(
+        "QPushButton{padding:8px 18px;border-radius:18px;border:none;"
+        "background:#2563eb;color:#ffffff;font-weight:600;}"
+        "QPushButton:disabled{background:#94a3b8;}"
+        "QPushButton:hover:!disabled{background:#1d4ed8;}"
+        "QPushButton:pressed:!disabled{background:#1e3a8a;}");
+    saveBtn->setEnabled(false);
+    buttonRow->addWidget(saveBtn);
+
+    auto* openBtn = new QPushButton(tr("打开工程目录"), frame);
+    openBtn->setCursor(Qt::PointingHandCursor);
+    openBtn->setStyleSheet(
+        "QPushButton{padding:8px 18px;border-radius:18px;"
+        "border:1px solid #cbd5f5;background:#f8faff;color:#1d4ed8;}"
+        "QPushButton:hover{background:#e0e7ff;}"
+        "QPushButton:pressed{background:#bfdbfe;}");
+    buttonRow->addWidget(openBtn);
+    buttonRow->addStretch(1);
+    frameLayout->addLayout(buttonRow);
+
+    auto* timeFrame = new QFrame(frame);
+    timeFrame->setObjectName(QStringLiteral("projectTimeFrame"));
+    timeFrame->setStyleSheet(
+        "QFrame#projectTimeFrame{background:#f8fafc;border:1px dashed #cbd5f5;"
+        "border-radius:10px;}");
+    auto* timeLayout = new QVBoxLayout(timeFrame);
+    timeLayout->setContentsMargins(12, 12, 12, 12);
+    timeLayout->setSpacing(6);
+
+    auto* createdRow = new QHBoxLayout();
+    createdRow->setSpacing(6);
+    createdRow->setContentsMargins(0, 0, 0, 0);
+    auto* createdTitle = new QLabel(tr("创建时间"), timeFrame);
+    createdTitle->setStyleSheet("font-weight:600;color:#1b2b4d;");
+    createdRow->addWidget(createdTitle);
+    createdRow->addStretch();
+    auto* createdValue = new QLabel(timeFrame);
+    createdValue->setStyleSheet("color:#475569;");
+    createdValue->setTextInteractionFlags(Qt::TextSelectableByMouse);
+    createdRow->addWidget(createdValue);
+    timeLayout->addLayout(createdRow);
+
+    frameLayout->addWidget(timeFrame);
+    layout->addWidget(frame);
+
+    const auto updateTimeLabels = [this, createdValue]() {
+        const auto formatDate = [this](const QDateTime& dt) -> QString {
+            if (!dt.isValid())
+                return tr("未知");
+            return QLocale::system().toString(dt.toLocalTime(),
+                                              QLocale::LongFormat);
+        };
+        createdValue->setText(formatDate(m_projectCreatedAt));
+    };
+    updateTimeLabels();
+
+    const auto refreshSaveState = [this, remarkEdit, saveBtn]() {
+        saveBtn->setEnabled(remarkEdit->toPlainText() != m_projectRemarks);
+    };
+    refreshSaveState();
+
+    connect(remarkEdit, &QPlainTextEdit::textChanged, this, refreshSaveState);
+    connect(saveBtn, &QPushButton::clicked, this,
+            [this, remarkEdit, saveBtn, updateTimeLabels]() {
+                const QString newRemark = remarkEdit->toPlainText();
+                if (newRemark == m_projectRemarks)
+                {
+                    saveBtn->setEnabled(false);
+                    return;
+                }
+                m_projectRemarks = newRemark;
+                persistSchemes();
+                saveBtn->setEnabled(false);
+                updateTimeLabels();
+                appendLogMessage(tr("已更新工程备注"));
+            });
+    connect(openBtn, &QPushButton::clicked, this, [this]() {
+        if (!m_projectRoot.isEmpty())
+            QDesktopServices::openUrl(QUrl::fromLocalFile(m_projectRoot));
+    });
+
+    layout->addStretch(1);
     return container;
 }
 
@@ -1781,7 +1944,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     connect(listWidget, &QListWidget::itemSelectionChanged, this, applySelectionState);
 
     connect(renameBtn, &QPushButton::clicked, this,
-            [this, entry, entryDisplayName, refreshEntryUi]() {
+            [this, entry, entryDisplayName, refreshEntryUi, refreshModels]() {
                 bool ok = false;
                 const QString currentName = entry->name;
                 const QString newName = QInputDialog::getText(
@@ -1803,7 +1966,60 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                     return;
                 }
 
+                const QString oldDirectory = entry->directory;
+                QString updatedDirectory = oldDirectory;
+                bool directoryChanged = false;
+
+                if (entry->deletable &&
+                    isPathWithinDirectory(oldDirectory, m_schemeLibraryRoot))
+                {
+                    QFileInfo dirInfo(oldDirectory);
+                    QDir parentDir = dirInfo.dir();
+                    QString sanitized = trimmed;
+                    sanitized.replace(QRegularExpression("\\s+"), "_");
+                    if (sanitized.isEmpty())
+                        sanitized = QStringLiteral("Assembly");
+
+                    QString desiredName = sanitized;
+                    QString candidatePath = parentDir.filePath(desiredName);
+                    int index = 1;
+                    while (candidatePath.compare(oldDirectory, Qt::CaseInsensitive) != 0 &&
+                           QDir(candidatePath).exists())
+                    {
+                        desiredName = QStringLiteral("%1_%2").arg(sanitized).arg(index++);
+                        candidatePath = parentDir.filePath(desiredName);
+                    }
+
+                    if (candidatePath.compare(oldDirectory, Qt::CaseInsensitive) != 0)
+                    {
+                        if (!parentDir.rename(dirInfo.fileName(), desiredName))
+                        {
+                            QMessageBox::warning(this, tr("重命名总成"),
+                                                 tr("无法重命名总成目录。"));
+                            refreshEntryUi();
+                            return;
+                        }
+
+                        QString canonical = canonicalPathForDir(QDir(candidatePath));
+                        if (canonical.isEmpty())
+                            canonical = QDir::cleanPath(candidatePath);
+                        updatedDirectory = canonical;
+                        directoryChanged = true;
+                    }
+                }
+
                 entry->name = trimmed;
+                if (directoryChanged)
+                {
+                    if (!entry->thumbnailPath.isEmpty() &&
+                        isPathWithinDirectory(entry->thumbnailPath, oldDirectory))
+                    {
+                        QDir oldDir(oldDirectory);
+                        const QString relThumb = oldDir.relativeFilePath(entry->thumbnailPath);
+                        entry->thumbnailPath = QDir(updatedDirectory).filePath(relThumb);
+                    }
+                    entry->directory = updatedDirectory;
+                }
 
                 bool schemeUpdated = false;
                 {
@@ -1822,6 +2038,8 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 }
 
                 refreshEntryUi();
+                if (directoryChanged)
+                    refreshModels();
                 saveSchemeLibrary();
                 if (schemeUpdated)
                     persistSchemes();
@@ -1829,8 +2047,10 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 appendLogMessage(tr("已将总成库重命名为 %1").arg(entryDisplayName()));
             });
 
-    connect(openDirBtn, &QPushButton::clicked, this,
-            [directory]() { QDesktopServices::openUrl(QUrl::fromLocalFile(directory)); });
+    connect(openDirBtn, &QPushButton::clicked, this, [entry]() {
+        if (!entry->directory.trimmed().isEmpty())
+            QDesktopServices::openUrl(QUrl::fromLocalFile(entry->directory));
+    });
 
     connect(addModelBtn, &QPushButton::clicked, this,
             [this, entry, entryDisplayName, refreshModels]() {
@@ -1975,7 +2195,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                         {
                             persistSchemes();
                             refreshNavigation(schemeToRefresh);
-                            appendLogMessage(tr("已同步删除工程中的关联模型"));
+                            appendLogMessage(tr("已同步移除工程中的关联模型"));
                         }
                     }
                 }
@@ -2148,7 +2368,8 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     ui->settingWidget->layout()->addWidget(container);
     setVisualizationVisible(false);
     clearVtkScene();
-    updateSelectionInfo(directory, linkedScheme ? linkedScheme->remarks : QString());
+    updateSelectionInfo(entry->directory,
+                        linkedScheme ? linkedScheme->remarks : QString());
 }
 
 void MainWindow::refreshCurrentDetail()
@@ -3095,9 +3316,9 @@ bool MainWindow::confirmSchemeDeletion(const SchemeRecord& scheme)
                                   ? tr("Untitled Assembly")
                                   : scheme.name;
     const QString text =
-        tr("确定要删除总成“%1”吗？此操作将删除总成下的所有模型。")
+        tr("确定要移除总成“%1”吗？此操作将删除总成下的所有模型及相关文件。")
             .arg(schemeName);
-    return QMessageBox::question(this, tr("删除总成"), text,
+    return QMessageBox::question(this, tr("移除总成"), text,
                                  QMessageBox::Yes | QMessageBox::No,
                                  QMessageBox::No) == QMessageBox::Yes;
 }
@@ -3112,9 +3333,9 @@ bool MainWindow::confirmModelDeletion(const ModelRecord& model,
                                    ? tr("Untitled Assembly")
                                    : owner.name;
     const QString text =
-        tr("确定要从总成“%1”中删除模型“%2”吗？")
+        tr("确定要从总成“%1”中移除模型“%2”吗？相关文件将被删除。")
             .arg(schemeName, modelName);
-    return QMessageBox::question(this, tr("删除模型"), text,
+    return QMessageBox::question(this, tr("移除模型"), text,
                                  QMessageBox::Yes | QMessageBox::No,
                                  QMessageBox::No) == QMessageBox::Yes;
 }
@@ -3125,18 +3346,37 @@ void MainWindow::removeSchemeById(const QString& id)
     {
         if (m_schemes[i].id == id)
         {
-            if (isPathWithinDirectory(m_schemes[i].thumbnailPath,
-                                      m_schemes[i].workingDirectory))
-                QFile::remove(m_schemes[i].thumbnailPath);
-            m_schemes.removeAt(i);
+            SchemeRecord scheme = m_schemes.takeAt(i);
+            if (isPathWithinDirectory(scheme.thumbnailPath, scheme.workingDirectory))
+                QFile::remove(scheme.thumbnailPath);
             if (m_activeSchemeId == id)
             {
                 m_activeSchemeId.clear();
                 m_activeModelId.clear();
             }
             persistSchemes();
+
+            const QString workingDir = scheme.workingDirectory;
+            if (!workingDir.isEmpty())
+            {
+                const bool withinProject =
+                    isPathWithinDirectory(workingDir, workspaceRoot()) ||
+                    isPathWithinDirectory(workingDir, m_projectRoot);
+                if (withinProject)
+                {
+                    QDir dir(workingDir);
+                    if (dir.exists() && !dir.removeRecursively())
+                    {
+                        QMessageBox::warning(
+                            this, tr("移除总成"),
+                            tr("无法删除总成目录：%1")
+                                .arg(QDir::toNativeSeparators(workingDir)));
+                    }
+                }
+            }
+
             refreshNavigation();
-            appendLogMessage(tr("已删除总成"));
+            appendLogMessage(tr("已移除总成"));
             return;
         }
     }
@@ -3151,12 +3391,30 @@ void MainWindow::removeModelById(const QString& id)
         {
             if (scheme.models[j].id == id)
             {
-                scheme.models.removeAt(j);
+                ModelRecord model = scheme.models.takeAt(j);
                 if (m_activeModelId == id)
                     m_activeModelId.clear();
                 persistSchemes();
                 refreshNavigation(scheme.id);
-                appendLogMessage(tr("已删除模型"));
+                const QString modelDir = model.directory;
+                if (!modelDir.isEmpty())
+                {
+                    const bool withinProject =
+                        isPathWithinDirectory(modelDir, scheme.workingDirectory) ||
+                        isPathWithinDirectory(modelDir, m_projectRoot);
+                    if (withinProject)
+                    {
+                        QDir dir(modelDir);
+                        if (dir.exists() && !dir.removeRecursively())
+                        {
+                            QMessageBox::warning(
+                                this, tr("移除模型"),
+                                tr("无法删除模型目录：%1")
+                                    .arg(QDir::toNativeSeparators(modelDir)));
+                        }
+                    }
+                }
+                appendLogMessage(tr("已移除模型"));
                 return;
             }
         }
@@ -3518,6 +3776,35 @@ bool MainWindow::loadSchemesFromStorage()
         return false;
 
     const QJsonObject root = doc.object();
+    const QJsonObject projectObj = root.value(QStringLiteral("project")).toObject();
+    m_projectRemarks = projectObj.value(QStringLiteral("remarks")).toString();
+    const auto parseIsoDate = [](const QString& value) -> QDateTime {
+        const QString trimmed = value.trimmed();
+        if (trimmed.isEmpty())
+            return QDateTime();
+        QDateTime dt = QDateTime::fromString(trimmed, Qt::ISODateWithMs);
+        if (!dt.isValid())
+            dt = QDateTime::fromString(trimmed, Qt::ISODate);
+        return dt;
+    };
+    m_projectCreatedAt =
+        parseIsoDate(projectObj.value(QStringLiteral("createdAt")).toString());
+    m_projectUpdatedAt =
+        parseIsoDate(projectObj.value(QStringLiteral("updatedAt")).toString());
+
+    QFileInfo storageInfo(m_storageFilePath);
+    if (!m_projectCreatedAt.isValid())
+    {
+        QDateTime birth = storageInfo.birthTime();
+        if (!birth.isValid())
+            birth = storageInfo.created();
+        if (!birth.isValid())
+            birth = storageInfo.lastModified();
+        m_projectCreatedAt = birth;
+    }
+    if (!m_projectUpdatedAt.isValid())
+        m_projectUpdatedAt = storageInfo.lastModified();
+
     const QString storedRoot = root.value(QStringLiteral("workspaceRoot")).toString().trimmed();
     if (!storedRoot.isEmpty())
     {
@@ -3654,7 +3941,16 @@ void MainWindow::saveSchemesToStorage() const
         if (!relative.startsWith(QStringLiteral("..")) && !relative.startsWith(QLatin1Char('/')))
             workspaceToStore = relative;
     }
+    QJsonObject projectObj;
+    projectObj.insert(QStringLiteral("remarks"), m_projectRemarks);
+    if (m_projectCreatedAt.isValid())
+        projectObj.insert(QStringLiteral("createdAt"),
+                          m_projectCreatedAt.toUTC().toString(Qt::ISODateWithMs));
+    if (m_projectUpdatedAt.isValid())
+        projectObj.insert(QStringLiteral("updatedAt"),
+                          m_projectUpdatedAt.toUTC().toString(Qt::ISODateWithMs));
     root.insert(QStringLiteral("workspaceRoot"), workspaceToStore);
+    root.insert(QStringLiteral("project"), projectObj);
     root.insert(QStringLiteral("schemes"), schemeArray);
 
     QFile file(m_storageFilePath);
@@ -3666,8 +3962,15 @@ void MainWindow::saveSchemesToStorage() const
     file.close();
 }
 
-void MainWindow::persistSchemes() const
+void MainWindow::persistSchemes()
 {
+    if (hasActiveProject())
+    {
+        const QDateTime now = QDateTime::currentDateTimeUtc();
+        if (!m_projectCreatedAt.isValid())
+            m_projectCreatedAt = now;
+        m_projectUpdatedAt = now;
+    }
     saveSchemesToStorage();
 }
 

@@ -10,6 +10,7 @@
 #include <QPair>
 #include <QList>
 #include <QSet>
+#include <QDateTime>
 #include <vtkSmartPointer.h>
 
 QT_BEGIN_NAMESPACE
@@ -106,8 +107,10 @@ private:
     void clearDetailWidget();
     void showSchemeSettings(const QString& schemeId);
     void showModelSettings(const QString& modelId);
+    void showProjectInfo();
     QWidget* buildSchemeSettingsWidget(const SchemeRecord& scheme);
     QWidget* buildModelSettingsWidget(const ModelRecord& model);
+    QWidget* buildProjectInfoWidget();
     void showLibrarySchemeDetail(const QString& entryId,
                                  const QString& projectSchemeId = QString());
     void refreshCurrentDetail();
@@ -177,7 +180,7 @@ private:
     void ensureUniqueSchemeAndModelNames();
     bool loadSchemesFromStorage();
     void saveSchemesToStorage() const;
-    void persistSchemes() const;
+    void persistSchemes();
     QString makeUniqueWorkspaceSubdir(const QString& baseName) const;
     QString workspaceRoot() const;
 
@@ -198,6 +201,9 @@ private:
     QString m_storageFilePath;
     QString m_workspaceRoot;
     QString m_schemeLibraryRoot;
+    QString m_projectRemarks;
+    QDateTime m_projectCreatedAt;
+    QDateTime m_projectUpdatedAt;
     QString m_baseWindowTitle;
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
     vtkSmartPointer<vtkRenderer> m_renderer;
