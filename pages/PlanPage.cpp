@@ -7,6 +7,7 @@
 #include <QDir>
 #include <QLabel>
 #include <QLayout>
+#include <QBoxLayout>
 #include <QPlainTextEdit>
 #include <QScrollBar>
 #include <QSplitter>
@@ -68,8 +69,14 @@ void PlanPage::setupUiStyles()
         {
             m_selectionInfo = new QLabel(m_ui->detailPanel);
             m_selectionInfo->setObjectName(QStringLiteral("selectionInfo"));
-            if (auto* panelLayout = m_ui->detailPanel->layout())
+            if (auto* panelLayout = qobject_cast<QBoxLayout*>(m_ui->detailPanel->layout()))
+            {
                 panelLayout->insertWidget(1, m_selectionInfo);
+            }
+            else if (auto* panelLayout = m_ui->detailPanel->layout())
+            {
+                panelLayout->addWidget(m_selectionInfo);
+            }
         }
         if (m_selectionInfo)
         {
