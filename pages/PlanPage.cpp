@@ -60,18 +60,28 @@ void PlanPage::setupUiStyles()
 
     if (!m_selectionInfo)
     {
-        m_selectionInfo = new QLabel(m_ui->detailPanel);
-        m_selectionInfo->setObjectName(QStringLiteral("selectionInfo"));
-        m_selectionInfo->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
-        m_selectionInfo->setWordWrap(true);
-        m_selectionInfo->setStyleSheet(QStringLiteral(
-            "QLabel#selectionInfo{padding:12px 16px;font-size:13px;color:#475569;}"));
+        if (m_ui->selectionInfo)
+        {
+            m_selectionInfo = m_ui->selectionInfo;
+        }
+        else
+        {
+            m_selectionInfo = new QLabel(m_ui->detailPanel);
+            m_selectionInfo->setObjectName(QStringLiteral("selectionInfo"));
+            if (auto* panelLayout = m_ui->detailPanel->layout())
+                panelLayout->insertWidget(1, m_selectionInfo);
+        }
+        if (m_selectionInfo)
+        {
+            m_selectionInfo->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+            m_selectionInfo->setWordWrap(true);
+        }
     }
 
-    if (auto* panelLayout = m_ui->detailPanel->layout())
+    if (m_selectionInfo)
     {
-        if (panelLayout->indexOf(m_selectionInfo) < 0)
-            panelLayout->insertWidget(1, m_selectionInfo);
+        m_selectionInfo->setStyleSheet(QStringLiteral(
+            "QLabel#selectionInfo{padding:12px 16px;font-size:13px;color:#475569;}"));
     }
 
     const auto applyPanelCard = [](QWidget* panel, QLabel* title, const QString& extraStyles = QString()) {

@@ -115,8 +115,19 @@ public:
     void setLastSplitterSizes(const QList<int>& sizes);
 
 private:
+    /**
+     * @brief Applies styling and layout adjustments to plan page widgets.
+     */
     void setupUiStyles();
+
+    /**
+     * @brief Configures splitter appearance and behavior for the plan page.
+     */
     void setupSplitterStyles();
+
+    /**
+     * @brief Prepares the embedded VTK rendering pipeline and widgets.
+     */
     void initializeVisualization();
 
     Ui::MainWindow* m_ui = nullptr;
