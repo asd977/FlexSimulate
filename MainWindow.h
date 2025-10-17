@@ -11,6 +11,7 @@
 #include <QList>
 #include <QSet>
 #include <QDateTime>
+#include <QStringList>
 #include <vtkSmartPointer.h>
 
 QT_BEGIN_NAMESPACE
@@ -183,6 +184,9 @@ private:
     void persistSchemes();
     QString makeUniqueWorkspaceSubdir(const QString& baseName) const;
     QString workspaceRoot() const;
+    QVector<QPair<QString, QString>> readProjectSchemeOutline(const QString& projectRoot) const;
+    QString displayNameForProjectPath(const QString& projectRoot) const;
+    void closeProject(const QString& projectRoot);
 
     Ui::MainWindow *ui;
     SchemeGalleryWidget* m_galleryWidget = nullptr;
@@ -198,6 +202,7 @@ private:
     bool m_blockTreeSignals = false;
     QString m_appStateFilePath;
     QString m_projectRoot;
+    QStringList m_openProjects;
     QString m_storageFilePath;
     QString m_workspaceRoot;
     QString m_schemeLibraryRoot;

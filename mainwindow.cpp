@@ -2,6 +2,7 @@
 #include "ui_MainWindow.h"
 
 #include "JsonPageBuilder.h"
+#include "ProjectCreationDialog.h"
 #include "SchemeGalleryWidget.h"
 #include "SchemeSettingsDialog.h"
 #include "SchemeTreeWidget.h"
@@ -218,6 +219,17 @@ void MainWindow::setupUiHelpers()
                        "QWidget#scrollAreaWidgetContents{background:transparent;}"
                    ));
 
+    if (ui->backToGalleryButton)
+    {
+        ui->backToGalleryButton->setCursor(Qt::PointingHandCursor);
+        ui->backToGalleryButton->setStyleSheet(
+            "QPushButton{color:#2563eb;font-weight:600;border:none;"
+            "padding:6px 12px;border-radius:16px;}"
+            "QPushButton:hover{background:#e0e7ff;}"
+            "QPushButton:pressed{background:#bfdbfe;}"
+        );
+    }
+
     applyPanelCard(ui->vtkPanel, ui->vtkTitle,
                    QStringLiteral(
                        "QFrame#vtkFrame{border:none;background:transparent;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
@@ -303,6 +315,21 @@ void MainWindow::setupConnections()
             this, &MainWindow::onGalleryDetailsRequested);
     connect(m_galleryWidget, &SchemeGalleryWidget::createSchemeRequested,
             this, &MainWindow::onAddLibraryScheme);
+
+    if (ui->backToGalleryButton)
+    {
+        connect(ui->backToGalleryButton, &QPushButton::clicked, this, [this]() {
+            if (ui->stackedWidget && ui->planPage)
+                ui->stackedWidget->setCurrentWidget(ui->planPage);
+            updateGallery();
+            if (ui->treeModels)
+                ui->treeModels->clearSelection();
+            clearDetailWidget();
+            clearVtkScene();
+            setVisualizationVisible(false);
+            updateSelectionInfo();
+        });
+    }
 
     auto* deleteShortcut = new QShortcut(QKeySequence::Delete, ui->treeModels);
     connect(deleteShortcut, &QShortcut::activated,
@@ -555,6 +582,7 @@ void MainWindow::enterProjectlessState()
     m_modelItems.clear();
     m_projectRootItem = nullptr;
     m_libraryRootItem = nullptr;
+    m_openProjects.clear();
 
     if (ui->treeModels)
         ui->treeModels->clear();
@@ -601,10 +629,14 @@ bool MainWindow::openProjectAt(const QString& path, bool silent)
         return false;
     }
 
+    if (!m_openProjects.contains(canonicalProject))
+        m_openProjects.append(canonicalProject);
+
     if (canonicalProject == m_projectRoot)
     {
         refreshNavigation();
-        ui->stackedWidget->setCurrentWidget(ui->planPage);
+        if (ui->stackedWidget)
+            ui->stackedWidget->setCurrentWidget(ui->planPage);
         updateToolbarState();
         updateWindowTitle();
         return true;
@@ -676,27 +708,44 @@ void MainWindow::updateWindowTitle()
 
 void MainWindow::onNewProjectTriggered()
 {
-    const QString baseDir = QFileDialog::getExistingDirectory(
-        this, tr("选择工程位置"), QDir::homePath(),
-        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-    if (baseDir.isEmpty())
+    ProjectCreationDialog dlg(this);
+    dlg.setInitialName(tr("NewProject"));
+    if (!m_projectRoot.isEmpty())
+    {
+        QFileInfo info(m_projectRoot);
+        dlg.setInitialDirectory(info.absolutePath());
+    }
+    else
+    {
+        dlg.setInitialDirectory(QDir::homePath());
+    }
+
+    if (dlg.exec() != QDialog::Accepted)
         return;
 
-    bool ok = false;
-    const QString name = QInputDialog::getText(
-        this, tr("新建工程"), tr("工程名称："), QLineEdit::Normal,
-        tr("NewProject"), &ok);
-    if (!ok)
-        return;
-
-    const QString trimmedName = name.trimmed();
+    const QString trimmedName = dlg.projectName().trimmed();
     if (trimmedName.isEmpty())
     {
         QMessageBox::warning(this, tr("新建工程"), tr("工程名称不能为空。"));
         return;
     }
 
+    QString baseDir = dlg.projectDirectory().trimmed();
+    if (baseDir.isEmpty())
+    {
+        QMessageBox::warning(this, tr("新建工程"), tr("工作目录不能为空。"));
+        return;
+    }
+
     QDir base(baseDir);
+    if (!base.exists() && !base.mkpath(QStringLiteral(".")))
+    {
+        QMessageBox::warning(this, tr("新建工程"),
+                             tr("无法访问或创建目录：%1")
+                                 .arg(QDir::toNativeSeparators(baseDir)));
+        return;
+    }
+
     const QString projectPath = base.filePath(trimmedName);
     QDir projectDir(projectPath);
     if (projectDir.exists())
@@ -814,6 +863,28 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
     }
 
     const int type = current->data(0, TypeRole).toInt();
+
+    if (type == ProjectItem)
+    {
+        const QString projectPath = current->data(0, IdRole).toString();
+        if (!projectPath.isEmpty() && projectPath != m_projectRoot)
+        {
+            if (openProjectAt(projectPath, /*silent*/false))
+                selectTreeItem(m_activeSchemeId, m_activeModelId);
+            return;
+        }
+    }
+    else if (type == SchemeItem)
+    {
+        const QString schemeProject = current->data(0, SchemeRole).toString();
+        if (!schemeProject.isEmpty() && schemeProject != m_projectRoot)
+        {
+            const QString schemeId = current->data(0, IdRole).toString();
+            if (openProjectAt(schemeProject, /*silent*/false))
+                refreshNavigation(schemeId, QString());
+            return;
+        }
+    }
 
     if (type == LibraryItem)
     {
@@ -993,35 +1064,61 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
         }
         else if (type == ProjectItem)
         {
-            if (!m_projectRoot.isEmpty())
+            const QString projectPath = item->data(0, IdRole).toString();
+            if (!projectPath.isEmpty())
             {
-                menu.addAction(tr("打开工程目录"), this, [this]() {
-                    QDesktopServices::openUrl(QUrl::fromLocalFile(m_projectRoot));
+                menu.addAction(tr("打开工程"), this, [this, projectPath]() {
+                    openProjectAt(projectPath, /*silent*/false);
                 });
+                if (QDir(projectPath).exists())
+                {
+                    menu.addAction(tr("打开工程目录"), this, [projectPath]() {
+                        QDesktopServices::openUrl(QUrl::fromLocalFile(projectPath));
+                    });
+                }
             }
-            menu.addAction(tr("导入总成"), this, &MainWindow::promptAddScheme);
+            if (projectPath == m_projectRoot)
+            {
+                menu.addSeparator();
+                menu.addAction(tr("导入总成"), this, &MainWindow::promptAddScheme);
+            }
+            menu.addSeparator();
+            menu.addAction(tr("关闭工程"), this, [this, projectPath]() {
+                closeProject(projectPath);
+            });
         }
         else if (type == SchemeItem)
         {
             const QString schemeId = item->data(0, IdRole).toString();
-            menu.addAction(tr("总成设置"), this, [this, schemeId]() {
-                openSchemeSettings(schemeId);
-            });
-            menu.addAction(tr("添加模型"), this, [this, schemeId]() {
-                promptAddModel(schemeId);
-            });
-            menu.addAction(tr("打开总成目录"), this, [this, schemeId]() {
-                if (SchemeRecord* scheme = schemeById(schemeId))
-                    QDesktopServices::openUrl(QUrl::fromLocalFile(scheme->workingDirectory));
-            });
-            menu.addSeparator();
-            menu.addAction(tr("移除总成"), this, [this, schemeId]() {
-                if (SchemeRecord* scheme = schemeById(schemeId))
-                {
-                    if (confirmSchemeDeletion(*scheme))
-                        removeSchemeById(schemeId);
-                }
-            });
+            const QString schemeProject = item->data(0, SchemeRole).toString();
+            if (!schemeProject.isEmpty() && schemeProject != m_projectRoot)
+            {
+                menu.addAction(tr("打开所在工程"), this, [this, schemeProject, schemeId]() {
+                    if (openProjectAt(schemeProject, /*silent*/false))
+                        refreshNavigation(schemeId, QString());
+                });
+            }
+            else
+            {
+                menu.addAction(tr("总成设置"), this, [this, schemeId]() {
+                    openSchemeSettings(schemeId);
+                });
+                menu.addAction(tr("添加模型"), this, [this, schemeId]() {
+                    promptAddModel(schemeId);
+                });
+                menu.addAction(tr("打开总成目录"), this, [this, schemeId]() {
+                    if (SchemeRecord* scheme = schemeById(schemeId))
+                        QDesktopServices::openUrl(QUrl::fromLocalFile(scheme->workingDirectory));
+                });
+                menu.addSeparator();
+                menu.addAction(tr("移除总成"), this, [this, schemeId]() {
+                    if (SchemeRecord* scheme = schemeById(schemeId))
+                    {
+                        if (confirmSchemeDeletion(*scheme))
+                            removeSchemeById(schemeId);
+                    }
+                });
+            }
         }
         else if (type == ModelItem)
         {
@@ -1067,12 +1164,34 @@ void MainWindow::onExternalDrop(const QList<QUrl>& urls, QTreeWidgetItem* target
     if (target)
     {
         const int type = target->data(0, TypeRole).toInt();
-        if (type == SchemeItem)
-            targetSchemeId = target->data(0, IdRole).toString();
+        if (type == ProjectItem)
+        {
+            const QString projectPath = target->data(0, IdRole).toString();
+            if (!projectPath.isEmpty() && projectPath != m_projectRoot)
+            {
+                if (!openProjectAt(projectPath, /*silent*/false))
+                    return;
+            }
+        }
+        else if (type == SchemeItem)
+        {
+            const QString schemeProject = target->data(0, SchemeRole).toString();
+            if (!schemeProject.isEmpty() && schemeProject != m_projectRoot)
+            {
+                const QString schemeId = target->data(0, IdRole).toString();
+                if (!openProjectAt(schemeProject, /*silent*/false))
+                    return;
+                targetSchemeId = schemeId;
+            }
+            else
+            {
+                targetSchemeId = target->data(0, IdRole).toString();
+            }
+        }
         else if (type == ModelItem)
+        {
             targetSchemeId = target->data(0, SchemeRole).toString();
-        else if (type == ProjectItem)
-            targetSchemeId.clear();
+        }
     }
 
     if (targetSchemeId.isEmpty())
@@ -1227,6 +1346,7 @@ void MainWindow::rebuildTree()
     m_libraryRootItem = nullptr;
 
     const QIcon libraryIcon(QStringLiteral(":/icons/icons/gallery.svg"));
+    const QIcon projectIcon(QStringLiteral(":/icons/icons/project_logo.svg"));
     const QIcon schemeIcon(QStringLiteral(":/icons/icons/plan.svg"));
     const QIcon modelIcon(QStringLiteral(":/icons/icons/model.svg"));
 
@@ -1236,57 +1356,76 @@ void MainWindow::rebuildTree()
     m_libraryRootItem->setData(0, TypeRole, LibraryItem);
     m_libraryRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
 
-    QTreeWidgetItem* schemeParent = ui->treeModels->invisibleRootItem();
-    if (hasActiveProject())
+    for (const QString& projectPath : m_openProjects)
     {
-        m_projectRootItem = new QTreeWidgetItem(ui->treeModels);
-        m_projectRootItem->setText(0, projectDisplayName());
-        m_projectRootItem->setIcon(0, QIcon(QStringLiteral(":/icons/icons/project_logo.svg")));
-        m_projectRootItem->setData(0, TypeRole, ProjectItem);
-        m_projectRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
-                                    Qt::ItemIsDropEnabled);
-        schemeParent = m_projectRootItem;
-    }
+        auto* projectItem = new QTreeWidgetItem(ui->treeModels);
+        projectItem->setText(0, displayNameForProjectPath(projectPath));
+        projectItem->setIcon(0, projectIcon);
+        projectItem->setData(0, TypeRole, ProjectItem);
+        projectItem->setData(0, IdRole, projectPath);
+        projectItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable |
+                              Qt::ItemIsDropEnabled);
 
-    for (const SchemeRecord& scheme : m_schemes)
-    {
-        QTreeWidgetItem* parentItem = schemeParent;
-        if (!parentItem)
-            parentItem = ui->treeModels->invisibleRootItem();
-        auto* schemeItem = new QTreeWidgetItem(parentItem);
-        schemeItem->setText(0, scheme.name);
-        schemeItem->setIcon(0, schemeIcon);
-        schemeItem->setData(0, TypeRole, SchemeItem);
-        schemeItem->setData(0, IdRole, scheme.id);
-        schemeItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled |
-                             Qt::ItemIsDragEnabled | Qt::ItemIsEditable |
-                             Qt::ItemIsDropEnabled);
-        m_schemeItems.insert(scheme.id, schemeItem);
-
-        ui->treeModels->expandItem(schemeItem);
-
-        for (const ModelRecord& model : scheme.models)
+        if (projectPath == m_projectRoot)
         {
-            auto* modelItem = new QTreeWidgetItem(schemeItem);
-            modelItem->setText(0, model.name);
-            modelItem->setIcon(0, modelIcon);
-            modelItem->setData(0, TypeRole, ModelItem);
-            modelItem->setData(0, IdRole, model.id);
-            modelItem->setData(0, SchemeRole, scheme.id);
-            modelItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled |
-                                Qt::ItemIsDragEnabled | Qt::ItemIsEditable);
-            m_modelItems.insert(model.id, modelItem);
+            m_projectRootItem = projectItem;
+
+            for (const SchemeRecord& scheme : m_schemes)
+            {
+                auto* schemeItem = new QTreeWidgetItem(projectItem);
+                const QString schemeName = scheme.name.isEmpty()
+                                               ? tr("Untitled Assembly")
+                                               : scheme.name;
+                schemeItem->setText(0, schemeName);
+                schemeItem->setIcon(0, schemeIcon);
+                schemeItem->setData(0, TypeRole, SchemeItem);
+                schemeItem->setData(0, IdRole, scheme.id);
+                schemeItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled |
+                                     Qt::ItemIsDragEnabled | Qt::ItemIsEditable |
+                                     Qt::ItemIsDropEnabled);
+                m_schemeItems.insert(scheme.id, schemeItem);
+
+                ui->treeModels->expandItem(schemeItem);
+
+                for (const ModelRecord& model : scheme.models)
+                {
+                    auto* modelItem = new QTreeWidgetItem(schemeItem);
+                    modelItem->setText(0, model.name);
+                    modelItem->setIcon(0, modelIcon);
+                    modelItem->setData(0, TypeRole, ModelItem);
+                    modelItem->setData(0, IdRole, model.id);
+                    modelItem->setData(0, SchemeRole, scheme.id);
+                    modelItem->setFlags(Qt::ItemIsSelectable | Qt::ItemIsEnabled |
+                                        Qt::ItemIsDragEnabled | Qt::ItemIsEditable);
+                    m_modelItems.insert(model.id, modelItem);
+                }
+            }
+        }
+        else
+        {
+            const QVector<QPair<QString, QString>> outline =
+                readProjectSchemeOutline(projectPath);
+            for (const auto& pair : outline)
+            {
+                auto* schemeItem = new QTreeWidgetItem(projectItem);
+                const QString schemeName = pair.second.isEmpty()
+                                               ? tr("Untitled Assembly")
+                                               : pair.second;
+                schemeItem->setText(0, schemeName);
+                schemeItem->setIcon(0, schemeIcon);
+                schemeItem->setData(0, TypeRole, SchemeItem);
+                schemeItem->setData(0, IdRole, pair.first);
+                schemeItem->setData(0, SchemeRole, projectPath);
+                schemeItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+            }
         }
     }
 
     if (m_projectRootItem)
-    {
         ui->treeModels->expandItem(m_projectRootItem);
-    }
     else
-    {
         ui->treeModels->expandAll();
-    }
+
     m_blockTreeSignals = false;
 }
 
@@ -1511,6 +1650,19 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
         promptAddModel(sid);
     });
     buttonRow->addWidget(addBtn);
+
+    auto* editThumbBtn = new QPushButton(tr("编辑封面"), container);
+    editThumbBtn->setCursor(Qt::PointingHandCursor);
+    editThumbBtn->setStyleSheet(
+        "QPushButton{padding:8px 18px;border-radius:18px;"
+        "border:1px solid #cbd5f5;background:#f8faff;color:#1d4ed8;}"
+        "QPushButton:hover{background:#e0e7ff;}"
+        "QPushButton:pressed{background:#bfdbfe;}"
+    );
+    connect(editThumbBtn, &QPushButton::clicked, this, [this, sid = scheme.id]() {
+        openSchemeSettings(sid);
+    });
+    buttonRow->addWidget(editThumbBtn);
 
     auto* openBtn = new QPushButton(tr("打开总成目录"), container);
     openBtn->setCursor(Qt::PointingHandCursor);
@@ -3522,19 +3674,7 @@ void MainWindow::syncDataFromTree()
 
 QString MainWindow::projectDisplayName() const
 {
-    if (!hasActiveProject())
-        return tr("Untitled Project");
-
-    QFileInfo info(m_projectRoot);
-    QString name = info.fileName();
-    if (name.isEmpty())
-    {
-        QDir dir(m_projectRoot);
-        name = dir.dirName();
-    }
-    if (name.isEmpty())
-        name = QDir::toNativeSeparators(m_projectRoot);
-    return name;
+    return displayNameForProjectPath(m_projectRoot);
 }
 
 QString MainWindow::makeUniqueName(const QString& desired, QSet<QString>& taken,
@@ -3633,7 +3773,7 @@ void MainWindow::setVisualizationVisible(bool visible)
             if (sizes.size() < 2 || (sizes.at(0) == 0 && sizes.at(1) == 0))
             {
                 sizes.clear();
-                sizes << 1 << 1;
+                sizes << 3 << 5;
             }
             ui->contentSplitter->setSizes(sizes);
         }
@@ -4000,4 +4140,84 @@ QString MainWindow::makeUniqueWorkspaceSubdir(const QString& baseName) const
 QString MainWindow::workspaceRoot() const
 {
     return m_workspaceRoot;
+}
+
+QVector<QPair<QString, QString>> MainWindow::readProjectSchemeOutline(const QString& projectRoot) const
+{
+    QVector<QPair<QString, QString>> outline;
+    if (projectRoot.isEmpty())
+        return outline;
+
+    QDir projectDir(projectRoot);
+    if (!projectDir.exists())
+        return outline;
+
+    const QString storagePath = projectDir.filePath(QStringLiteral("schemes.json"));
+    QFile file(storagePath);
+    if (!file.exists() || !file.open(QIODevice::ReadOnly | QIODevice::Text))
+        return outline;
+
+    const QByteArray data = file.readAll();
+    file.close();
+
+    QJsonParseError error{};
+    const QJsonDocument doc = QJsonDocument::fromJson(data, &error);
+    if (error.error != QJsonParseError::NoError || !doc.isObject())
+        return outline;
+
+    const QJsonArray array = doc.object().value(QStringLiteral("schemes")).toArray();
+    for (const QJsonValue& value : array)
+    {
+        const QJsonObject obj = value.toObject();
+        const QString id = obj.value(QStringLiteral("id")).toString();
+        const QString name = obj.value(QStringLiteral("name")).toString();
+        if (!id.isEmpty())
+            outline.append(QPair<QString, QString>(id, name));
+    }
+    return outline;
+}
+
+QString MainWindow::displayNameForProjectPath(const QString& projectRoot) const
+{
+    if (projectRoot.isEmpty())
+        return tr("Untitled Project");
+
+    QFileInfo info(projectRoot);
+    QString name = info.fileName();
+    if (name.isEmpty())
+    {
+        QDir dir(projectRoot);
+        name = dir.dirName();
+    }
+    if (name.isEmpty())
+        name = QDir::toNativeSeparators(projectRoot);
+    return name;
+}
+
+void MainWindow::closeProject(const QString& projectRoot)
+{
+    const QString canonical = canonicalPathForDir(QDir(projectRoot));
+    if (canonical.isEmpty())
+        return;
+
+    const int index = m_openProjects.indexOf(canonical);
+    if (index < 0)
+        return;
+
+    m_openProjects.removeAt(index);
+
+    if (canonical == m_projectRoot)
+    {
+        if (!m_openProjects.isEmpty())
+        {
+            const QString nextProject = m_openProjects.back();
+            openProjectAt(nextProject, /*silent*/false);
+            return;
+        }
+        enterProjectlessState();
+        return;
+    }
+
+    rebuildTree();
+    saveApplicationState();
 }

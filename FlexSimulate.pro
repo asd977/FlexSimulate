@@ -20,6 +20,7 @@ DEFINES += QT_DEPRECATED_WARNINGS
 SOURCES += \
     JsonPageBuilder.cpp \
     MainWindow.cpp \
+    ProjectCreationDialog.cpp \
     SchemeCardWidget.cpp \
     SchemeGalleryWidget.cpp \
     SchemeSettingsDialog.cpp \
@@ -29,6 +30,7 @@ SOURCES += \
 HEADERS += \
     JsonPageBuilder.h \
     MainWindow.h \
+    ProjectCreationDialog.h \
     SchemeCardWidget.h \
     SchemeGalleryWidget.h \
     SchemeSettingsDialog.h \
