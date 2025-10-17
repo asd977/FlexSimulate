@@ -11,17 +11,17 @@ class WelcomePage : public QObject
     Q_OBJECT
 public:
     /**
-     * @brief Constructs a welcome page helper bound to the provided UI instance.
+     * @brief 构造绑定指定 UI 实例的欢迎页辅助对象。
      */
     explicit WelcomePage(Ui::MainWindow* ui, QObject* parent = nullptr);
 
     /**
-     * @brief Applies styling and initial content configuration for the welcome page widgets.
+     * @brief 为欢迎页组件应用样式并配置初始内容。
      */
     void initialize();
 
     /**
-     * @brief Displays the welcome content within the main stacked widget.
+     * @brief 在主堆叠组件中显示欢迎页内容。
      */
     void show();
 

@@ -24,109 +24,109 @@ class PlanPage : public QObject
     Q_OBJECT
 public:
     /**
-     * @brief Constructs a plan page controller bound to the given UI instance.
+     * @brief 构造与指定 UI 实例绑定的计划页面控制器。
      */
     explicit PlanPage(Ui::MainWindow* ui, QObject* parent = nullptr);
 
     /**
-     * @brief Sets up styles, layouts, and visualization resources for the plan page.
+     * @brief 初始化计划页面的样式、布局以及可视化资源。
      */
     void initialize();
 
     /**
-     * @brief Returns the gallery widget shown on the plan page.
+     * @brief 返回计划页面展示的方案画廊组件。
      */
     SchemeGalleryWidget* gallery() const { return m_galleryWidget; }
 
     /**
-     * @brief Returns the currently displayed detail widget.
+     * @brief 返回当前显示的详情组件。
      */
     QWidget* currentDetailWidget() const { return m_currentDetailWidget; }
 
     /**
-     * @brief Displays the provided widget inside the detail panel.
+     * @brief 在详情面板中显示传入的组件。
      */
     void setDetailWidget(QWidget* widget);
 
     /**
-     * @brief Removes and deletes the current detail widget.
+     * @brief 移除并删除当前的详情组件。
      */
     void clearDetailWidget();
 
     /**
-     * @brief Shows or hides the visualization panel and log panel.
+     * @brief 控制可视化面板和日志面板的显示或隐藏。
      */
     void setVisualizationVisible(bool visible);
 
     /**
-     * @brief Indicates whether the visualization panel is visible.
+     * @brief 指示可视化面板当前是否可见。
      */
     bool isVisualizationVisible() const { return m_visualizationVisible; }
 
     /**
-     * @brief Updates the selection information label with the provided path and remark.
+     * @brief 使用提供的路径和备注更新选中信息标签。
      */
     void updateSelectionInfo(const QString& path = QString(),
                              const QString& remark = QString());
 
     /**
-     * @brief Appends a new message to the run log.
+     * @brief 将新的消息追加到运行日志。
      */
     void appendLogMessage(const QString& message);
 
     /**
-     * @brief Loads and renders the specified result file inside the VTK viewer.
+     * @brief 在 VTK 视图中加载并渲染指定的结果文件。
      */
     void displayResultFile(const QString& filePath);
 
     /**
-     * @brief Clears the VTK scene and removes the current actor.
+     * @brief 清理 VTK 场景并移除当前的 actor。
      */
     void clearVtkScene();
 
     /**
-     * @brief Returns the renderer associated with the plan page visualization.
+     * @brief 返回计划页面使用的渲染器。
      */
     vtkSmartPointer<vtkRenderer> renderer() const { return m_renderer; }
 
     /**
-     * @brief Returns the render window attached to the embedded VTK widget.
+     * @brief 返回嵌入式 VTK 组件关联的渲染窗口。
      */
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> renderWindow() const { return m_renderWindow; }
 
     /**
-     * @brief Returns the actor currently displayed in the VTK scene.
+     * @brief 返回 VTK 场景中当前显示的 actor。
      */
     vtkSmartPointer<vtkActor> currentActor() const { return m_currentActor; }
 
     /**
-     * @brief Sets the actor that represents the current visualization result.
+     * @brief 设置代表当前可视化结果的 actor。
      */
     void setCurrentActor(const vtkSmartPointer<vtkActor>& actor);
 
     /**
-     * @brief Returns the cached splitter sizes used when hiding the visualization panel.
+     * @brief 返回隐藏可视化面板时缓存的分割条尺寸。
      */
     QList<int> lastSplitterSizes() const { return m_lastSplitterSizes; }
 
     /**
-     * @brief Stores the splitter sizes that should be restored when showing the panel again.
+     * @brief 记录重新显示面板时需要恢复的分割条尺寸。
      */
     void setLastSplitterSizes(const QList<int>& sizes);
 
 private:
     /**
-     * @brief Applies styling and layout adjustments to plan page widgets.
+     * @brief 对计划页面的组件应用样式与布局调整。
      */
     void setupUiStyles();
 
     /**
-     * @brief Configures splitter appearance and behavior for the plan page.
+     * @brief 配置计划页面相关分割条的样式和行为。
      */
     void setupSplitterStyles();
 
     /**
-     * @brief Prepares the embedded VTK rendering pipeline and widgets.
+     * @brief 初始化嵌入式 VTK 渲染管线与组件。
      */
     void initializeVisualization();
 

@@ -8,48 +8,48 @@ class SchemeTreeWidget : public QTreeWidget
     Q_OBJECT
 public:
     /**
-     * @brief Constructs the scheme tree widget.
-     * @param parent Optional parent widget.
+     * @brief 构造方案树组件。
+     * @param parent 可选的父组件。
      */
     explicit SchemeTreeWidget(QWidget* parent = nullptr);
 
 signals:
     /**
-     * @brief Emitted after items are reordered via drag and drop.
+     * @brief 当拖拽导致节点重排后发出。
      */
     void itemsReordered();
 
     /**
-     * @brief Emitted when external paths are dropped onto the tree.
-     * @param urls Dropped URLs.
-     * @param targetItem Item that received the drop.
+     * @brief 当外部路径被拖放到树上时发出。
+     * @param urls 被拖入的 URL 列表。
+     * @param targetItem 接收拖拽的树节点。
      */
     void externalPathsDropped(const QList<QUrl>& urls, QTreeWidgetItem* targetItem);
 
 protected:
     /**
-     * @brief Handles drag enter events to validate drops.
-     * @param event Drag enter event information.
+     * @brief 处理拖入事件以验证拖拽。
+     * @param event 拖入事件信息。
      */
     void dragEnterEvent(QDragEnterEvent* event) override;
 
     /**
-     * @brief Handles drag move events during drag and drop.
-     * @param event Drag move event information.
+     * @brief 处理拖拽过程中的移动事件。
+     * @param event 拖拽移动事件信息。
      */
     void dragMoveEvent(QDragMoveEvent* event) override;
 
     /**
-     * @brief Handles drop events to process internal or external drops.
-     * @param event Drop event information.
+     * @brief 处理放下事件以区分内部与外部拖拽。
+     * @param event 放下事件信息。
      */
     void dropEvent(QDropEvent* event) override;
 
 private:
     /**
-     * @brief Determines whether a drop event represents an internal move.
-     * @param event Drop event to inspect.
-     * @return True if the drop is an internal move.
+     * @brief 判断拖放事件是否为内部移动。
+     * @param event 需要检查的放下事件。
+     * @return 若为内部移动则返回 true。
      */
     bool isInternalMove(const QDropEvent* event) const;
 };

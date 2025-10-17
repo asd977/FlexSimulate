@@ -13,13 +13,13 @@ class SchemeGalleryWidget : public QWidget {
     Q_OBJECT
 public:
     /**
-     * @brief Constructs the scheme gallery widget.
-     * @param parent Optional parent widget.
+     * @brief 构造方案画廊组件。
+     * @param parent 可选的父组件。
      */
     explicit SchemeGalleryWidget(QWidget *parent = nullptr);
 
     /**
-     * @brief Destroys the gallery widget.
+     * @brief 销毁画廊组件。
      */
     ~SchemeGalleryWidget();
 
@@ -34,16 +34,16 @@ public:
     };
 
     /**
-     * @brief Removes all scheme cards from the gallery.
+     * @brief 移除画廊中的全部方案卡片。
      */
     void clearSchemes();
 
     /**
-     * @brief Adds a scheme card to the gallery.
-     * @param id Identifier of the scheme.
-     * @param name Display name of the scheme.
-     * @param thumb Optional thumbnail image.
-     * @param options Additional card configuration options.
+     * @brief 向画廊添加方案卡片。
+     * @param id 方案标识符。
+     * @param name 方案显示名称。
+     * @param thumb 可选的缩略图。
+     * @param options 额外的卡片配置。
      */
     void addScheme(const QString& id,
                    const QString& name = QString(),
@@ -51,45 +51,45 @@ public:
                    const CardOptions& options = CardOptions());
 
     /**
-     * @brief Removes a scheme card by identifier.
-     * @param id Scheme identifier to remove.
+     * @brief 根据标识符移除方案卡片。
+     * @param id 需要移除的方案标识符。
      */
     void removeSchemeById(const QString& id);
 
 signals:
     /**
-     * @brief Emitted when a scheme should be opened from the gallery.
-     * @param id Scheme identifier.
+     * @brief 当需要从画廊打开方案时发出。
+     * @param id 方案标识符。
      */
     void schemeOpenRequested(const QString& id);
 
     /**
-     * @brief Emitted when a scheme should be deleted from the gallery.
-     * @param id Scheme identifier.
+     * @brief 当需要从画廊删除方案时发出。
+     * @param id 方案标识符。
      */
     void schemeDeleteRequested(const QString& id);
 
     /**
-     * @brief Emitted when the user requests more scheme details.
-     * @param id Scheme identifier.
+     * @brief 当用户请求查看方案详情时发出。
+     * @param id 方案标识符。
      */
     void schemeDetailsRequested(const QString& id);
 
     /**
-     * @brief Emitted when the user wants to create a new scheme.
+     * @brief 当用户希望创建新方案时发出。
      */
     void createSchemeRequested();
 
 protected:
     /**
-     * @brief Recomputes the layout when the widget is resized.
-     * @param e Resize event information.
+     * @brief 在组件尺寸变化时重新计算布局。
+     * @param e 调整大小事件信息。
      */
     void resizeEvent(QResizeEvent* e) override;
 
 private:
     /**
-     * @brief Arranges cards according to the current geometry.
+     * @brief 根据当前几何信息重新排布卡片。
      */
     void relayoutCards();
 

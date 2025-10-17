@@ -18,78 +18,78 @@ class JsonPageBuilder : public QWidget
     Q_OBJECT
 public:
     /**
-     * @brief Constructs a JSON-driven page builder for a given file.
-     * @param jsonPath Path to the JSON configuration file.
-     * @param parent Optional parent widget.
+     * @brief 构造基于 JSON 的页面生成器。
+     * @param jsonPath JSON 配置文件路径。
+     * @param parent 可选的父组件。
      */
     explicit JsonPageBuilder(const QString& jsonPath,
                              QWidget* parent = nullptr);
 
 signals:
     /**
-     * @brief Emitted when a log message is produced by the builder.
-     * @param message Text of the log message.
+     * @brief 当生成器产生日志信息时发出。
+     * @param message 日志文本内容。
      */
     void logMessage(const QString& message);
 
     /**
-     * @brief Emitted when a calculation finishes successfully.
-     * @param stlPath Path to the generated STL file.
+     * @brief 计算成功结束时发出。
+     * @param stlPath 生成的 STL 文件路径。
      */
     void calculationFinished(const QString& stlPath);
 
 private slots:
     /**
-     * @brief Starts calculation when the calculate button is clicked.
+     * @brief 在点击计算按钮后启动计算。
      */
     void onCalculateButtonClicked();
 
     /**
-     * @brief Handles completion of the external calculation process.
-     * @param exitCode Process exit code.
-     * @param status Process exit status.
+     * @brief 处理外部计算进程结束。
+     * @param exitCode 进程退出码。
+     * @param status 进程退出状态。
      */
     void handleProcessFinished(int exitCode, QProcess::ExitStatus status);
 
     /**
-     * @brief Handles errors from the external calculation process.
-     * @param error Reported process error.
+     * @brief 处理外部计算进程的错误。
+     * @param error 进程错误类型。
      */
     void handleProcessError(QProcess::ProcessError error);
 
     /**
-     * @brief Reads incremental output from the calculation process.
+     * @brief 读取计算进程产生的增量输出。
      */
     void handleProcessOutput();
 
 private:
     /**
-     * @brief Builds the UI based on JSON section definitions.
-     * @param sections Sections parsed from the JSON.
+     * @brief 根据 JSON 定义构建界面。
+     * @param sections 解析得到的分组数据。
      */
     void buildUiFromJson(const QJsonArray& sections);
 
     /**
-     * @brief Loads JSON data from disk.
-     * @param path File path to load.
-     * @param outSections Output sections array.
-     * @return True if the JSON was loaded successfully.
+     * @brief 从磁盘加载 JSON 数据。
+     * @param path 需要读取的文件路径。
+     * @param outSections 输出的分组数组。
+     * @return 读取成功返回 true。
      */
     bool loadJson(const QString& path, QJsonArray& outSections);
 
     /**
-     * @brief Saves JSON data back to disk.
-     * @param path Destination path.
-     * @return True if the file was written successfully.
+     * @brief 将 JSON 数据写回磁盘。
+     * @param path 目标文件路径。
+     * @return 写入成功返回 true。
      */
     bool saveJson(const QString& path);
 
     /**
-     * @brief Applies edited values to the JSON document.
-     * @param sections JSON sections to modify.
-     * @param title Section title to update.
-     * @param cnName Chinese label associated with the field.
-     * @param valueText New value text.
+     * @brief 将编辑后的值写入 JSON 文档。
+     * @param sections 需要修改的 JSON 分组。
+     * @param title 待更新的分组标题。
+     * @param cnName 字段对应的中文名称。
+     * @param valueText 新的值文本。
      */
     void applyEditToJson(QJsonArray& sections,
                          const QString& title,
@@ -97,56 +97,56 @@ private:
                          const QString& valueText);
 
     /**
-     * @brief Converts user text to a strictly typed JSON value.
-     * @param text Input text to convert.
-     * @return Converted JSON value.
+     * @brief 将用户输入转换为严格类型的 JSON 值。
+     * @param text 待转换的文本。
+     * @return 转换后的 JSON 值。
      */
     static QJsonValue strictConvert(const QString& text);
 
     /**
-     * @brief Reads an entire file into a string.
-     * @param path File path to read.
-     * @return Contents of the file.
+     * @brief 读取文件全部内容并返回字符串。
+     * @param path 需要读取的文件路径。
+     * @return 文件内容字符串。
      */
     static QString readWholeFile(const QString& path);
 
     /**
-     * @brief Extracts an error message from an Abaqus .msg file.
-     * @param content Message file contents.
-     * @return Extracted error description.
+     * @brief 从 Abaqus 的 .msg 文件中提取错误信息。
+     * @param content 消息文件的内容。
+     * @return 提取出的错误描述。
      */
     static QString extractErrorMsgFromMsg(const QString& content);
 
     /**
-     * @brief Extracts an error message from an Abaqus .dat file.
-     * @param content Dat file contents.
-     * @return Extracted error description.
+     * @brief 从 Abaqus 的 .dat 文件中提取错误信息。
+     * @param content Dat 文件内容。
+     * @return 提取出的错误描述。
      */
     static QString extractErrorMsgFromDat(const QString& content);
 
     /**
-     * @brief Cleans text by removing undesired characters.
-     * @param s Text to sanitize.
-     * @return Cleaned text value.
+     * @brief 清理文本中不需要的字符。
+     * @param s 待处理的文本。
+     * @return 清理后的文本。
      */
     static QString cleanText(QString s);
 
     /**
-     * @brief Finalizes calculation handling success or failure paths.
-     * @param exitCode Process exit code.
-     * @param finishedSuccessfully Whether the run succeeded.
-     * @param failureReason Optional failure description.
+     * @brief 在计算完成后执行成功或失败的收尾逻辑。
+     * @param exitCode 进程退出码。
+     * @param finishedSuccessfully 是否成功完成。
+     * @param failureReason 可选的失败原因描述。
      */
     void finalizeCalculation(int exitCode, bool finishedSuccessfully,
                              const QString& failureReason = QString());
 
     /**
-     * @brief Resets state after a calculation completes or is cancelled.
+     * @brief 在计算结束或取消后重置界面状态。
      */
     void resetCalculationState();
 
     /**
-     * @brief Ensures the progress dialog exists and is configured.
+     * @brief 确保进度对话框存在并完成配置。
      */
     void ensureProgressDialog();
 

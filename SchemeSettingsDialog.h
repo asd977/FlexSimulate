@@ -10,12 +10,12 @@ class SchemeSettingsDialog : public QDialog
     Q_OBJECT
 public:
     /**
-     * @brief Constructs a scheme settings dialog with initial values.
-     * @param schemeName Initial scheme name.
-     * @param workingDirectory Initial working directory.
-     * @param allowDirectoryChange Whether the directory can be changed.
-     * @param parent Optional parent widget.
-     * @param thumbnailPath Path to an existing thumbnail image.
+     * @brief 构造带初始值的方案设置对话框。
+     * @param schemeName 初始方案名称。
+     * @param workingDirectory 初始工作目录。
+     * @param allowDirectoryChange 是否允许更改目录。
+     * @param parent 可选的父组件。
+     * @param thumbnailPath 已有缩略图的路径。
      */
     explicit SchemeSettingsDialog(const QString& schemeName,
                                   const QString& workingDirectory = QString(),
@@ -24,73 +24,73 @@ public:
                                   const QString& thumbnailPath = QString());
 
     /**
-     * @brief Returns the scheme name entered by the user.
-     * @return Scheme name value.
+     * @brief 获取用户输入的方案名称。
+     * @return 方案名称。
      */
     QString schemeName() const;
 
     /**
-     * @brief Returns the working directory selected by the user.
-     * @return Directory path.
+     * @brief 获取用户选择的工作目录。
+     * @return 目录路径。
      */
     QString workingDirectory() const;
 
     /**
-     * @brief Returns the chosen thumbnail path.
-     * @return Thumbnail file path.
+     * @brief 获取当前选择的缩略图路径。
+     * @return 缩略图文件路径。
      */
     QString thumbnailPath() const;
 
     /**
-     * @brief Sets the scheme name field value.
-     * @param name Scheme name to display.
+     * @brief 设置方案名称输入框的值。
+     * @param name 需要显示的方案名称。
      */
     void setSchemeName(const QString& name);
 
     /**
-     * @brief Sets the working directory field value.
-     * @param directory Directory path to display.
+     * @brief 设置工作目录输入框的值。
+     * @param directory 需要显示的目录路径。
      */
     void setWorkingDirectory(const QString& directory);
 
     /**
-     * @brief Sets the thumbnail path and updates preview.
-     * @param path Thumbnail path to assign.
+     * @brief 设置缩略图路径并更新预览。
+     * @param path 需要应用的缩略图路径。
      */
     void setThumbnailPath(const QString& path);
 
     /**
-     * @brief Updates the hint label for the directory selection.
-     * @param hint Hint text to display.
+     * @brief 更新目录选择区域的提示文本。
+     * @param hint 需要显示的提示内容。
      */
     void setDirectoryHint(const QString& hint);
 
 private slots:
     /**
-     * @brief Opens a directory picker for working directory selection.
+     * @brief 打开目录选择器以设置工作目录。
      */
     void browseForDirectory();
 
     /**
-     * @brief Opens a file picker to select a thumbnail image.
+     * @brief 打开文件选择器以挑选缩略图。
      */
     void browseForThumbnail();
 
     /**
-     * @brief Clears the currently selected thumbnail image.
+     * @brief 清除当前选择的缩略图。
      */
     void clearThumbnail();
 
 protected:
     /**
-     * @brief Handles resize events to maintain layout.
-     * @param event Resize event information.
+     * @brief 处理调整大小事件以保持布局。
+     * @param event 调整大小事件信息。
      */
     void resizeEvent(QResizeEvent* event) override;
 
 private:
     /**
-     * @brief Updates the thumbnail preview widget from the current path.
+     * @brief 根据当前路径更新缩略图预览。
      */
     void updateThumbnailPreview();
 
