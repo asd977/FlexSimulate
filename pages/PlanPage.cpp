@@ -58,6 +58,22 @@ void PlanPage::setupUiStyles()
     detailLayout->setContentsMargins(20, 20, 20, 20);
     detailLayout->setSpacing(16);
 
+    if (!m_selectionInfo)
+    {
+        m_selectionInfo = new QLabel(m_ui->detailPanel);
+        m_selectionInfo->setObjectName(QStringLiteral("selectionInfo"));
+        m_selectionInfo->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        m_selectionInfo->setWordWrap(true);
+        m_selectionInfo->setStyleSheet(QStringLiteral(
+            "QLabel#selectionInfo{padding:12px 16px;font-size:13px;color:#475569;}"));
+    }
+
+    if (auto* panelLayout = m_ui->detailPanel->layout())
+    {
+        if (panelLayout->indexOf(m_selectionInfo) < 0)
+            panelLayout->insertWidget(1, m_selectionInfo);
+    }
+
     const auto applyPanelCard = [](QWidget* panel, QLabel* title, const QString& extraStyles = QString()) {
         if (!panel || !title)
             return;
@@ -274,7 +290,7 @@ void PlanPage::setVisualizationVisible(bool visible)
 
 void PlanPage::updateSelectionInfo(const QString& path, const QString& remark)
 {
-    if (!m_ui || !m_ui->selectionInfo)
+    if (!m_selectionInfo)
         return;
 
     QStringList lines;
@@ -283,7 +299,7 @@ void PlanPage::updateSelectionInfo(const QString& path, const QString& remark)
     if (!remark.isEmpty())
         lines << tr("备注：%1").arg(remark);
 
-    m_ui->selectionInfo->setText(lines.isEmpty() ? tr("未选择对象") : lines.join('\n'));
+    m_selectionInfo->setText(lines.isEmpty() ? tr("未选择对象") : lines.join('\n'));
 }
 
 void PlanPage::appendLogMessage(const QString& message)
@@ -355,7 +371,7 @@ void PlanPage::clearVtkScene()
     m_currentActor = nullptr;
 }
 
-void PlanPage::setCurrentActor(vtkActor* actor)
+void PlanPage::setCurrentActor(const vtkSmartPointer<vtkActor>& actor)
 {
     m_currentActor = actor;
 }
