@@ -24,7 +24,9 @@ SOURCES += \
     SchemeGalleryWidget.cpp \
     SchemeSettingsDialog.cpp \
     SchemeTreeWidget.cpp \
-    main.cpp
+    main.cpp \
+    pages/PlanPage.cpp \
+    pages/WelcomePage.cpp
 
 HEADERS += \
     JsonPageBuilder.h \
@@ -32,7 +34,10 @@ HEADERS += \
     SchemeCardWidget.h \
     SchemeGalleryWidget.h \
     SchemeSettingsDialog.h \
-    SchemeTreeWidget.h
+    SchemeTreeWidget.h \
+    pages/PlanPage.h \
+    pages/WelcomePage.h \
+    core/SchemeTypes.h
 
 FORMS += \
     MainWindow.ui \

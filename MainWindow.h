@@ -11,7 +11,9 @@
 #include <QList>
 #include <QSet>
 #include <QDateTime>
-#include <vtkSmartPointer.h>
+#include <memory>
+
+#include "core/SchemeTypes.h"
 
 QT_BEGIN_NAMESPACE
 namespace Ui { class MainWindow; }
@@ -22,9 +24,8 @@ class QWidget;
 class QShortcut;
 class SchemeGalleryWidget;
 class JsonPageBuilder;
-class vtkGenericOpenGLRenderWindow;
-class vtkRenderer;
-class vtkActor;
+class PlanPage;
+class WelcomePage;
 
 class MainWindow : public QMainWindow
 {
@@ -48,33 +49,9 @@ private slots:
     void onAddLibraryScheme();
 
 private:
-    struct ModelRecord {
-        QString id;
-        QString name;
-        QString directory;
-        QString jsonPath;
-        QString batPath;
-        QString remarks;
-        QString fingerprint;
-    };
-
-    struct SchemeLibraryEntry {
-        QString id;
-        QString name;
-        QString directory;
-        QString thumbnailPath;
-        bool deletable = false;
-    };
-
-    struct SchemeRecord {
-        QString id;
-        QString name;
-        QString libraryId;
-        QString workingDirectory;
-        QString thumbnailPath;
-        QString remarks;
-        QVector<ModelRecord> models;
-    };
+    using ModelRecord = FlexSimulate::ModelRecord;
+    using SchemeLibraryEntry = FlexSimulate::SchemeLibraryEntry;
+    using SchemeRecord = FlexSimulate::SchemeRecord;
 
     enum TreeRoles {
         TypeRole = Qt::UserRole,
@@ -89,7 +66,6 @@ private:
         ModelItem
     };
 
-    void setupUiHelpers();
     void setupConnections();
     void loadInitialSchemes();
     void loadApplicationState();
@@ -185,8 +161,8 @@ private:
     QString workspaceRoot() const;
 
     Ui::MainWindow *ui;
-    SchemeGalleryWidget* m_galleryWidget = nullptr;
-    QWidget* m_currentDetailWidget = nullptr;
+    std::unique_ptr<PlanPage> m_planPage;
+    std::unique_ptr<WelcomePage> m_welcomePage;
     QVector<SchemeLibraryEntry> m_librarySchemes;
     QVector<SchemeRecord> m_schemes;
     QHash<QString, QTreeWidgetItem*> m_schemeItems;
@@ -205,9 +181,4 @@ private:
     QDateTime m_projectCreatedAt;
     QDateTime m_projectUpdatedAt;
     QString m_baseWindowTitle;
-    vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
-    vtkSmartPointer<vtkRenderer> m_renderer;
-    vtkSmartPointer<vtkActor> m_currentActor;
-    QList<int> m_lastSplitterSizes;
-    bool m_visualizationVisible = false;
 };
