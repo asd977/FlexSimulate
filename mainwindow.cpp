@@ -1061,6 +1061,10 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
             menu.addAction(tr("总成设置"), this, [this, schemeId]() {
                 openSchemeSettings(schemeId);
             });
+            menu.addAction(tr("重命名"), this, [this, item]() {
+                if (ui->treeModels)
+                    ui->treeModels->editItem(item, 0);
+            });
             menu.addAction(tr("添加模型"), this, [this, schemeId]() {
                 promptAddModel(schemeId);
             });
@@ -1084,6 +1088,10 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
                 SchemeRecord* owner = nullptr;
                 if (ModelRecord* model = modelById(modelId, &owner))
                     QDesktopServices::openUrl(QUrl::fromLocalFile(model->directory));
+            });
+            menu.addAction(tr("重命名"), this, [this, item]() {
+                if (ui->treeModels)
+                    ui->treeModels->editItem(item, 0);
             });
             menu.addSeparator();
             menu.addAction(tr("移除模型"), this, [this, modelId]() {
@@ -1844,10 +1852,21 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
 
     auto* titleLayout = new QHBoxLayout();
     titleLayout->setContentsMargins(0, 0, 0, 0);
+    titleLayout->setSpacing(12);
+
+    auto* backBtn = new QPushButton(tr("返回总成库"), container);
+    backBtn->setCursor(Qt::PointingHandCursor);
+    backBtn->setStyleSheet(
+        "QPushButton{padding:4px 14px;border-radius:16px;border:1px solid #cbd5f5;"
+        "background:#ffffff;color:#1d4ed8;font-weight:600;}"
+        "QPushButton:hover{background:#e0e7ff;}"
+        "QPushButton:pressed{background:#dbeafe;}"
+    );
+    titleLayout->addWidget(backBtn, 0, Qt::AlignLeft);
 
     auto* titleLabel = new QLabel(entryDisplayName(), container);
     titleLabel->setStyleSheet("font-size:20px;font-weight:700;color:#1b2b4d;");
-    titleLayout->addWidget(titleLabel);
+    titleLayout->addWidget(titleLabel, 1);
 
     auto* renameBtn = new QPushButton(tr("重命名"), container);
     renameBtn->setCursor(Qt::PointingHandCursor);
@@ -1860,6 +1879,31 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     titleLayout->addWidget(renameBtn);
 
     layout->addLayout(titleLayout);
+
+    connect(backBtn, &QPushButton::clicked, this, [this]() {
+        bool selectionChanged = false;
+        if (ui->treeModels && m_libraryRootItem)
+        {
+            if (ui->treeModels->currentItem() != m_libraryRootItem)
+            {
+                ui->treeModels->setCurrentItem(m_libraryRootItem);
+                selectionChanged = true;
+            }
+        }
+
+        if (!selectionChanged)
+        {
+            if (ui->stackedWidget)
+                ui->stackedWidget->setCurrentWidget(ui->planPage);
+            updateGallery();
+            clearDetailWidget();
+            clearVtkScene();
+            setVisualizationVisible(false);
+            m_activeSchemeId.clear();
+            m_activeModelId.clear();
+            updateSelectionInfo();
+        }
+    });
 
     auto* listFrame = new QFrame(container);
     listFrame->setObjectName("libraryModelFrame");
@@ -3359,7 +3403,24 @@ void MainWindow::openSchemeSettings(const QString& schemeId)
     const QString newName = dlg.schemeName().trimmed();
     if (!newName.isEmpty())
         scheme->name = makeUniqueSchemeName(newName, scheme->id);
+
     applySchemeThumbnail(*scheme, dlg.thumbnailPath());
+
+    bool libraryUpdated = false;
+    if (!scheme->libraryId.isEmpty())
+    {
+        if (SchemeLibraryEntry* entry = libraryEntryById(scheme->libraryId))
+        {
+            const QString previousThumbnail = entry->thumbnailPath;
+            applyLibraryThumbnail(*entry, dlg.thumbnailPath());
+            if (entry->thumbnailPath != previousThumbnail)
+                libraryUpdated = true;
+        }
+    }
+
+    if (libraryUpdated)
+        saveSchemeLibrary();
+
     persistSchemes();
     refreshNavigation(schemeId, m_activeModelId);
 }
