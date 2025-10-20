@@ -103,6 +103,15 @@ void SchemeGalleryWidget::removeSchemeById(const QString& id) {
     relayoutCards();
 }
 
+void SchemeGalleryWidget::setCreateSchemeEnabled(bool enabled, const QString& toolTip)
+{
+    if (!ui->newSchemeButton)
+        return;
+
+    ui->newSchemeButton->setEnabled(enabled);
+    ui->newSchemeButton->setToolTip(toolTip);
+}
+
 void SchemeGalleryWidget::resizeEvent(QResizeEvent* e) {
     QWidget::resizeEvent(e);
     relayoutCards();
