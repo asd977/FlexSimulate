@@ -5,6 +5,8 @@
 #include "SchemeGalleryWidget.h"
 #include "SchemeSettingsDialog.h"
 #include "SchemeTreeWidget.h"
+#include "pages/PlanPage.h"
+#include "pages/WelcomePage.h"
 
 #include <QAction>
 #include <QApplication>
@@ -56,15 +58,6 @@
 #include <cmath>
 
 #include <QVTKOpenGLNativeWidget.h>
-#include <vtkActor.h>
-#include <vtkCamera.h>
-#include <vtkGenericOpenGLRenderWindow.h>
-#include <vtkNamedColors.h>
-#include <vtkPolyDataMapper.h>
-#include <vtkProperty.h>
-#include <vtkRenderer.h>
-#include <vtkRenderWindow.h>
-#include <vtkSTLReader.h>
 
 namespace
 {
@@ -145,6 +138,10 @@ MainWindow::MainWindow(QWidget *parent)
     , ui(new Ui::MainWindow)
 {
     ui->setupUi(this);
+    m_planPage = std::make_unique<PlanPage>(ui, this);
+    m_planPage->initialize();
+    m_welcomePage = std::make_unique<WelcomePage>(ui, this);
+    m_welcomePage->initialize();
     m_baseWindowTitle = windowTitle();
 
     const QString dataRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
@@ -153,7 +150,6 @@ MainWindow::MainWindow(QWidget *parent)
         dataDir.mkpath(QStringLiteral("."));
     m_appStateFilePath = dataDir.filePath(QStringLiteral("app_state.json"));
 
-    setupUiHelpers();
     setupConnections();
     loadSchemeLibrary();
     loadInitialSchemes();
@@ -165,110 +161,6 @@ MainWindow::~MainWindow()
     saveSchemeLibrary();
     saveApplicationState();
     delete ui;
-}
-
-void MainWindow::setupUiHelpers()
-{
-    if (auto* central = ui->centralwidget)
-    {
-        central->setAttribute(Qt::WA_StyledBackground, true);
-        central->setStyleSheet(QStringLiteral("QWidget#centralwidget{background:#f1f5f9;}"));
-    }
-
-    m_galleryWidget = new SchemeGalleryWidget(this);
-    ui->planPageLayout->addWidget(m_galleryWidget);
-
-    auto* detailLayout = new QVBoxLayout(ui->settingWidget);
-    detailLayout->setContentsMargins(20, 20, 20, 20);
-    detailLayout->setSpacing(16);
-
-    const auto applyPanelCard = [](QWidget* panel, QLabel* title, const QString& extraStyles = QString()) {
-        if (!panel || !title)
-            return;
-
-        panel->setAttribute(Qt::WA_StyledBackground, true);
-        const QString panelSelector = panel->objectName().isEmpty()
-                                          ? QStringLiteral("%1").arg(QString::fromLatin1(panel->metaObject()->className()))
-                                          : QStringLiteral("%1#%2").arg(QString::fromLatin1(panel->metaObject()->className()), panel->objectName());
-        const QString titleSelector = title->objectName().isEmpty()
-                                          ? QStringLiteral("QLabel")
-                                          : QStringLiteral("QLabel#%1").arg(title->objectName());
-        QString style = QStringLiteral(
-            "%1{background:#ffffff;border:1px solid #d6e1f2;border-radius:14px;}"
-            "%2{font-size:15px;font-weight:600;color:#0f172a;padding:12px 16px;"
-            "background:#f8fafc;border-top-left-radius:14px;border-top-right-radius:14px;"
-            "border-bottom:1px solid #e2e8f0;}"
-            "%3"
-        ).arg(panelSelector, titleSelector, extraStyles);
-        panel->setStyleSheet(style);
-    };
-
-    applyPanelCard(ui->navigationFrame, ui->navigationTitle,
-                   QStringLiteral(
-                       "QTreeWidget{border:none;background:transparent;padding:8px 12px;}"
-                       "QTreeWidget::item{padding:6px 4px;}"
-                       "QTreeWidget::item:hover{background:#f1f5f9;}"
-                       "QTreeWidget::item:selected{background:#e2e8f0;color:#0f172a;}"
-                       "QHeaderView::section{background:transparent;border:none;padding:4px 0;font-weight:600;color:#334155;}"
-                   ));
-
-    applyPanelCard(ui->detailPanel, ui->detailTitle,
-                   QStringLiteral(
-                       "QScrollArea{border:none;background:transparent;}"
-                       "QWidget#scrollAreaWidgetContents{background:transparent;}"
-                   ));
-
-    applyPanelCard(ui->vtkPanel, ui->vtkTitle,
-                   QStringLiteral(
-                       "QFrame#vtkFrame{border:none;background:transparent;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
-                       "QVTKOpenGLNativeWidget{border:none;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
-                   ));
-
-    applyPanelCard(ui->logPanel, ui->logTitle);
-
-    const QString splitterStyle = QStringLiteral(
-        "QSplitter::handle{background:#cbd5f5;}"
-        "QSplitter::handle:horizontal{width:8px;margin:0 4px;border-radius:4px;}"
-        "QSplitter::handle:vertical{height:8px;margin:4px 0;border-radius:4px;}"
-    );
-    ui->mainSplitter->setStyleSheet(splitterStyle);
-    ui->contentSplitter->setStyleSheet(splitterStyle);
-    if (ui->visualizationSplitter)
-        ui->visualizationSplitter->setStyleSheet(splitterStyle);
-
-    ui->treeModels->header()->setStretchLastSection(true);
-    ui->treeModels->setHeaderHidden(true);
-    ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
-    ui->treeModels->setEditTriggers(QAbstractItemView::EditKeyPressed |
-                                    QAbstractItemView::SelectedClicked);
-
-    ui->mainSplitter->setStretchFactor(0, 0);
-    ui->mainSplitter->setStretchFactor(1, 1);
-    ui->contentSplitter->setStretchFactor(0, 0);
-    ui->contentSplitter->setStretchFactor(1, 1);
-    ui->contentSplitter->setCollapsible(1, true);
-    if (ui->visualizationSplitter)
-    {
-        ui->visualizationSplitter->setStretchFactor(0, 3);
-        ui->visualizationSplitter->setStretchFactor(1, 1);
-        ui->visualizationSplitter->setHandleWidth(6);
-    }
-
-    ui->logTextEdit->setStyleSheet(
-        "QPlainTextEdit{background:#0f172a;color:#f8fafc;border:none;"
-        "border-bottom-left-radius:14px;border-bottom-right-radius:14px;padding:12px;"
-        "font-family:\"JetBrains Mono\", \"Source Code Pro\", monospace;}"
-    );
-
-    setVisualizationVisible(false);
-    updateSelectionInfo();
-
-    auto colors = vtkSmartPointer<vtkNamedColors>::New();
-    m_renderWindow = vtkSmartPointer<vtkGenericOpenGLRenderWindow>::New();
-    m_renderer = vtkSmartPointer<vtkRenderer>::New();
-    m_renderer->SetBackground(colors->GetColor3d("AliceBlue").GetData());
-    m_renderWindow->AddRenderer(m_renderer);
-    ui->vtkWidget->setRenderWindow(m_renderWindow);
 }
 
 void MainWindow::setupConnections()
@@ -295,14 +187,17 @@ void MainWindow::setupConnections()
                 this, &MainWindow::onExternalDrop);
     }
 
-    connect(m_galleryWidget, &SchemeGalleryWidget::schemeOpenRequested,
-            this, &MainWindow::onGalleryOpenRequested);
-    connect(m_galleryWidget, &SchemeGalleryWidget::schemeDeleteRequested,
-            this, &MainWindow::onGalleryDeleteRequested);
-    connect(m_galleryWidget, &SchemeGalleryWidget::schemeDetailsRequested,
-            this, &MainWindow::onGalleryDetailsRequested);
-    connect(m_galleryWidget, &SchemeGalleryWidget::createSchemeRequested,
-            this, &MainWindow::onAddLibraryScheme);
+    if (auto* gallery = m_planPage ? m_planPage->gallery() : nullptr)
+    {
+        connect(gallery, &SchemeGalleryWidget::schemeOpenRequested,
+                this, &MainWindow::onGalleryOpenRequested);
+        connect(gallery, &SchemeGalleryWidget::schemeDeleteRequested,
+                this, &MainWindow::onGalleryDeleteRequested);
+        connect(gallery, &SchemeGalleryWidget::schemeDetailsRequested,
+                this, &MainWindow::onGalleryDetailsRequested);
+        connect(gallery, &SchemeGalleryWidget::createSchemeRequested,
+                this, &MainWindow::onAddLibraryScheme);
+    }
 
     auto* deleteShortcut = new QShortcut(QKeySequence::Delete, ui->treeModels);
     connect(deleteShortcut, &QShortcut::activated,
@@ -558,16 +453,16 @@ void MainWindow::enterProjectlessState()
 
     if (ui->treeModels)
         ui->treeModels->clear();
-    if (m_galleryWidget)
-        m_galleryWidget->clearSchemes();
+    if (auto* gallery = m_planPage ? m_planPage->gallery() : nullptr)
+        gallery->clearSchemes();
 
     clearDetailWidget();
     clearVtkScene();
     setVisualizationVisible(false);
     updateSelectionInfo();
 
-    if (ui->stackedWidget && ui->welcomePage)
-        ui->stackedWidget->setCurrentWidget(ui->welcomePage);
+    if (m_welcomePage)
+        m_welcomePage->show();
 
     updateWindowTitle();
     updateToolbarState();
@@ -1292,10 +1187,11 @@ void MainWindow::rebuildTree()
 
 void MainWindow::updateGallery()
 {
-    if (!m_galleryWidget)
+    SchemeGalleryWidget* gallery = m_planPage ? m_planPage->gallery() : nullptr;
+    if (!gallery)
         return;
 
-    m_galleryWidget->clearSchemes();
+    gallery->clearSchemes();
     for (const SchemeLibraryEntry& entry : m_librarySchemes)
     {
         QPixmap thumb = loadLibraryThumbnail(entry);
@@ -1313,7 +1209,7 @@ void MainWindow::updateGallery()
         options.openToolTip = tr("打开总成所在目录");
         options.hintText = tr("双击卡片查看详情");
 
-        m_galleryWidget->addScheme(entry.id, entry.name, thumb, options);
+        gallery->addScheme(entry.id, entry.name, thumb, options);
     }
 
 }
@@ -1346,14 +1242,8 @@ void MainWindow::selectTreeItem(const QString& schemeId, const QString& modelId)
 
 void MainWindow::clearDetailWidget()
 {
-    if (!m_currentDetailWidget)
-        return;
-
-    if (auto* layout = ui->settingWidget->layout())
-        layout->removeWidget(m_currentDetailWidget);
-
-    m_currentDetailWidget->deleteLater();
-    m_currentDetailWidget = nullptr;
+    if (m_planPage)
+        m_planPage->clearDetailWidget();
 }
 
 void MainWindow::showProjectInfo()
@@ -1368,9 +1258,8 @@ void MainWindow::showProjectInfo()
     }
 
     clearDetailWidget();
-    m_currentDetailWidget = buildProjectInfoWidget();
-    if (auto* layout = ui->settingWidget->layout())
-        layout->addWidget(m_currentDetailWidget);
+    if (m_planPage)
+        m_planPage->setDetailWidget(buildProjectInfoWidget());
     setVisualizationVisible(false);
     clearVtkScene();
     updateSelectionInfo(m_projectRoot, m_projectRemarks);
@@ -1392,8 +1281,8 @@ void MainWindow::showSchemeSettings(const QString& schemeId)
     }
 
     clearDetailWidget();
-    m_currentDetailWidget = buildSchemeSettingsWidget(*scheme);
-    ui->settingWidget->layout()->addWidget(m_currentDetailWidget);
+    if (m_planPage)
+        m_planPage->setDetailWidget(buildSchemeSettingsWidget(*scheme));
     setVisualizationVisible(false);
     updateSelectionInfo(scheme->workingDirectory, scheme->remarks);
 }
@@ -1410,8 +1299,8 @@ void MainWindow::showModelSettings(const QString& modelId)
     }
 
     clearDetailWidget();
-    m_currentDetailWidget = buildModelSettingsWidget(*model);
-    ui->settingWidget->layout()->addWidget(m_currentDetailWidget);
+    if (m_planPage)
+        m_planPage->setDetailWidget(buildModelSettingsWidget(*model));
     setVisualizationVisible(true);
     updateSelectionInfo(model->directory, model->remarks);
 
@@ -2364,8 +2253,8 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 performAddToProject(items);
             });
 
-    m_currentDetailWidget = container;
-    ui->settingWidget->layout()->addWidget(container);
+    if (m_planPage)
+        m_planPage->setDetailWidget(container);
     setVisualizationVisible(false);
     clearVtkScene();
     updateSelectionInfo(entry->directory,
@@ -3608,152 +3497,32 @@ void MainWindow::updateToolbarState()
 
 void MainWindow::setVisualizationVisible(bool visible)
 {
-    if (!ui->vtkPanel || !ui->logPanel || !ui->logTextEdit || !ui->contentSplitter)
-        return;
-
-    if (m_visualizationVisible == visible)
-        return;
-
-    m_visualizationVisible = visible;
-
-    if (visible)
-    {
-        ui->vtkPanel->setVisible(true);
-        ui->logPanel->setVisible(true);
-        ui->logTitle->setVisible(true);
-        ui->logTextEdit->setVisible(true);
-
-        if (!m_lastSplitterSizes.isEmpty())
-        {
-            ui->contentSplitter->setSizes(m_lastSplitterSizes);
-        }
-        else
-        {
-            QList<int> sizes = ui->contentSplitter->sizes();
-            if (sizes.size() < 2 || (sizes.at(0) == 0 && sizes.at(1) == 0))
-            {
-                sizes.clear();
-                sizes << 1 << 1;
-            }
-            ui->contentSplitter->setSizes(sizes);
-        }
-
-        if (ui->visualizationSplitter)
-        {
-            QList<int> vizSizes = ui->visualizationSplitter->sizes();
-            bool invalid = vizSizes.size() < 2;
-            if (!invalid)
-            {
-                invalid = true;
-                for (int size : vizSizes)
-                {
-                    if (size > 0)
-                    {
-                        invalid = false;
-                        break;
-                    }
-                }
-            }
-            if (invalid)
-            {
-                vizSizes.clear();
-                vizSizes << 3 << 1;
-                ui->visualizationSplitter->setSizes(vizSizes);
-            }
-        }
-    }
-    else
-    {
-        m_lastSplitterSizes = ui->contentSplitter->sizes();
-
-        ui->vtkPanel->setVisible(false);
-        ui->logPanel->setVisible(false);
-        ui->logTitle->setVisible(false);
-        ui->logTextEdit->setVisible(false);
-
-        QList<int> sizes = ui->contentSplitter->sizes();
-        if (sizes.size() >= 2)
-        {
-            const int total = std::max(1, sizes.value(0) + sizes.value(1));
-            sizes[0] = total;
-            sizes[1] = 0;
-            ui->contentSplitter->setSizes(sizes);
-        }
-    }
+    if (m_planPage)
+        m_planPage->setVisualizationVisible(visible);
 }
 
 void MainWindow::updateSelectionInfo(const QString& path, const QString& remark)
 {
+    if (m_planPage)
+        m_planPage->updateSelectionInfo(path, remark);
 }
 
 void MainWindow::appendLogMessage(const QString& message)
 {
-    if (!ui->logTextEdit)
-        return;
-
-    const QString timeStamp = QDateTime::currentDateTime().toString("hh:mm:ss");
-    ui->logTextEdit->appendPlainText(QStringLiteral("[%1] %2").arg(timeStamp, message));
-    if (auto* bar = ui->logTextEdit->verticalScrollBar())
-        bar->setValue(bar->maximum());
+    if (m_planPage)
+        m_planPage->appendLogMessage(message);
 }
 
 void MainWindow::displayResultFile(const QString& filePath)
 {
-    if (filePath.isEmpty())
-        return;
-
-    QFileInfo info(filePath);
-    if (!info.exists())
-    {
-        appendLogMessage(tr("未找到结果文件：%1")
-                             .arg(QDir::toNativeSeparators(filePath)));
-        return;
-    }
-
-    vtkSmartPointer<vtkActor> actor;
-    const QString suffix = info.suffix().toLower();
-
-    if (suffix == QStringLiteral("stl"))
-    {
-        auto reader = vtkSmartPointer<vtkSTLReader>::New();
-        reader->SetFileName(info.absoluteFilePath().toUtf8().constData());
-        reader->Update();
-
-        auto mapper = vtkSmartPointer<vtkPolyDataMapper>::New();
-        mapper->SetInputConnection(reader->GetOutputPort());
-
-        actor = vtkSmartPointer<vtkActor>::New();
-        actor->SetMapper(mapper);
-        actor->GetProperty()->SetColor(0.2, 0.45, 0.75);
-        actor->GetProperty()->SetDiffuse(0.8);
-        actor->GetProperty()->SetSpecular(0.3);
-    }
-    else
-    {
-        appendLogMessage(tr("不支持的结果文件类型：%1")
-                             .arg(QDir::toNativeSeparators(info.absoluteFilePath())));
-        return;
-    }
-
-    if (!m_renderer)
-        return;
-
-    m_renderer->RemoveAllViewProps();
-    m_currentActor = actor;
-    m_renderer->AddActor(actor);
-    m_renderer->ResetCamera();
-    if (ui->vtkWidget && ui->vtkWidget->renderWindow())
-        ui->vtkWidget->renderWindow()->Render();
+    if (m_planPage)
+        m_planPage->displayResultFile(filePath);
 }
 
 void MainWindow::clearVtkScene()
 {
-    if (!m_renderer)
-        return;
-    m_renderer->RemoveAllViewProps();
-    if (ui->vtkWidget && ui->vtkWidget->renderWindow())
-        ui->vtkWidget->renderWindow()->Render();
-    m_currentActor = nullptr;
+    if (m_planPage)
+        m_planPage->clearVtkScene();
 }
 
 bool MainWindow::loadSchemesFromStorage()

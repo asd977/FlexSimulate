@@ -222,6 +222,19 @@
               </widget>
              </item>
              <item>
+              <widget class="QLabel" name="selectionInfo">
+               <property name="text">
+                <string>未选择对象</string>
+               </property>
+               <property name="alignment">
+                <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+               </property>
+               <property name="wordWrap">
+                <bool>true</bool>
+               </property>
+              </widget>
+             </item>
+             <item>
               <widget class="QScrollArea" name="detailScrollArea">
                <property name="frameShape">
                 <enum>QFrame::NoFrame</enum>
