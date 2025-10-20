@@ -167,6 +167,7 @@ private:
     void removeModelById(const QString& id);
     bool removeModelsByFingerprint(SchemeRecord& scheme,
                                    const QSet<QString>& fingerprints);
+    void promptCloseProject();
     bool confirmSchemeDeletion(const SchemeRecord& scheme);
     bool confirmModelDeletion(const ModelRecord& model, const SchemeRecord& owner);
     void syncDataFromTree();
