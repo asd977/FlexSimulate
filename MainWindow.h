@@ -47,6 +47,10 @@ private slots:
     void onOpenProjectTriggered();
     void onAddLibraryScheme();
 
+    void on_selectModelButton_clicked();
+
+    void on_loadModelButton_clicked();
+
 private:
     struct ModelRecord {
         QString id;

@@ -853,6 +853,27 @@ void MainWindow::onAddLibraryScheme()
     appendLogMessage(tr("已创建总成库 %1").arg(name));
 }
 
+void MainWindow::on_selectModelButton_clicked()
+{
+    QString filePath = QFileDialog::getOpenFileName(
+        this,
+        tr("选择模型文件"),
+        QDir::homePath(),
+        tr("STL 文件 (*.stl);;所有文件 (*.*)")
+    );
+
+    if (filePath.isEmpty())
+        return;
+
+    ui->modelPathLineEdit->setText(filePath);
+}
+
+void MainWindow::on_loadModelButton_clicked()
+{
+    QString stlPath = ui->modelPathLineEdit->text();
+    displayResultFile(stlPath);
+}
+
 void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidgetItem*)
 {
     if (!current)
@@ -3855,9 +3876,7 @@ void MainWindow::displayResultFile(const QString& filePath)
 
         actor = vtkSmartPointer<vtkActor>::New();
         actor->SetMapper(mapper);
-        actor->GetProperty()->SetColor(0.2, 0.45, 0.75);
-        actor->GetProperty()->SetDiffuse(0.8);
-        actor->GetProperty()->SetSpecular(0.3);
+        actor->GetProperty()->SetColor(0.9, 0.9, 0.9); // 浅灰色
     }
     else
     {
