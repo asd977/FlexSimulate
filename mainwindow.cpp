@@ -65,6 +65,8 @@
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
 #include <vtkSTLReader.h>
+#include <QSettings>
+#include <QDialogButtonBox>
 
 namespace
 {
@@ -244,9 +246,10 @@ void MainWindow::setupUiHelpers()
 
     ui->mainSplitter->setStretchFactor(0, 0);
     ui->mainSplitter->setStretchFactor(1, 1);
-    ui->contentSplitter->setStretchFactor(0, 0);
-    ui->contentSplitter->setStretchFactor(1, 1);
-    ui->contentSplitter->setCollapsible(1, true);
+
+    QList<int> sizes;
+    sizes << 50 << 50;
+    ui->contentSplitter->setSizes(sizes);
     if (ui->visualizationSplitter)
     {
         ui->visualizationSplitter->setStretchFactor(0, 3);
@@ -676,26 +679,76 @@ void MainWindow::updateWindowTitle()
 
 void MainWindow::onNewProjectTriggered()
 {
-    const QString baseDir = QFileDialog::getExistingDirectory(
-        this, tr("选择工程位置"), QDir::homePath(),
-        QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
-    if (baseDir.isEmpty())
+    // 读取默认路径
+    QSettings settings("./setting.ini", QSettings::IniFormat);
+    QString defaultPath = settings.value("defaultProjectPath", QDir::homePath()).toString();
+
+    // === 创建自定义输入对话框 ===
+    QDialog dialog(this);
+    dialog.setWindowTitle(tr("新建工程"));
+
+    QVBoxLayout *mainLayout = new QVBoxLayout(&dialog);
+
+    // 工程名称
+    QLabel *nameLabel = new QLabel(tr("工程名称："));
+    QLineEdit *nameEdit = new QLineEdit(tr("NewProject"));
+    mainLayout->addWidget(nameLabel);
+    mainLayout->addWidget(nameEdit);
+
+    // 工作路径
+    QLabel *pathLabel = new QLabel(tr("工作路径："));
+    QLineEdit *pathEdit = new QLineEdit(defaultPath);
+    QPushButton *browseButton = new QPushButton(tr("选择..."));
+
+    QHBoxLayout *pathLayout = new QHBoxLayout;
+    pathLayout->addWidget(pathEdit);
+    pathLayout->addWidget(browseButton);
+
+    mainLayout->addWidget(pathLabel);
+    mainLayout->addLayout(pathLayout);
+
+    // 选择路径按钮逻辑
+    connect(browseButton, &QPushButton::clicked, [&]() {
+        QString dir = QFileDialog::getExistingDirectory(
+            &dialog, tr("选择工程位置"), pathEdit->text(),
+            QFileDialog::ShowDirsOnly | QFileDialog::DontResolveSymlinks);
+        if (!dir.isEmpty())
+            pathEdit->setText(dir);
+    });
+
+    // 确认/取消按钮
+    QDialogButtonBox *buttonBox =
+        new QDialogButtonBox(QDialogButtonBox::Ok | QDialogButtonBox::Cancel);
+    mainLayout->addWidget(buttonBox);
+
+    connect(buttonBox, &QDialogButtonBox::accepted, &dialog, &QDialog::accept);
+    connect(buttonBox, &QDialogButtonBox::rejected, &dialog, &QDialog::reject);
+
+    // 显示对话框
+    if (dialog.exec() != QDialog::Accepted)
         return;
 
-    bool ok = false;
-    const QString name = QInputDialog::getText(
-        this, tr("新建工程"), tr("工程名称："), QLineEdit::Normal,
-        tr("NewProject"), &ok);
-    if (!ok)
-        return;
+    // 获取用户输入
+    const QString trimmedName = nameEdit->text().trimmed();
+    const QString baseDir = pathEdit->text().trimmed();
 
-    const QString trimmedName = name.trimmed();
+    // === 校验 ===
     if (trimmedName.isEmpty())
     {
         QMessageBox::warning(this, tr("新建工程"), tr("工程名称不能为空。"));
         return;
     }
 
+    if (baseDir.isEmpty())
+    {
+        QMessageBox::warning(this, tr("新建工程"), tr("工作路径不能为空。"));
+        return;
+    }
+
+    // 保存新的默认路径
+    settings.setValue("defaultProjectPath", baseDir);
+
+    // 检查目录
     QDir base(baseDir);
     const QString projectPath = base.filePath(trimmedName);
     QDir projectDir(projectPath);
@@ -711,6 +764,7 @@ void MainWindow::onNewProjectTriggered()
         }
     }
 
+    // 创建工程目录
     if (!ensureProjectStructure(projectPath))
     {
         QMessageBox::warning(this, tr("新建工程"),
@@ -719,10 +773,10 @@ void MainWindow::onNewProjectTriggered()
         return;
     }
 
+    // 打开工程
     if (openProjectAt(projectPath, /*silent*/false))
         appendLogMessage(tr("已创建工程 %1").arg(trimmedName));
 }
-
 void MainWindow::onOpenProjectTriggered()
 {
     const QString dir = QFileDialog::getExistingDirectory(
@@ -1554,18 +1608,18 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
         displayResultFile(resultPath);
     });
 
-    auto* openBtn = new QPushButton(tr("打开模型目录"), container);
-    openBtn->setCursor(Qt::PointingHandCursor);
-    openBtn->setStyleSheet(
-        "QPushButton{padding:8px 18px;border-radius:18px;"
-        "border:1px solid #cbd5f5;background:#f8faff;color:#1d4ed8;}"
-        "QPushButton:hover{background:#e0e7ff;}"
-        "QPushButton:pressed{background:#bfdbfe;}"
-    );
-    connect(openBtn, &QPushButton::clicked, this, [path = model.directory]() {
-        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
-    });
-    layout->addWidget(openBtn, 0, Qt::AlignLeft);
+//    auto* openBtn = new QPushButton(tr("打开模型目录"), container);
+//    openBtn->setCursor(Qt::PointingHandCursor);
+//    openBtn->setStyleSheet(
+//        "QPushButton{padding:8px 18px;border-radius:18px;"
+//        "border:1px solid #cbd5f5;background:#f8faff;color:#1d4ed8;}"
+//        "QPushButton:hover{background:#e0e7ff;}"
+//        "QPushButton:pressed{background:#bfdbfe;}"
+//    );
+//    connect(openBtn, &QPushButton::clicked, this, [path = model.directory]() {
+//        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
+//    });
+//    layout->addWidget(openBtn, 0, Qt::AlignLeft);
 
     return container;
 }
