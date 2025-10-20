@@ -981,7 +981,23 @@ void MainWindow::onTreeItemChanged(QTreeWidgetItem* item, int column)
             }
 
             scheme->name = trimmed;
+
+            bool libraryUpdated = false;
+            if (!scheme->libraryId.trimmed().isEmpty())
+            {
+                if (SchemeLibraryEntry* entry = libraryEntryById(scheme->libraryId))
+                {
+                    if (entry->name != trimmed)
+                    {
+                        entry->name = trimmed;
+                        libraryUpdated = true;
+                    }
+                }
+            }
+
             persistSchemes();
+            if (libraryUpdated)
+                saveSchemeLibrary();
             updateGallery();
             refreshCurrentDetail();
         }
