@@ -1083,6 +1083,8 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
 
     if (!item)
     {
+        if (hasActiveProject())
+            menu.addAction(tr("关闭工程"), this, &MainWindow::promptCloseProject);
         menu.addAction(tr("导入总成"), this, &MainWindow::promptAddScheme);
     }
     else
@@ -1109,6 +1111,8 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
                     QDesktopServices::openUrl(QUrl::fromLocalFile(m_projectRoot));
                 });
             }
+            if (hasActiveProject())
+                menu.addAction(tr("关闭工程"), this, &MainWindow::promptCloseProject);
             menu.addAction(tr("导入总成"), this, &MainWindow::promptAddScheme);
         }
         else if (type == SchemeItem)
@@ -3343,6 +3347,19 @@ bool MainWindow::removeLibraryEntry(const QString& id)
 bool MainWindow::hasActiveProject() const
 {
     return !m_projectRoot.isEmpty();
+}
+
+void MainWindow::promptCloseProject()
+{
+    if (!hasActiveProject())
+        return;
+
+    const QMessageBox::StandardButton choice = QMessageBox::question(
+        this, tr("关闭工程"), tr("确定要关闭当前工程吗？"));
+    if (choice != QMessageBox::Yes)
+        return;
+
+    enterProjectlessState();
 }
 
 void MainWindow::applySchemeThumbnail(SchemeRecord& scheme, const QString& sourcePath)
