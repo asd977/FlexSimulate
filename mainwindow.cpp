@@ -287,6 +287,8 @@ void MainWindow::setupConnections()
             this, &MainWindow::handleTreeSelectionChanged);
     connect(ui->treeModels, &QTreeWidget::itemChanged,
             this, &MainWindow::onTreeItemChanged);
+    connect(ui->treeModels, &QTreeWidget::itemClicked,
+            this, &MainWindow::onTreeItemClicked);
     connect(ui->treeModels, &QWidget::customContextMenuRequested,
             this, &MainWindow::onTreeContextMenuRequested);
 
@@ -955,6 +957,23 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         updateSelectionInfo();
     }
     updateToolbarState();
+}
+
+void MainWindow::onTreeItemClicked(QTreeWidgetItem* item, int)
+{
+    if (!item)
+        return;
+
+    if (item->data(0, TypeRole).toInt() != LibraryItem)
+        return;
+
+    if (!m_currentDetailWidget ||
+        m_currentDetailWidget->objectName() != QLatin1String("librarySchemeDetail"))
+    {
+        return;
+    }
+
+    handleTreeSelectionChanged(item, nullptr);
 }
 
 void MainWindow::onTreeItemChanged(QTreeWidgetItem* item, int column)

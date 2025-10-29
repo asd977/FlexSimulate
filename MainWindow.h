@@ -42,6 +42,7 @@ private slots:
     void onGalleryOpenRequested(const QString& id);
     void onGalleryDeleteRequested(const QString& id);
     void onGalleryDetailsRequested(const QString& id);
+    void onTreeItemClicked(QTreeWidgetItem* item, int column);
     void deleteCurrentTreeItem();
     void onNewProjectTriggered();
     void onOpenProjectTriggered();
