@@ -31,6 +31,7 @@ public:
                    const QPixmap& thumb = QPixmap(),
                    const CardOptions& options = CardOptions());
     void removeSchemeById(const QString& id);
+    void setCreateSchemeEnabled(bool enabled, const QString& toolTip = QString());
 
 signals:
     void schemeOpenRequested(const QString& id);
