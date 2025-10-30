@@ -39,6 +39,7 @@ private slots:
     void onTreeContextMenuRequested(const QPoint& pos);
     void onTreeItemsReordered();
     void onExternalDrop(const QList<QUrl>& urls, QTreeWidgetItem* target);
+    void onTreeItemDoubleClicked(QTreeWidgetItem* item, int column);
     void onGalleryOpenRequested(const QString& id);
     void onGalleryDeleteRequested(const QString& id);
     void onGalleryDetailsRequested(const QString& id);
@@ -84,7 +85,8 @@ private:
     enum TreeRoles {
         TypeRole = Qt::UserRole,
         IdRole,
-        SchemeRole
+        SchemeRole,
+        ActiveRole
     };
 
     enum TreeItemType {
@@ -186,10 +188,18 @@ private:
     void ensureUniqueModelNames(SchemeRecord& scheme) const;
     void ensureUniqueSchemeAndModelNames();
     bool loadSchemesFromStorage();
+    bool readProjectStorage(const QString& projectRoot,
+                            const QString& storageFile,
+                            QVector<SchemeRecord>* schemes,
+                            QString* remarks,
+                            QDateTime* createdAt,
+                            QDateTime* updatedAt,
+                            QString* workspaceRoot) const;
     void saveSchemesToStorage() const;
     void persistSchemes();
     QString makeUniqueWorkspaceSubdir(const QString& baseName) const;
     QString workspaceRoot() const;
+    QVector<SchemeRecord> loadProjectPreviewSchemes(const QString& projectPath) const;
 
     Ui::MainWindow *ui;
     SchemeGalleryWidget* m_galleryWidget = nullptr;
