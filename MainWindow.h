@@ -160,6 +160,8 @@ private:
     bool isPathWithinDirectory(const QString& filePath, const QString& directory) const;
     bool hasActiveProject() const;
     void updateRecentProjects(const QString& canonicalPath);
+    bool removeProjectFromRecents(const QString& projectPath);
+    void closeProject(const QString& projectPath);
     void loadSchemeLibrary();
     void saveSchemeLibrary() const;
     QString schemeLibraryRoot() const;
