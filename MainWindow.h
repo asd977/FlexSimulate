@@ -127,6 +127,7 @@ private:
     void displayResultFile(const QString& filePath);
     void clearVtkScene();
     QString projectDisplayName() const;
+    QString projectDisplayName(const QString& projectPath) const;
 
     SchemeRecord* schemeById(const QString& id);
     const SchemeRecord* schemeById(const QString& id) const;
@@ -156,6 +157,7 @@ private:
     QString storeSchemeThumbnail(const QString& schemeDir, const QString& sourcePath) const;
     bool isPathWithinDirectory(const QString& filePath, const QString& directory) const;
     bool hasActiveProject() const;
+    void updateRecentProjects(const QString& canonicalPath);
     void loadSchemeLibrary();
     void saveSchemeLibrary() const;
     QString schemeLibraryRoot() const;
@@ -209,6 +211,7 @@ private:
     QString m_projectRemarks;
     QDateTime m_projectCreatedAt;
     QDateTime m_projectUpdatedAt;
+    QStringList m_recentProjects;
     QString m_baseWindowTitle;
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
     vtkSmartPointer<vtkRenderer> m_renderer;
