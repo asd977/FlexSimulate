@@ -14,6 +14,117 @@
    <string>柔性仿真软件</string>
   </property>
   <widget class="QWidget" name="centralwidget">
+   <property name="styleSheet">
+    <string notr="true">QWidget#centralwidget {
+    background-color: #f3f4f6;
+    color: #1f2933;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    font-size: 14px;
+}
+
+QFrame#navigationFrame,
+QWidget#detailPanel,
+QFrame#vtkContainer,
+QFrame#logPanel {
+    background-color: #ffffff;
+    border-radius: 12px;
+}
+
+QLabel#navigationTitle,
+QLabel#detailTitle,
+QLabel#vtkTitle,
+QLabel#logTitle {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+    padding-bottom: 8px;
+}
+
+QLabel#navigationTitle {
+    letter-spacing: 1px;
+}
+
+SchemeTreeWidget {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background-color: #ffffff;
+    padding: 8px;
+}
+
+QScrollArea,
+QPlainTextEdit {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background-color: #ffffff;
+}
+
+QScrollArea QWidget {
+    background-color: transparent;
+}
+
+QLineEdit {
+    border: 1px solid #d1d5db;
+    border-radius: 8px;
+    padding: 8px 12px;
+    background-color: #ffffff;
+}
+
+QLineEdit:focus {
+    border: 1px solid #3b82f6;
+}
+
+QPushButton {
+    background-color: #3b82f6;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 8px 18px;
+    font-weight: 500;
+}
+
+QPushButton:hover {
+    background-color: #2563eb;
+}
+
+QPushButton:pressed {
+    background-color: #1d4ed8;
+}
+
+QSplitter::handle {
+    background-color: transparent;
+    margin: 0px;
+}
+
+QSplitter::handle:horizontal {
+    width: 6px;
+}
+
+QSplitter::handle:vertical {
+    height: 6px;
+}
+
+QSplitter::handle:hover {
+    background-color: #dbeafe;
+}
+
+QPlainTextEdit {
+    padding: 12px;
+    font-family: "Consolas", "Courier New", monospace;
+    font-size: 13px;
+}
+
+QLabel#welcomeLabel {
+    font-size: 18px;
+    color: #1f2933;
+    font-weight: 500;
+    line-height: 1.6;
+}
+
+QStackedWidget#stackedWidget {
+    border: none;
+}
+
+</string>
+   </property>
    <layout class="QVBoxLayout" name="mainLayout">
     <property name="spacing">
      <number>8</number>
@@ -41,22 +152,25 @@
        </property>
        <layout class="QVBoxLayout" name="navigationLayout">
         <property name="spacing">
-         <number>0</number>
+         <number>12</number>
         </property>
         <property name="leftMargin">
-         <number>0</number>
+         <number>18</number>
         </property>
         <property name="topMargin">
-         <number>0</number>
+         <number>18</number>
         </property>
         <property name="rightMargin">
-         <number>0</number>
+         <number>18</number>
         </property>
         <property name="bottomMargin">
-         <number>0</number>
+         <number>18</number>
         </property>
         <item>
          <widget class="QLabel" name="navigationTitle">
+          <property name="alignment">
+           <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
           <property name="text">
            <string>导航</string>
           </property>
@@ -126,9 +240,6 @@
              <width>0</width>
              <height>80</height>
             </size>
-           </property>
-           <property name="styleSheet">
-            <string notr="true">font-size:16px;color:#4b5563;</string>
            </property>
            <property name="text">
             <string>当前未打开任何工程，请通过“工程”菜单新建或打开工程。</string>
@@ -212,22 +323,25 @@
             </property>
             <layout class="QVBoxLayout" name="detailPanelLayout">
              <property name="spacing">
-              <number>0</number>
+              <number>18</number>
              </property>
              <property name="leftMargin">
-              <number>0</number>
+              <number>18</number>
              </property>
              <property name="topMargin">
-              <number>0</number>
+              <number>18</number>
              </property>
              <property name="rightMargin">
-              <number>0</number>
+              <number>18</number>
              </property>
              <property name="bottomMargin">
-              <number>0</number>
-             </property>
+              <number>18</number>
+              </property>
              <item>
               <widget class="QLabel" name="detailTitle">
+               <property name="alignment">
+                <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
+               </property>
                <property name="text">
                 <string>参数设置</string>
                </property>
@@ -281,21 +395,21 @@
            </widget>
            <widget class="QWidget" name="vtkPanel" native="true">
             <layout class="QVBoxLayout" name="vtkPanelLayout">
-             <property name="spacing">
-              <number>8</number>
-             </property>
-             <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
+            <property name="spacing">
+              <number>18</number>
+            </property>
+            <property name="leftMargin">
+              <number>18</number>
+            </property>
+            <property name="topMargin">
+              <number>18</number>
+            </property>
+            <property name="rightMargin">
+              <number>18</number>
+            </property>
+            <property name="bottomMargin">
+              <number>18</number>
+            </property>
              <item>
               <widget class="QSplitter" name="visualizationSplitter">
                <property name="orientation">
@@ -331,6 +445,9 @@
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
                    </property>
                    <property name="text">
                     <string>模型预览</string>
@@ -412,27 +529,30 @@
                 </property>
                 <layout class="QVBoxLayout" name="logPanelLayout">
                  <property name="spacing">
-                  <number>0</number>
+                  <number>18</number>
                  </property>
                  <property name="leftMargin">
-                  <number>0</number>
+                  <number>18</number>
                  </property>
                  <property name="topMargin">
-                  <number>0</number>
+                  <number>18</number>
                  </property>
                  <property name="rightMargin">
-                  <number>0</number>
+                  <number>18</number>
                  </property>
                  <property name="bottomMargin">
-                  <number>0</number>
+                  <number>18</number>
                  </property>
                  <item>
                   <widget class="QLabel" name="logTitle">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                      <horstretch>0</horstretch>
-                     <verstretch>0</verstretch>
+                    <verstretch>0</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignLeading|Qt::AlignLeft|Qt::AlignVCenter</set>
                    </property>
                    <property name="text">
                     <string>运行日志</string>
