@@ -14,21 +14,40 @@
    <string>柔性仿真软件</string>
   </property>
   <widget class="QWidget" name="centralwidget">
+   <property name="styleSheet">
+    <string notr="true">QWidget#centralwidget { background-color: #f5f7fb; }
+QFrame#navigationFrame, QWidget#detailPanel, QWidget#vtkPanel, QFrame#logPanel { background-color: #ffffff; border-radius: 16px; }
+QSplitter::handle { background-color: #e5e7eb; }
+QSplitter::handle:horizontal { width: 6px; }
+QSplitter::handle:vertical { height: 6px; }
+QLabel#navigationTitle, QLabel#detailTitle, QLabel#vtkTitle, QLabel#logTitle { font-size: 18px; font-weight: 600; color: #0f172a; padding: 12px 16px; border-bottom: 1px solid #e2e8f0; }
+QTreeWidget { border: none; background: transparent; padding: 8px 12px; font-size: 14px; }
+QTreeWidget::item { padding: 6px 4px; }
+QTreeWidget::item:selected { background-color: #e0f2fe; color: #0f172a; }
+QScrollArea { border: none; background: transparent; }
+QLineEdit { border: 1px solid #d1d5db; border-radius: 8px; padding: 6px 10px; background: #f8fafc; font-size: 14px; }
+QPushButton { background-color: #2563eb; color: #ffffff; border-radius: 8px; padding: 6px 18px; font-size: 14px; font-weight: 500; }
+QPushButton:hover { background-color: #1d4ed8; }
+QPushButton:pressed { background-color: #1e40af; }
+QPlainTextEdit { border: none; background: transparent; font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif; font-size: 13px; color: #1f2937; }
+QLabel { font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif; }
+QWidget { font-family: "Microsoft YaHei", "Noto Sans SC", sans-serif; color: #1f2937; font-size: 14px; }</string>
+   </property>
    <layout class="QVBoxLayout" name="mainLayout">
     <property name="spacing">
-     <number>8</number>
+     <number>16</number>
     </property>
     <property name="leftMargin">
-     <number>12</number>
+     <number>24</number>
     </property>
     <property name="topMargin">
-     <number>12</number>
+     <number>24</number>
     </property>
     <property name="rightMargin">
-     <number>12</number>
+     <number>24</number>
     </property>
     <property name="bottomMargin">
-     <number>12</number>
+     <number>24</number>
     </property>
     <item>
      <widget class="QSplitter" name="mainSplitter">
@@ -41,22 +60,25 @@
        </property>
        <layout class="QVBoxLayout" name="navigationLayout">
         <property name="spacing">
-         <number>0</number>
+         <number>12</number>
         </property>
         <property name="leftMargin">
-         <number>0</number>
+         <number>16</number>
         </property>
         <property name="topMargin">
-         <number>0</number>
+         <number>16</number>
         </property>
         <property name="rightMargin">
-         <number>0</number>
+         <number>16</number>
         </property>
         <property name="bottomMargin">
-         <number>0</number>
+         <number>16</number>
         </property>
         <item>
          <widget class="QLabel" name="navigationTitle">
+          <property name="alignment">
+           <set>Qt::AlignLeft</set>
+          </property>
           <property name="text">
            <string>导航</string>
           </property>
@@ -128,7 +150,7 @@
             </size>
            </property>
            <property name="styleSheet">
-            <string notr="true">font-size:16px;color:#4b5563;</string>
+            <string notr="true">font-size:18px; color:#1f2937; line-height:1.6;</string>
            </property>
            <property name="text">
             <string>当前未打开任何工程，请通过“工程”菜单新建或打开工程。</string>
@@ -212,22 +234,25 @@
             </property>
             <layout class="QVBoxLayout" name="detailPanelLayout">
              <property name="spacing">
-              <number>0</number>
+              <number>12</number>
              </property>
              <property name="leftMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <property name="topMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <property name="rightMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <property name="bottomMargin">
-              <number>0</number>
+              <number>16</number>
              </property>
              <item>
               <widget class="QLabel" name="detailTitle">
+               <property name="alignment">
+                <set>Qt::AlignLeft</set>
+               </property>
                <property name="text">
                 <string>参数设置</string>
                </property>
@@ -282,22 +307,22 @@
            <widget class="QWidget" name="vtkPanel" native="true">
             <layout class="QVBoxLayout" name="vtkPanelLayout">
              <property name="spacing">
-              <number>8</number>
+              <number>12</number>
              </property>
              <property name="leftMargin">
-              <number>0</number>
-             </property>
-             <property name="topMargin">
-              <number>0</number>
-             </property>
-             <property name="rightMargin">
-              <number>0</number>
-             </property>
-             <property name="bottomMargin">
-              <number>0</number>
-             </property>
-             <item>
-              <widget class="QSplitter" name="visualizationSplitter">
+              <number>16</number>
+              </property>
+              <property name="topMargin">
+              <number>16</number>
+              </property>
+              <property name="rightMargin">
+              <number>16</number>
+              </property>
+              <property name="bottomMargin">
+              <number>16</number>
+              </property>
+              <item>
+               <widget class="QSplitter" name="visualizationSplitter">
                <property name="orientation">
                 <enum>Qt::Vertical</enum>
                </property>
@@ -325,7 +350,10 @@
                   <number>0</number>
                  </property>
                  <item>
-                  <widget class="QLabel" name="vtkTitle">
+                 <widget class="QLabel" name="vtkTitle">
+                  <property name="alignment">
+                   <set>Qt::AlignLeft</set>
+                  </property>
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                      <horstretch>0</horstretch>
@@ -339,6 +367,9 @@
                  </item>
                  <item>
                   <layout class="QHBoxLayout" name="horizontalLayout">
+                   <property name="spacing">
+                    <number>12</number>
+                   </property>
                    <property name="sizeConstraint">
                     <enum>QLayout::SetDefaultConstraint</enum>
                    </property>
@@ -412,22 +443,25 @@
                 </property>
                 <layout class="QVBoxLayout" name="logPanelLayout">
                  <property name="spacing">
-                  <number>0</number>
+                  <number>8</number>
                  </property>
                  <property name="leftMargin">
-                  <number>0</number>
+                  <number>16</number>
                  </property>
                  <property name="topMargin">
-                  <number>0</number>
+                  <number>16</number>
                  </property>
                  <property name="rightMargin">
-                  <number>0</number>
+                  <number>16</number>
                  </property>
                  <property name="bottomMargin">
-                  <number>0</number>
+                  <number>16</number>
                  </property>
                  <item>
-                  <widget class="QLabel" name="logTitle">
+                 <widget class="QLabel" name="logTitle">
+                  <property name="alignment">
+                   <set>Qt::AlignLeft</set>
+                  </property>
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                      <horstretch>0</horstretch>
