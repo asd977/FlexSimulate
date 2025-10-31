@@ -39,6 +39,7 @@ private slots:
     void onTreeContextMenuRequested(const QPoint& pos);
     void onTreeItemsReordered();
     void onExternalDrop(const QList<QUrl>& urls, QTreeWidgetItem* target);
+    void onTreeItemDoubleClicked(QTreeWidgetItem* item, int column);
     void onGalleryOpenRequested(const QString& id);
     void onGalleryDeleteRequested(const QString& id);
     void onGalleryDetailsRequested(const QString& id);
@@ -84,7 +85,8 @@ private:
     enum TreeRoles {
         TypeRole = Qt::UserRole,
         IdRole,
-        SchemeRole
+        SchemeRole,
+        ActiveRole
     };
 
     enum TreeItemType {
@@ -127,6 +129,7 @@ private:
     void displayResultFile(const QString& filePath);
     void clearVtkScene();
     QString projectDisplayName() const;
+    QString projectDisplayName(const QString& projectPath) const;
 
     SchemeRecord* schemeById(const QString& id);
     const SchemeRecord* schemeById(const QString& id) const;
@@ -156,6 +159,9 @@ private:
     QString storeSchemeThumbnail(const QString& schemeDir, const QString& sourcePath) const;
     bool isPathWithinDirectory(const QString& filePath, const QString& directory) const;
     bool hasActiveProject() const;
+    void updateRecentProjects(const QString& canonicalPath);
+    bool removeProjectFromRecents(const QString& projectPath);
+    void closeProject(const QString& projectPath);
     void loadSchemeLibrary();
     void saveSchemeLibrary() const;
     QString schemeLibraryRoot() const;
@@ -184,10 +190,20 @@ private:
     void ensureUniqueModelNames(SchemeRecord& scheme) const;
     void ensureUniqueSchemeAndModelNames();
     bool loadSchemesFromStorage();
+    bool readProjectStorage(const QString& projectRoot,
+                            const QString& storageFile,
+                            QVector<SchemeRecord>* schemes,
+                            QString* remarks,
+                            QDateTime* createdAt,
+                            QDateTime* updatedAt,
+                            QString* workspaceRoot) const;
     void saveSchemesToStorage() const;
     void persistSchemes();
+    bool renameLibrarySchemesInProjects(const QString& libraryId,
+                                        const QString& newName);
     QString makeUniqueWorkspaceSubdir(const QString& baseName) const;
     QString workspaceRoot() const;
+    QVector<SchemeRecord> loadProjectPreviewSchemes(const QString& projectPath) const;
 
     Ui::MainWindow *ui;
     SchemeGalleryWidget* m_galleryWidget = nullptr;
@@ -209,6 +225,7 @@ private:
     QString m_projectRemarks;
     QDateTime m_projectCreatedAt;
     QDateTime m_projectUpdatedAt;
+    QStringList m_recentProjects;
     QString m_baseWindowTitle;
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
     vtkSmartPointer<vtkRenderer> m_renderer;
