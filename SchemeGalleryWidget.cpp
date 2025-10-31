@@ -2,6 +2,7 @@
 #include "ui_SchemeGalleryWidget.h"   // 由 .ui 生成
 #include "SchemeCardWidget.h"
 
+#include <QFrame>
 #include <QGridLayout>
 #include <QScrollArea>
 #include <QPixmap>
@@ -14,14 +15,30 @@ SchemeGalleryWidget::SchemeGalleryWidget(QWidget *parent)
 {
     ui->setupUi(this);
 
+    if (ui->titleLabel)
+    {
+        ui->titleLabel->setProperty("variant", "title");
+        ui->titleLabel->setContentsMargins(0, 0, 0, 0);
+    }
+
+    if (ui->scrollArea)
+    {
+        ui->scrollArea->setFrameShape(QFrame::NoFrame);
+        ui->scrollArea->setStyleSheet(
+            "QScrollArea{border:none;background:transparent;}"
+            "QWidget#scrollAreaWidgetContents{background:transparent;}"
+        );
+    }
+
     if (ui->newSchemeButton)
     {
         ui->newSchemeButton->setCursor(Qt::PointingHandCursor);
         ui->newSchemeButton->setStyleSheet(
-            "QPushButton{padding:6px 14px;border-radius:16px;"
-            "background-color:#1d4ed8;color:white;font-weight:600;}"
-            "QPushButton:hover{background-color:#2563eb;}"
+            "QPushButton{padding:8px 20px;border-radius:18px;"
+            "background-color:#2563eb;color:#ffffff;font-size:13px;font-weight:600;}"
+            "QPushButton:hover{background-color:#1d4ed8;}"
             "QPushButton:pressed{background-color:#1e3a8a;}"
+            "QPushButton:disabled{background-color:#cbd5f5;color:#94a3b8;}"
         );
         connect(ui->newSchemeButton, &QPushButton::clicked,
                 this, &SchemeGalleryWidget::createSchemeRequested);
