@@ -13,6 +13,110 @@
   <property name="windowTitle">
    <string>柔性仿真软件</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">QWidget#centralwidget {
+    background-color: #f8fafc;
+}
+
+QFrame#navigationFrame,
+QWidget#detailPanel,
+QFrame#vtkContainer,
+QFrame#logPanel {
+    background-color: #ffffff;
+    border: 1px solid #e2e8f0;
+    border-radius: 12px;
+}
+
+QFrame#navigationFrame {
+    padding: 16px;
+}
+
+QWidget#detailPanel {
+    padding: 16px;
+}
+
+QFrame#vtkContainer,
+QFrame#logPanel {
+    padding: 16px;
+}
+
+QLabel#navigationTitle,
+QLabel#detailTitle,
+QLabel#vtkTitle,
+QLabel#logTitle {
+    font-size: 18px;
+    font-weight: 600;
+    color: #0f172a;
+    padding-bottom: 8px;
+}
+
+QTreeWidget,
+QPlainTextEdit,
+QLineEdit {
+    font-size: 14px;
+}
+
+QTreeWidget {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    background-color: #ffffff;
+}
+
+QLineEdit {
+    border: 1px solid #cbd5f5;
+    border-radius: 8px;
+    padding: 6px 10px;
+    background-color: #ffffff;
+}
+
+QLineEdit:focus {
+    border: 1px solid #2563eb;
+}
+
+QPlainTextEdit {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 8px;
+    background-color: #f8fafc;
+}
+
+QPushButton {
+    font-size: 14px;
+    color: #ffffff;
+    background-color: #2563eb;
+    border: none;
+    border-radius: 8px;
+    padding: 8px 16px;
+}
+
+QPushButton:hover {
+    background-color: #1d4ed8;
+}
+
+QPushButton:pressed {
+    background-color: #1e3a8a;
+}
+
+QSplitter::handle {
+    background-color: #e2e8f0;
+}
+
+QSplitter::handle:horizontal {
+    margin: 0 8px;
+    width: 2px;
+}
+
+QSplitter::handle:vertical {
+    margin: 8px 0;
+    height: 2px;
+}
+
+QScrollArea {
+    border: none;
+    background: transparent;
+}
+</string>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="mainLayout">
     <property name="spacing">
@@ -39,9 +143,9 @@
        <property name="frameShape">
         <enum>QFrame::NoFrame</enum>
        </property>
-       <layout class="QVBoxLayout" name="navigationLayout">
+      <layout class="QVBoxLayout" name="navigationLayout">
         <property name="spacing">
-         <number>0</number>
+         <number>12</number>
         </property>
         <property name="leftMargin">
          <number>0</number>
@@ -57,6 +161,9 @@
         </property>
         <item>
          <widget class="QLabel" name="navigationTitle">
+          <property name="alignment">
+           <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+          </property>
           <property name="text">
            <string>导航</string>
           </property>
@@ -210,9 +317,9 @@
               <height>0</height>
              </size>
             </property>
-            <layout class="QVBoxLayout" name="detailPanelLayout">
+           <layout class="QVBoxLayout" name="detailPanelLayout">
              <property name="spacing">
-              <number>0</number>
+              <number>12</number>
              </property>
              <property name="leftMargin">
               <number>0</number>
@@ -228,6 +335,9 @@
              </property>
              <item>
               <widget class="QLabel" name="detailTitle">
+               <property name="alignment">
+                <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+               </property>
                <property name="text">
                 <string>参数设置</string>
                </property>
@@ -282,7 +392,7 @@
            <widget class="QWidget" name="vtkPanel" native="true">
             <layout class="QVBoxLayout" name="vtkPanelLayout">
              <property name="spacing">
-              <number>8</number>
+              <number>12</number>
              </property>
              <property name="leftMargin">
               <number>0</number>
@@ -308,9 +418,9 @@
                 <property name="frameShape">
                  <enum>QFrame::NoFrame</enum>
                 </property>
-                <layout class="QVBoxLayout" name="vtkContainerLayout">
+               <layout class="QVBoxLayout" name="vtkContainerLayout">
                  <property name="spacing">
-                  <number>9</number>
+                  <number>12</number>
                  </property>
                  <property name="leftMargin">
                   <number>0</number>
@@ -324,20 +434,23 @@
                  <property name="bottomMargin">
                   <number>0</number>
                  </property>
-                 <item>
-                  <widget class="QLabel" name="vtkTitle">
+                <item>
+                 <widget class="QLabel" name="vtkTitle">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
                    </property>
+                   <property name="alignment">
+                    <set>Qt::AlignLeft|Qt::AlignVCenter</set>
+                   </property>
                    <property name="text">
                     <string>模型预览</string>
                    </property>
                   </widget>
-                 </item>
-                 <item>
+                </item>
+                <item>
                   <layout class="QHBoxLayout" name="horizontalLayout">
                    <property name="sizeConstraint">
                     <enum>QLayout::SetDefaultConstraint</enum>
@@ -361,8 +474,8 @@
                    </item>
                   </layout>
                  </item>
-                 <item>
-                  <widget class="QFrame" name="vtkFrame">
+                <item>
+                 <widget class="QFrame" name="vtkFrame">
                    <property name="frameShape">
                     <enum>QFrame::NoFrame</enum>
                    </property>
@@ -371,7 +484,7 @@
                    </property>
                    <layout class="QVBoxLayout" name="vtkFrameLayout">
                     <property name="spacing">
-                     <number>0</number>
+                     <number>12</number>
                     </property>
                     <property name="leftMargin">
                      <number>0</number>
@@ -406,13 +519,13 @@
                  </item>
                 </layout>
                </widget>
-               <widget class="QFrame" name="logPanel">
+              <widget class="QFrame" name="logPanel">
                 <property name="frameShape">
                  <enum>QFrame::NoFrame</enum>
                 </property>
-                <layout class="QVBoxLayout" name="logPanelLayout">
+               <layout class="QVBoxLayout" name="logPanelLayout">
                  <property name="spacing">
-                  <number>0</number>
+                  <number>12</number>
                  </property>
                  <property name="leftMargin">
                   <number>0</number>
@@ -427,12 +540,15 @@
                   <number>0</number>
                  </property>
                  <item>
-                  <widget class="QLabel" name="logTitle">
+                 <widget class="QLabel" name="logTitle">
                    <property name="sizePolicy">
                     <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
                      <horstretch>0</horstretch>
                      <verstretch>0</verstretch>
                     </sizepolicy>
+                   </property>
+                   <property name="alignment">
+                    <set>Qt::AlignLeft|Qt::AlignVCenter</set>
                    </property>
                    <property name="text">
                     <string>运行日志</string>
