@@ -199,6 +199,8 @@ private:
                             QString* workspaceRoot) const;
     void saveSchemesToStorage() const;
     void persistSchemes();
+    bool renameLibrarySchemesInProjects(const QString& libraryId,
+                                        const QString& newName);
     QString makeUniqueWorkspaceSubdir(const QString& baseName) const;
     QString workspaceRoot() const;
     QVector<SchemeRecord> loadProjectPreviewSchemes(const QString& projectPath) const;

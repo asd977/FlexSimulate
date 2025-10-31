@@ -2516,7 +2516,11 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 saveSchemeLibrary();
                 if (schemeUpdated)
                     persistSchemes();
+                const bool previewsUpdated =
+                    renameLibrarySchemesInProjects(entry->id, trimmed);
                 updateGallery();
+                if (previewsUpdated)
+                    refreshNavigation(m_activeSchemeId, m_activeModelId);
                 appendLogMessage(tr("已将总成库重命名为 %1").arg(entryDisplayName()));
             });
 
@@ -4528,6 +4532,94 @@ void MainWindow::persistSchemes()
         m_projectUpdatedAt = now;
     }
     saveSchemesToStorage();
+}
+
+bool MainWindow::renameLibrarySchemesInProjects(const QString& libraryId,
+                                               const QString& newName)
+{
+    const QString trimmedId = libraryId.trimmed();
+    const QString trimmedName = newName.trimmed();
+    if (trimmedId.isEmpty() || trimmedName.isEmpty())
+        return false;
+
+    const QString activeRoot = m_projectRoot;
+    bool anyUpdated = false;
+
+    for (const QString& projectPath : m_recentProjects)
+    {
+        const QString trimmedPath = projectPath.trimmed();
+        if (trimmedPath.isEmpty())
+            continue;
+
+        QString canonical = canonicalPathForDir(QDir(trimmedPath));
+        if (canonical.isEmpty())
+            canonical = QDir::cleanPath(trimmedPath);
+
+        if (!activeRoot.isEmpty() &&
+            (canonical.compare(activeRoot, Qt::CaseInsensitive) == 0))
+        {
+            continue;
+        }
+
+        QDir projectDir(canonical);
+        if (!projectDir.exists())
+            continue;
+
+        const QString storageFile = projectDir.filePath(QStringLiteral("schemes.json"));
+        QFile file(storageFile);
+        if (!file.exists())
+            continue;
+        if (!file.open(QIODevice::ReadOnly | QIODevice::Text))
+            continue;
+
+        const QByteArray data = file.readAll();
+        file.close();
+
+        QJsonParseError err{};
+        QJsonDocument doc = QJsonDocument::fromJson(data, &err);
+        if (err.error != QJsonParseError::NoError || !doc.isObject())
+            continue;
+
+        QJsonObject root = doc.object();
+        QJsonArray schemeArray = root.value(QStringLiteral("schemes")).toArray();
+        bool modified = false;
+        for (int i = 0; i < schemeArray.size(); ++i)
+        {
+            QJsonObject schemeObj = schemeArray.at(i).toObject();
+            const QString storedId =
+                schemeObj.value(QStringLiteral("libraryId")).toString().trimmed();
+            if (storedId.compare(trimmedId, Qt::CaseInsensitive) != 0)
+                continue;
+
+            if (schemeObj.value(QStringLiteral("name")).toString() == trimmedName)
+                continue;
+
+            schemeObj.insert(QStringLiteral("name"), trimmedName);
+            schemeArray.replace(i, schemeObj);
+            modified = true;
+        }
+
+        if (!modified)
+            continue;
+
+        root.insert(QStringLiteral("schemes"), schemeArray);
+
+        QJsonObject projectObj = root.value(QStringLiteral("project")).toObject();
+        projectObj.insert(QStringLiteral("updatedAt"),
+                          QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
+        root.insert(QStringLiteral("project"), projectObj);
+
+        if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
+            continue;
+
+        QJsonDocument outDoc(root);
+        file.write(outDoc.toJson(QJsonDocument::Indented));
+        file.close();
+
+        anyUpdated = true;
+    }
+
+    return anyUpdated;
 }
 
 QString MainWindow::makeUniqueWorkspaceSubdir(const QString& baseName) const
