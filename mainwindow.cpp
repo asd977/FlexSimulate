@@ -174,18 +174,68 @@ MainWindow::~MainWindow()
 
 void MainWindow::setupUiHelpers()
 {
+    QFont baseFont = QApplication::font();
+    if (baseFont.pointSizeF() < 11.0)
+        baseFont.setPointSizeF(11.0);
+    baseFont.setWeight(QFont::Normal);
+    QApplication::setFont(baseFont);
+
     if (auto* central = ui->centralwidget)
     {
         central->setAttribute(Qt::WA_StyledBackground, true);
-        central->setStyleSheet(QStringLiteral("QWidget#centralwidget{background:#f1f5f9;}"));
     }
+
+    const auto headingLabels = { ui->navigationTitle, ui->detailTitle, ui->vtkTitle, ui->logTitle };
+    for (QLabel* label : headingLabels)
+    {
+        if (!label)
+            continue;
+        label->setProperty("variant", "title");
+        label->setMargin(0);
+        label->setContentsMargins(20, 18, 20, 12);
+    }
+
+    if (ui->welcomeLabel)
+    {
+        ui->welcomeLabel->setProperty("variant", "subtitle");
+        ui->welcomeLabel->setContentsMargins(12, 12, 12, 12);
+    }
+
+    const QString baseStyle = QStringLiteral(
+        "QMainWindow{background-color:#e9eef5;}"
+        "QWidget#centralwidget{background-color:#f8fafc;}"
+        "QLabel{color:#1f2937;font-size:13px;}"
+        "QLabel[variant=\"title\"]{font-size:18px;font-weight:600;color:#0f172a;}"
+        "QLabel[variant=\"subtitle\"]{font-size:15px;color:#475569;}"
+        "QSplitter::handle{background:#d7e3f4;}"
+        "QSplitter::handle:horizontal{width:8px;margin:0 6px;border-radius:4px;}"
+        "QSplitter::handle:vertical{height:8px;margin:6px 0;border-radius:4px;}"
+        "QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QDateTimeEdit{"
+            "border:1px solid #cbd5e1;border-radius:10px;padding:6px 12px;background:#ffffff;font-size:13px;}"
+        "QLineEdit:focus, QSpinBox:focus, QDoubleSpinBox:focus, QComboBox:focus, QDateTimeEdit:focus{"
+            "border-color:#2563eb;}"
+        "QPlainTextEdit{border-radius:14px;}"
+        "QMenuBar{background:transparent;border:none;padding:4px 12px;}"
+        "QMenuBar::item{padding:4px 10px;margin:2px;border-radius:6px;}"
+        "QMenuBar::item:selected{background:#e2e8f0;}"
+        "QMenu{border:1px solid #d6e1f2;padding:6px;border-radius:10px;background:#ffffff;}"
+        "QMenu::item{padding:6px 16px;border-radius:6px;}"
+        "QMenu::item:selected{background:#2563eb;color:#ffffff;}"
+        "QPushButton{border:none;border-radius:10px;padding:6px 16px;font-size:13px;font-weight:600;background:#2563eb;color:#ffffff;}"
+        "QPushButton:disabled{background:#cbd5f5;color:#94a3b8;}"
+        "QPushButton:hover{background:#1d4ed8;}"
+        "QPushButton:pressed{background:#1e3a8a;}"
+        "QToolButton{border-radius:8px;padding:4px 8px;}"
+        "QScrollArea{border:none;}"
+    );
+    setStyleSheet(baseStyle);
 
     m_galleryWidget = new SchemeGalleryWidget(this);
     ui->planPageLayout->addWidget(m_galleryWidget);
 
     auto* detailLayout = new QVBoxLayout(ui->settingWidget);
-    detailLayout->setContentsMargins(20, 20, 20, 20);
-    detailLayout->setSpacing(16);
+    detailLayout->setContentsMargins(24, 20, 24, 24);
+    detailLayout->setSpacing(20);
 
     const auto applyPanelCard = [](QWidget* panel, QLabel* title, const QString& extraStyles = QString()) {
         if (!panel || !title)
@@ -199,10 +249,8 @@ void MainWindow::setupUiHelpers()
                                           ? QStringLiteral("QLabel")
                                           : QStringLiteral("QLabel#%1").arg(title->objectName());
         QString style = QStringLiteral(
-            "%1{background:#ffffff;border:1px solid #d6e1f2;border-radius:14px;}"
-            "%2{font-size:15px;font-weight:600;color:#0f172a;padding:12px 16px;"
-            "background:#f8fafc;border-top-left-radius:14px;border-top-right-radius:14px;"
-            "border-bottom:1px solid #e2e8f0;}"
+            "%1{background:#ffffff;border:1px solid #dbe2ec;border-radius:16px;}"
+            "%2{background:transparent;border:none;}"
             "%3"
         ).arg(panelSelector, titleSelector, extraStyles);
         panel->setStyleSheet(style);
@@ -210,11 +258,11 @@ void MainWindow::setupUiHelpers()
 
     applyPanelCard(ui->navigationFrame, ui->navigationTitle,
                    QStringLiteral(
-                       "QTreeWidget{border:none;background:transparent;padding:8px 12px;}"
-                       "QTreeWidget::item{padding:6px 4px;}"
-                       "QTreeWidget::item:hover{background:#f1f5f9;}"
-                       "QTreeWidget::item:selected{background:#e2e8f0;color:#0f172a;}"
-                       "QHeaderView::section{background:transparent;border:none;padding:4px 0;font-weight:600;color:#334155;}"
+                       "QTreeWidget{border:none;background:transparent;padding:12px 20px 20px;}"
+                       "QTreeWidget::item{padding:8px 6px;margin:2px;border-radius:8px;}"
+                       "QTreeWidget::item:hover{background:#eef2ff;}"
+                       "QTreeWidget::item:selected{background:#dbeafe;color:#1e3a8a;}"
+                       "QHeaderView::section{background:transparent;border:none;padding:4px 0;font-weight:600;color:#475569;}"
                    ));
 
     applyPanelCard(ui->detailPanel, ui->detailTitle,
@@ -225,16 +273,16 @@ void MainWindow::setupUiHelpers()
 
     applyPanelCard(ui->vtkPanel, ui->vtkTitle,
                    QStringLiteral(
-                       "QFrame#vtkFrame{border:none;background:transparent;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
-                       "QVTKOpenGLNativeWidget{border:none;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
+                       "QFrame#vtkFrame{border:none;background:transparent;border-bottom-left-radius:16px;border-bottom-right-radius:16px;}"
+                       "QVTKOpenGLNativeWidget{border:none;border-bottom-left-radius:16px;border-bottom-right-radius:16px;}"
                    ));
 
     applyPanelCard(ui->logPanel, ui->logTitle);
 
     const QString splitterStyle = QStringLiteral(
-        "QSplitter::handle{background:#cbd5f5;}"
-        "QSplitter::handle:horizontal{width:8px;margin:0 4px;border-radius:4px;}"
-        "QSplitter::handle:vertical{height:8px;margin:4px 0;border-radius:4px;}"
+        "QSplitter::handle{background:#d7e3f4;}"
+        "QSplitter::handle:horizontal{width:8px;margin:0 6px;border-radius:4px;}"
+        "QSplitter::handle:vertical{height:8px;margin:6px 0;border-radius:4px;}"
     );
     ui->mainSplitter->setStyleSheet(splitterStyle);
     ui->contentSplitter->setStyleSheet(splitterStyle);
@@ -262,8 +310,9 @@ void MainWindow::setupUiHelpers()
 
     ui->logTextEdit->setStyleSheet(
         "QPlainTextEdit{background:#0f172a;color:#f8fafc;border:none;"
-        "border-bottom-left-radius:14px;border-bottom-right-radius:14px;padding:12px;"
-        "font-family:\"JetBrains Mono\", \"Source Code Pro\", monospace;}"
+        "border-bottom-left-radius:16px;border-bottom-right-radius:16px;padding:16px;"
+        "font-family:\"JetBrains Mono\", \"Source Code Pro\", monospace;font-size:12px;}"
+        "QPlainTextEdit::placeholder{color:#94a3b8;}"
     );
 
     setVisualizationVisible(false);
