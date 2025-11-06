@@ -67,7 +67,7 @@
 #include <vtkProperty.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
-#include <vtkSTLReader.h>
+#include <vtkOBJReader.h>
 #include <QSettings>
 #include <QDialogButtonBox>
 
@@ -136,8 +136,8 @@ QString uniqueChildPath(const QDir& parent, const QString& baseName)
 QString latestResultFile(const QString& directory)
 {
     QDir dir(directory);
-    const QStringList stlPatterns{ QStringLiteral("*.stl"), QStringLiteral("*.STL") };
-    QFileInfoList files = dir.entryInfoList(stlPatterns, QDir::Files,
+    const QStringList objPatterns{ QStringLiteral("*.obj"), QStringLiteral("*.OBJ") };
+    QFileInfoList files = dir.entryInfoList(objPatterns, QDir::Files,
                                             QDir::Time | QDir::IgnoreCase);
     if (!files.isEmpty())
         return files.first().absoluteFilePath();
@@ -1001,7 +1001,7 @@ void MainWindow::on_selectModelButton_clicked()
         this,
         tr("选择模型文件"),
         QDir::homePath(),
-        tr("STL 文件 (*.stl);;所有文件 (*.*)")
+        tr("OBJ 文件 (*.obj);;所有文件 (*.*)")
     );
 
     if (filePath.isEmpty())
@@ -1012,8 +1012,8 @@ void MainWindow::on_selectModelButton_clicked()
 
 void MainWindow::on_loadModelButton_clicked()
 {
-    QString stlPath = ui->modelPathLineEdit->text();
-    displayResultFile(stlPath);
+    const QString objPath = ui->modelPathLineEdit->text();
+    displayResultFile(objPath);
 }
 
 void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidgetItem*)
@@ -1855,7 +1855,7 @@ void MainWindow::showModelSettings(const QString& modelId)
     const QString resultPath = latestResultFile(model->directory);
     if (!resultPath.isEmpty())
     {
-        appendLogMessage(tr("加载最近的 STL：%1")
+        appendLogMessage(tr("加载最近的 OBJ：%1")
                              .arg(QDir::toNativeSeparators(resultPath)));
         displayResultFile(resultPath);
     }
@@ -1986,7 +1986,7 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
             appendLogMessage(tr("未检测到新的输出文件"));
             return;
         }
-        appendLogMessage(tr("加载 STL：%1")
+        appendLogMessage(tr("加载 OBJ：%1")
                              .arg(QDir::toNativeSeparators(resultPath)));
         displayResultFile(resultPath);
     });
@@ -4215,9 +4215,9 @@ void MainWindow::displayResultFile(const QString& filePath)
     vtkSmartPointer<vtkActor> actor;
     const QString suffix = info.suffix().toLower();
 
-    if (suffix == QStringLiteral("stl"))
+    if (suffix == QStringLiteral("obj"))
     {
-        auto reader = vtkSmartPointer<vtkSTLReader>::New();
+        auto reader = vtkSmartPointer<vtkOBJReader>::New();
         reader->SetFileName(info.absoluteFilePath().toUtf8().constData());
         reader->Update();
 
