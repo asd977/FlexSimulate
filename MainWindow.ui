@@ -13,6 +13,10 @@
   <property name="windowTitle">
    <string>柔性仿真软件</string>
   </property>
+  <property name="windowIcon">
+   <iconset resource="resources.qrc">
+    <normaloff>:/icons/icons/app_logo.svg</normaloff>:/icons/icons/app_logo.svg</iconset>
+  </property>
   <widget class="QWidget" name="centralwidget">
    <layout class="QVBoxLayout" name="mainLayout">
     <property name="spacing">
@@ -516,6 +520,8 @@
    <container>1</container>
   </customwidget>
  </customwidgets>
- <resources/>
+ <resources>
+  <include location="resources.qrc"/>
+ </resources>
  <connections/>
 </ui>

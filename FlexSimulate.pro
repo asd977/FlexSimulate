@@ -53,3 +53,5 @@ msvc {
     QMAKE_CFLAGS += /utf-8
     QMAKE_CXXFLAGS += /utf-8
 }
+
+RC_ICONS = icons\app_logo.ico
