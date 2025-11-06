@@ -21,8 +21,8 @@ namespace
 {
 QFileInfo latestResultInfo(const QDir& dir)
 {
-    const QStringList stlPatterns{ QStringLiteral("*.stl"), QStringLiteral("*.STL") };
-    QFileInfoList files = dir.entryInfoList(stlPatterns, QDir::Files,
+    const QStringList objPatterns{ QStringLiteral("*.obj"), QStringLiteral("*.OBJ") };
+    QFileInfoList files = dir.entryInfoList(objPatterns, QDir::Files,
                                             QDir::Time | QDir::IgnoreCase);
     if (!files.isEmpty())
         return files.first();
@@ -543,7 +543,7 @@ void JsonPageBuilder::finalizeCalculation(int exitCode, bool finishedSuccessfull
             if (isNewFile || isUpdated)
             {
                 newResultPath = latestResult.absoluteFilePath();
-                emit logMessage(tr("检测到新的 STL 输出：%1")
+                emit logMessage(tr("检测到新的 OBJ 输出：%1")
                                     .arg(QDir::toNativeSeparators(newResultPath)));
             }
         }
