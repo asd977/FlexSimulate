@@ -241,6 +241,10 @@ void MainWindow::setupUiHelpers()
     if (ui->visualizationSplitter)
         ui->visualizationSplitter->setStyleSheet(splitterStyle);
 
+    const int navigationWidth = std::max(ui->navigationFrame->sizeHint().width(),
+                                         ui->treeModels->minimumWidth());
+    ui->navigationFrame->setFixedWidth(navigationWidth);
+
     ui->treeModels->header()->setStretchLastSection(true);
     ui->treeModels->setHeaderHidden(true);
     ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
