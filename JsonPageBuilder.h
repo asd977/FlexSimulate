@@ -22,7 +22,7 @@ public:
 
 signals:
     void logMessage(const QString& message);
-    void calculationFinished(const QString& stlPath);
+    void calculationFinished(const QString& resultPath);
 
 private slots:
     void onCalculateButtonClicked();
