@@ -129,6 +129,8 @@ private:
     void appendLogMessage(const QString& message);
     void displayResultFile(const QString& filePath);
     void clearVtkScene();
+    void updateModelImagePreview(const ModelRecord* model);
+    void refreshModelImagePreview();
     QString projectDisplayName() const;
     QString projectDisplayName(const QString& projectPath) const;
 
@@ -231,6 +233,8 @@ private:
     QDateTime m_projectUpdatedAt;
     QStringList m_recentProjects;
     QString m_baseWindowTitle;
+    QPixmap m_currentModelThumbnail;
+    QString m_lastModelImageDir;
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
     vtkSmartPointer<vtkRenderer> m_renderer;
     vtkSmartPointer<vtkActor> m_currentActor;

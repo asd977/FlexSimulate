@@ -342,70 +342,143 @@
                   </widget>
                  </item>
                  <item>
-                  <layout class="QHBoxLayout" name="horizontalLayout">
-                   <property name="sizeConstraint">
-                    <enum>QLayout::SetDefaultConstraint</enum>
+                  <widget class="QTabWidget" name="previewTabs">
+                   <property name="currentIndex">
+                    <number>0</number>
                    </property>
-                   <item>
-                    <widget class="QLineEdit" name="modelPathLineEdit"/>
-                   </item>
-                   <item>
-                    <widget class="QPushButton" name="selectModelButton">
-                     <property name="text">
-                      <string>模型路径选择</string>
+                   <widget class="QWidget" name="modelPreviewTab">
+                    <attribute name="title">
+                     <string>模型预览</string>
+                    </attribute>
+                    <layout class="QVBoxLayout" name="modelPreviewLayout">
+                     <property name="spacing">
+                      <number>8</number>
                      </property>
-                    </widget>
-                   </item>
-                   <item>
-                    <widget class="QPushButton" name="loadModelButton">
-                     <property name="text">
-                      <string>加载</string>
+                     <property name="leftMargin">
+                      <number>0</number>
                      </property>
-                    </widget>
-                   </item>
-                  </layout>
-                 </item>
-                 <item>
-                  <widget class="QFrame" name="vtkFrame">
-                   <property name="frameShape">
-                    <enum>QFrame::NoFrame</enum>
-                   </property>
-                   <property name="frameShadow">
-                    <enum>QFrame::Plain</enum>
-                   </property>
-                   <layout class="QVBoxLayout" name="vtkFrameLayout">
-                    <property name="spacing">
-                     <number>0</number>
-                    </property>
-                    <property name="leftMargin">
-                     <number>0</number>
-                    </property>
-                    <property name="topMargin">
-                     <number>0</number>
-                    </property>
-                    <property name="rightMargin">
-                     <number>0</number>
-                    </property>
-                    <property name="bottomMargin">
-                     <number>0</number>
-                    </property>
-                    <item>
-                     <widget class="QVTKOpenGLNativeWidget" name="vtkWidget" native="true">
-                      <property name="sizePolicy">
-                       <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
-                        <horstretch>0</horstretch>
-                        <verstretch>0</verstretch>
-                       </sizepolicy>
-                      </property>
-                      <property name="minimumSize">
-                       <size>
-                        <width>400</width>
-                        <height>420</height>
-                       </size>
-                      </property>
-                     </widget>
-                    </item>
-                   </layout>
+                     <property name="topMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>0</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>0</number>
+                     </property>
+                     <item>
+                      <layout class="QHBoxLayout" name="horizontalLayout">
+                       <property name="sizeConstraint">
+                        <enum>QLayout::SetDefaultConstraint</enum>
+                       </property>
+                       <item>
+                        <widget class="QLineEdit" name="modelPathLineEdit"/>
+                       </item>
+                       <item>
+                        <widget class="QPushButton" name="selectModelButton">
+                         <property name="text">
+                          <string>模型路径选择</string>
+                         </property>
+                        </widget>
+                       </item>
+                       <item>
+                        <widget class="QPushButton" name="loadModelButton">
+                         <property name="text">
+                          <string>加载</string>
+                         </property>
+                        </widget>
+                       </item>
+                      </layout>
+                     </item>
+                     <item>
+                      <widget class="QFrame" name="vtkFrame">
+                       <property name="frameShape">
+                        <enum>QFrame::NoFrame</enum>
+                       </property>
+                       <property name="frameShadow">
+                        <enum>QFrame::Plain</enum>
+                       </property>
+                       <layout class="QVBoxLayout" name="vtkFrameLayout">
+                        <property name="spacing">
+                         <number>0</number>
+                        </property>
+                        <property name="leftMargin">
+                         <number>0</number>
+                        </property>
+                        <property name="topMargin">
+                         <number>0</number>
+                        </property>
+                        <property name="rightMargin">
+                         <number>0</number>
+                        </property>
+                        <property name="bottomMargin">
+                         <number>0</number>
+                        </property>
+                        <item>
+                         <widget class="QVTKOpenGLNativeWidget" name="vtkWidget" native="true">
+                          <property name="sizePolicy">
+                           <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
+                            <horstretch>0</horstretch>
+                            <verstretch>0</verstretch>
+                           </sizepolicy>
+                          </property>
+                          <property name="minimumSize">
+                           <size>
+                            <width>400</width>
+                            <height>420</height>
+                           </size>
+                          </property>
+                         </widget>
+                        </item>
+                       </layout>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
+                   <widget class="QWidget" name="imagePreviewTab">
+                    <attribute name="title">
+                     <string>模型图片</string>
+                    </attribute>
+                    <layout class="QVBoxLayout" name="imagePreviewLayout">
+                     <property name="spacing">
+                      <number>12</number>
+                     </property>
+                     <property name="leftMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="topMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="rightMargin">
+                      <number>12</number>
+                     </property>
+                     <property name="bottomMargin">
+                      <number>12</number>
+                     </property>
+                     <item>
+                      <widget class="QLabel" name="modelImageLabel">
+                       <property name="minimumSize">
+                        <size>
+                         <width>0</width>
+                         <height>240</height>
+                        </size>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignCenter</set>
+                       </property>
+                       <property name="wordWrap">
+                        <bool>true</bool>
+                       </property>
+                       <property name="styleSheet">
+                        <string notr="true">background:#f6f7fb;border:1px dashed #d0d6e5;border-radius:8px;color:#8a93a6;padding:12px;line-height:20px;</string>
+                       </property>
+                       <property name="text">
+                        <string>尚未选择模型图片</string>
+                       </property>
+                      </widget>
+                     </item>
+                    </layout>
+                   </widget>
                   </widget>
                  </item>
                 </layout>
