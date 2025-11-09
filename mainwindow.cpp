@@ -2085,36 +2085,24 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
                            "line-height:20px;");
     thumbLayout->addWidget(preview, 1);
 
-    auto* buttonColumn = new QVBoxLayout();
-    buttonColumn->setContentsMargins(0, 0, 0, 0);
-    buttonColumn->setSpacing(8);
-
-    auto* selectBtn = new QPushButton(tr("选择图片..."), thumbFrame);
-    selectBtn->setCursor(Qt::PointingHandCursor);
-    buttonColumn->addWidget(selectBtn);
-
-    auto* clearBtn = new QPushButton(tr("清除图片"), thumbFrame);
-    clearBtn->setCursor(Qt::PointingHandCursor);
-    clearBtn->setEnabled(false);
-    buttonColumn->addWidget(clearBtn);
-    buttonColumn->addStretch(1);
-
-    thumbLayout->addLayout(buttonColumn, 0);
+    auto* hintLabel = new QLabel(tr("模型图片可在模型列表中设置。"), thumbFrame);
+    hintLabel->setWordWrap(true);
+    hintLabel->setStyleSheet("color:#475569;");
+    hintLabel->setAlignment(Qt::AlignTop | Qt::AlignLeft);
+    thumbLayout->addWidget(hintLabel, 0);
     layout->addWidget(thumbFrame);
 
     const QString modelId = model.id;
-    auto updatePreview = [this, preview, clearBtn, modelId]() {
+    auto updatePreview = [this, preview, modelId]() {
         if (!preview)
             return;
 
         SchemeRecord* owner = nullptr;
         const ModelRecord* current = modelById(modelId, &owner);
         QPixmap pixmap;
-        QString thumbPath;
         if (current)
         {
             pixmap = loadModelThumbnail(*current);
-            thumbPath = current->thumbnailPath;
         }
 
         if (pixmap.isNull())
@@ -2141,49 +2129,11 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
                 preview->setPixmap(pixmap);
             }
         }
-
-        if (clearBtn)
-            clearBtn->setEnabled(!thumbPath.isEmpty());
     };
 
     auto* watcher = new ResizeWatcher(updatePreview, preview);
     preview->installEventFilter(watcher);
     updatePreview();
-
-    connect(selectBtn, &QPushButton::clicked, this,
-            [this, modelId, updatePreview]() {
-                SchemeRecord* owner = nullptr;
-                ModelRecord* editable = modelById(modelId, &owner);
-                if (!editable)
-                    return;
-                const QString initialDir = editable->thumbnailPath.isEmpty()
-                                               ? editable->directory
-                                               : QFileInfo(editable->thumbnailPath).absolutePath();
-                const QString file = QFileDialog::getOpenFileName(
-                    this, tr("选择模型图片"), initialDir,
-                    tr("图片文件 (*.png *.jpg *.jpeg *.bmp *.gif)"));
-                if (file.isEmpty())
-                    return;
-                applyModelThumbnail(*editable, file);
-                m_lastModelImageDir = QFileInfo(file).absolutePath();
-                persistSchemes();
-                updatePreview();
-                updateModelImagePreview(editable);
-                if (ui->previewTabs && ui->imagePreviewTab)
-                    ui->previewTabs->setCurrentWidget(ui->imagePreviewTab);
-            });
-
-    connect(clearBtn, &QPushButton::clicked, this,
-            [this, modelId, updatePreview]() {
-                SchemeRecord* owner = nullptr;
-                ModelRecord* editable = modelById(modelId, &owner);
-                if (!editable || editable->thumbnailPath.isEmpty())
-                    return;
-                applyModelThumbnail(*editable, QString());
-                persistSchemes();
-                updatePreview();
-                updateModelImagePreview(editable);
-            });
 
     auto* builder = new JsonPageBuilder(model.jsonPath, container);
     layout->addWidget(builder, 1);
