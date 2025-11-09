@@ -44,7 +44,10 @@
 #include <QScrollArea>
 #include <QSet>
 #include <QShortcut>
+#include <QSharedPointer>
 #include <QSplitter>
+#include <QEvent>
+#include <QtGlobal>
 #include <QVector>
 #include <QVector3D>
 #include <QCryptographicHash>
@@ -55,6 +58,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 #include <algorithm>
+#include <functional>
 #include <utility>
 #include <cmath>
 
@@ -74,6 +78,27 @@
 
 namespace
 {
+class ResizeWatcher : public QObject
+{
+public:
+    explicit ResizeWatcher(std::function<void()> callback, QObject* parent = nullptr)
+        : QObject(parent)
+        , m_callback(std::move(callback))
+    {
+    }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (event && event->type() == QEvent::Resize && m_callback)
+            m_callback();
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    std::function<void()> m_callback;
+};
+
 QString canonicalPathForDir(const QDir& dir)
 {
     QString canonical = dir.canonicalPath();
@@ -232,6 +257,12 @@ void MainWindow::setupUiHelpers()
 
     applyPanelCard(ui->logPanel, ui->logTitle);
 
+    if (ui->modelImageLabel)
+    {
+        auto* watcher = new ResizeWatcher([this]() { refreshModelImagePreview(); }, ui->modelImageLabel);
+        ui->modelImageLabel->installEventFilter(watcher);
+    }
+
     const QString splitterStyle = QStringLiteral(
         "QSplitter::handle{background:#cbd5f5;}"
         "QSplitter::handle:horizontal{width:8px;margin:0 4px;border-radius:4px;}"
@@ -276,6 +307,8 @@ void MainWindow::setupUiHelpers()
     m_renderer->SetBackground(colors->GetColor3d("AliceBlue").GetData());
     m_renderWindow->AddRenderer(m_renderer);
     ui->vtkWidget->setRenderWindow(m_renderWindow);
+
+    updateModelImagePreview(nullptr);
 }
 
 void MainWindow::setupConnections()
@@ -707,6 +740,7 @@ void MainWindow::enterProjectlessState()
     clearDetailWidget();
     clearVtkScene();
     setVisualizationVisible(false);
+    updateModelImagePreview(nullptr);
     updateSelectionInfo();
 
     if (ui->stackedWidget && ui->welcomePage)
@@ -1026,6 +1060,7 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         clearDetailWidget();
         clearVtkScene();
         setVisualizationVisible(false);
+        updateModelImagePreview(nullptr);
         updateSelectionInfo();
         updateToolbarState();
         return;
@@ -1040,6 +1075,7 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         clearDetailWidget();
         clearVtkScene();
         setVisualizationVisible(false);
+        updateModelImagePreview(nullptr);
         if (ui->stackedWidget)
             ui->stackedWidget->setCurrentWidget(ui->planPage);
         updateGallery();
@@ -1053,6 +1089,7 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         ui->stackedWidget->setCurrentWidget(ui->MainPage);
         clearVtkScene();
         setVisualizationVisible(false);
+        updateModelImagePreview(nullptr);
 
         SchemeRecord* scheme = schemeById(schemeId);
         if (scheme && !scheme->libraryId.isEmpty() &&
@@ -1404,6 +1441,35 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
                     SchemeRecord* owner = nullptr;
                     if (ModelRecord* model = modelById(modelId, &owner))
                         QDesktopServices::openUrl(QUrl::fromLocalFile(model->directory));
+                });
+                menu.addAction(tr("设置模型图片"), this, [this, modelId]() {
+                    SchemeRecord* owner = nullptr;
+                    if (ModelRecord* model = modelById(modelId, &owner))
+                    {
+                        const QString initialDir = model->thumbnailPath.isEmpty()
+                                                       ? model->directory
+                                                       : QFileInfo(model->thumbnailPath).absolutePath();
+                        const QString file = QFileDialog::getOpenFileName(
+                            this, tr("选择模型图片"), initialDir,
+                            tr("图片文件 (*.png *.jpg *.jpeg *.bmp *.gif)"));
+                        if (file.isEmpty())
+                            return;
+                        applyModelThumbnail(*model, file);
+                        m_lastModelImageDir = QFileInfo(file).absolutePath();
+                        persistSchemes();
+                        refreshCurrentDetail();
+                    }
+                });
+                menu.addAction(tr("清除模型图片"), this, [this, modelId]() {
+                    SchemeRecord* owner = nullptr;
+                    if (ModelRecord* model = modelById(modelId, &owner))
+                    {
+                        if (model->thumbnailPath.isEmpty())
+                            return;
+                        applyModelThumbnail(*model, QString());
+                        persistSchemes();
+                        refreshCurrentDetail();
+                    }
                 });
                 menu.addAction(tr("重命名"), this, [this, item]() {
                     if (ui->treeModels)
@@ -1801,6 +1867,7 @@ void MainWindow::showProjectInfo()
         clearDetailWidget();
         clearVtkScene();
         setVisualizationVisible(false);
+        updateModelImagePreview(nullptr);
         updateSelectionInfo();
         return;
     }
@@ -1810,6 +1877,7 @@ void MainWindow::showProjectInfo()
     if (auto* layout = ui->settingWidget->layout())
         layout->addWidget(m_currentDetailWidget);
     setVisualizationVisible(false);
+    updateModelImagePreview(nullptr);
     clearVtkScene();
     updateSelectionInfo(m_projectRoot, m_projectRemarks);
 }
@@ -1820,6 +1888,7 @@ void MainWindow::showSchemeSettings(const QString& schemeId)
     if (!scheme)
     {
         clearDetailWidget();
+        updateModelImagePreview(nullptr);
         return;
     }
 
@@ -1833,6 +1902,7 @@ void MainWindow::showSchemeSettings(const QString& schemeId)
     m_currentDetailWidget = buildSchemeSettingsWidget(*scheme);
     ui->settingWidget->layout()->addWidget(m_currentDetailWidget);
     setVisualizationVisible(false);
+    updateModelImagePreview(nullptr);
     updateSelectionInfo(scheme->workingDirectory, scheme->remarks);
 }
 
@@ -1844,6 +1914,7 @@ void MainWindow::showModelSettings(const QString& modelId)
     {
         clearDetailWidget();
         clearVtkScene();
+        updateModelImagePreview(nullptr);
         return;
     }
 
@@ -1851,6 +1922,7 @@ void MainWindow::showModelSettings(const QString& modelId)
     m_currentDetailWidget = buildModelSettingsWidget(*model);
     ui->settingWidget->layout()->addWidget(m_currentDetailWidget);
     setVisualizationVisible(true);
+    updateModelImagePreview(model);
     updateSelectionInfo(model->directory, model->remarks);
 
     const QString resultPath = latestResultFile(model->directory);
@@ -1883,7 +1955,8 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
         "QFrame#modelListFrame{background:#ffffff;border:1px solid #d0d5dd;border-radius:10px;}"
         "QListWidget#modelList{border:none;background:transparent;}"
         "QListWidget#modelList::item{padding:10px;border-radius:8px;}"
-        "QListWidget#modelList::item:hover{background:rgba(23,135,255,0.08);}");
+        "QListWidget#modelList::item:hover{background:rgba(23,135,255,0.08);}"
+        "QListWidget#modelList::item:selected{background:rgba(23,135,255,0.12);}");
     auto* listLayout = new QVBoxLayout(listFrame);
     listLayout->setContentsMargins(12, 12, 12, 12);
     listLayout->setSpacing(8);
@@ -1901,7 +1974,7 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
 
     auto* list = new QListWidget(listFrame);
     list->setObjectName("modelList");
-    list->setSelectionMode(QAbstractItemView::NoSelection);
+    list->setSelectionMode(QAbstractItemView::SingleSelection);
     list->setSpacing(6);
     list->setIconSize(QSize(20, 20));
     list->setFrameShape(QFrame::NoFrame);
@@ -1928,9 +2001,28 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
                 tr("%1\n%2").arg(model.name,
                                QDir::toNativeSeparators(model.directory)));
             item->setToolTip(QDir::toNativeSeparators(model.jsonPath));
+            item->setData(Qt::UserRole, model.id);
             list->addItem(item);
         }
     }
+
+    connect(list, &QListWidget::itemClicked, this,
+            [this](QListWidgetItem* item) {
+                if (!item)
+                    return;
+                const QString modelId = item->data(Qt::UserRole).toString();
+                if (modelId.isEmpty())
+                    return;
+                SchemeRecord* owner = nullptr;
+                const ModelRecord* selected = modelById(modelId, &owner);
+                if (!selected)
+                    return;
+                clearVtkScene();
+                setVisualizationVisible(true);
+                updateModelImagePreview(selected);
+                if (ui->previewTabs && ui->imagePreviewTab)
+                    ui->previewTabs->setCurrentWidget(ui->imagePreviewTab);
+            });
 
     layout->addWidget(listFrame, 1);
 
@@ -1973,7 +2065,7 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
     auto* container = new QWidget(ui->settingWidget);
     auto* layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(8);
+    layout->setSpacing(12);
 
     auto* builder = new JsonPageBuilder(model.jsonPath, container);
     layout->addWidget(builder, 1);
@@ -2142,6 +2234,7 @@ QWidget* MainWindow::buildProjectInfoWidget()
 void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                                          const QString& projectSchemeId)
 {
+    updateModelImagePreview(nullptr);
     SchemeLibraryEntry* entry = libraryEntryById(entryId);
     if (!entry)
     {
@@ -2317,10 +2410,10 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     listWidget->setObjectName("libraryModelList");
     listWidget->setSelectionMode(QAbstractItemView::ExtendedSelection);
     listWidget->setSpacing(6);
-    listWidget->setIconSize(QSize(20, 20));
+    listWidget->setIconSize(QSize(48, 48));
     listWidget->setFrameShape(QFrame::NoFrame);
+    listWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     listLayout->addWidget(listWidget);
-
 
     auto* emptyLabel = new QLabel(
         tr("暂无模型，请点击下方“添加模型”按钮导入。"), listFrame);
@@ -2386,27 +2479,79 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
         }
     };
 
+    auto libraryModels = QSharedPointer<QVector<ModelRecord>>::create();
+
     auto refreshModels = [this, entry, listWidget, emptyLabel, countLabel,
-                          applySelectionState]() {
+                          applySelectionState, libraryModels]() {
+        QSet<QString> previouslySelected;
+        const QList<QListWidgetItem*> currentSelection = listWidget->selectedItems();
+        for (QListWidgetItem* item : currentSelection)
+        {
+            if (!item)
+                continue;
+            previouslySelected.insert(item->data(Qt::UserRole).toString());
+        }
+
         listWidget->clear();
-        const QVector<ModelRecord> models = scanSchemeFolder(entry->directory);
-        countLabel->setText(tr("%1 个模型").arg(models.size()));
-        const bool empty = models.isEmpty();
+        libraryModels->clear();
+        *libraryModels = scanSchemeFolder(entry->directory);
+        countLabel->setText(tr("%1 个模型").arg(libraryModels->size()));
+        const bool empty = libraryModels->isEmpty();
         listWidget->setVisible(!empty);
         emptyLabel->setVisible(empty);
-        for (const ModelRecord& model : models)
+
+        for (int i = 0; i < libraryModels->size(); ++i)
         {
+            const ModelRecord& model = libraryModels->at(i);
+            QIcon icon(QStringLiteral(":/icons/icons/model.svg"));
+            const QPixmap thumb = loadModelThumbnail(model);
+            if (!thumb.isNull())
+            {
+                QPixmap scaled = thumb.scaled(listWidget->iconSize(), Qt::KeepAspectRatio,
+                                              Qt::SmoothTransformation);
+                icon = QIcon(scaled);
+            }
             auto* item = new QListWidgetItem(
-                QIcon(QStringLiteral(":/icons/icons/model.svg")),
+                icon,
                 tr("%1\n%2")
                     .arg(model.name,
                          QDir::toNativeSeparators(model.directory)));
             item->setToolTip(QDir::toNativeSeparators(model.jsonPath));
             item->setData(Qt::UserRole, model.directory);
             item->setData(Qt::UserRole + 1, model.name);
+            item->setData(Qt::UserRole + 2, model.thumbnailPath);
+            item->setData(Qt::UserRole + 3, i);
             listWidget->addItem(item);
+
+            if (previouslySelected.contains(model.directory))
+                item->setSelected(true);
         }
+
         applySelectionState();
+
+        if (listWidget->selectedItems().isEmpty())
+        {
+            updateModelImagePreview(nullptr);
+            clearVtkScene();
+        }
+        else
+        {
+            QListWidgetItem* first = listWidget->selectedItems().first();
+            const int index = first->data(Qt::UserRole + 3).toInt();
+            if (index >= 0 && index < libraryModels->size())
+            {
+                m_libraryPreviewModel = libraryModels->at(index);
+                updateModelImagePreview(&m_libraryPreviewModel);
+                clearVtkScene();
+                if (ui->previewTabs && ui->imagePreviewTab)
+                    ui->previewTabs->setCurrentWidget(ui->imagePreviewTab);
+            }
+            else
+            {
+                updateModelImagePreview(nullptr);
+                clearVtkScene();
+            }
+        }
     };
 
     refreshModels();
@@ -2415,7 +2560,114 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
         titleLabel->setText(entryDisplayName());
     };
 
-    connect(listWidget, &QListWidget::itemSelectionChanged, this, applySelectionState);
+    connect(listWidget, &QListWidget::itemSelectionChanged, this,
+            [this, listWidget, applySelectionState, libraryModels]() {
+                applySelectionState();
+                const QList<QListWidgetItem*> selected = listWidget->selectedItems();
+                if (selected.isEmpty())
+                {
+                    updateModelImagePreview(nullptr);
+                    clearVtkScene();
+                    return;
+                }
+
+                const int index = selected.first()->data(Qt::UserRole + 3).toInt();
+                if (index < 0 || index >= libraryModels->size())
+                {
+                    updateModelImagePreview(nullptr);
+                    clearVtkScene();
+                    return;
+                }
+
+                m_libraryPreviewModel = libraryModels->at(index);
+                updateModelImagePreview(&m_libraryPreviewModel);
+                clearVtkScene();
+                if (ui->previewTabs && ui->imagePreviewTab)
+                    ui->previewTabs->setCurrentWidget(ui->imagePreviewTab);
+            });
+
+    connect(listWidget, &QListWidget::customContextMenuRequested, this,
+            [this, listWidget, libraryModels](const QPoint& pos) {
+                QListWidgetItem* item = listWidget->itemAt(pos);
+                if (!item)
+                    return;
+
+                const int index = item->data(Qt::UserRole + 3).toInt();
+                if (index < 0 || index >= libraryModels->size())
+                    return;
+
+                QMenu menu(listWidget);
+                QAction* setImageAction = menu.addAction(tr("设置模型图片"));
+                QAction* clearImageAction = menu.addAction(tr("清除模型图片"));
+
+                ModelRecord& model = (*libraryModels)[index];
+                clearImageAction->setEnabled(!model.thumbnailPath.isEmpty());
+
+                QAction* chosen = menu.exec(listWidget->viewport()->mapToGlobal(pos));
+                if (!chosen)
+                    return;
+
+                if (chosen == setImageAction)
+                {
+                    QString initialDir = m_lastModelImageDir;
+                    if (initialDir.isEmpty())
+                    {
+                        if (!model.thumbnailPath.isEmpty())
+                            initialDir = QFileInfo(model.thumbnailPath).absolutePath();
+                        else
+                            initialDir = model.directory;
+                    }
+
+                    const QString caption = tr("选择模型图片 - %1")
+                                                .arg(model.name.isEmpty()
+                                                         ? tr("Untitled Model")
+                                                         : model.name);
+                    const QString file = QFileDialog::getOpenFileName(
+                        this, caption, initialDir,
+                        tr("图片文件 (*.png *.jpg *.jpeg *.bmp *.gif)"));
+                    if (file.isEmpty())
+                        return;
+
+                    applyModelThumbnail(model, file);
+                    m_lastModelImageDir = QFileInfo(file).absolutePath();
+
+                    QPixmap thumb = loadModelThumbnail(model);
+                    QIcon icon(QStringLiteral(":/icons/icons/model.svg"));
+                    if (!thumb.isNull())
+                    {
+                        QPixmap scaled = thumb.scaled(listWidget->iconSize(), Qt::KeepAspectRatio,
+                                                      Qt::SmoothTransformation);
+                        icon = QIcon(scaled);
+                    }
+                    item->setIcon(icon);
+                    item->setData(Qt::UserRole + 2, model.thumbnailPath);
+
+                    if (item->isSelected())
+                    {
+                        m_libraryPreviewModel = model;
+                        updateModelImagePreview(&m_libraryPreviewModel);
+                        clearVtkScene();
+                        if (ui->previewTabs && ui->imagePreviewTab)
+                            ui->previewTabs->setCurrentWidget(ui->imagePreviewTab);
+                    }
+                }
+                else if (chosen == clearImageAction)
+                {
+                    if (model.thumbnailPath.isEmpty())
+                        return;
+
+                    applyModelThumbnail(model, QString());
+                    item->setIcon(QIcon(QStringLiteral(":/icons/icons/model.svg")));
+                    item->setData(Qt::UserRole + 2, model.thumbnailPath);
+
+                    if (item->isSelected())
+                    {
+                        m_libraryPreviewModel = model;
+                        updateModelImagePreview(&m_libraryPreviewModel);
+                        clearVtkScene();
+                    }
+                }
+            });
 
     connect(renameBtn, &QPushButton::clicked, this,
             [this, entry, entryDisplayName, refreshEntryUi, refreshModels]() {
@@ -2844,8 +3096,10 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
 
     m_currentDetailWidget = container;
     ui->settingWidget->layout()->addWidget(container);
-    setVisualizationVisible(false);
+    setVisualizationVisible(true);
     clearVtkScene();
+    if (ui->previewTabs && ui->imagePreviewTab)
+        ui->previewTabs->setCurrentWidget(ui->imagePreviewTab);
     updateSelectionInfo(entry->directory,
                         linkedScheme ? linkedScheme->remarks : QString());
 }
@@ -3178,6 +3432,10 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             model.jsonPath = destDir.filePath(jsonName);
             const QString batName = QFileInfo(batPath).fileName();
             model.batPath = batName.isEmpty() ? QString() : destDir.filePath(batName);
+            const QStringList covers = destDir.entryList(QStringList() << QStringLiteral("model_cover.*"),
+                                                         QDir::Files | QDir::NoDotAndDotDot);
+            if (!covers.isEmpty())
+                model.thumbnailPath = QDir::cleanPath(destDir.filePath(covers.first()));
             if (model.directory.isEmpty() || existingPaths.contains(model.directory))
             {
                 QDir(destPath).removeRecursively();
@@ -3236,6 +3494,10 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             model.jsonPath = destDir.filePath(jsonName);
             const QString batName = QFileInfo(model.batPath).fileName();
             model.batPath = batName.isEmpty() ? QString() : destDir.filePath(batName);
+            const QStringList covers = destDir.entryList(QStringList() << QStringLiteral("model_cover.*"),
+                                                         QDir::Files | QDir::NoDotAndDotDot);
+            if (!covers.isEmpty())
+                model.thumbnailPath = QDir::cleanPath(destDir.filePath(covers.first()));
             model.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
             model.name = makeUniqueModelName(*scheme, model.name);
 
@@ -3447,6 +3709,10 @@ QVector<MainWindow::ModelRecord> MainWindow::scanSchemeFolder(const QString& sch
         model.jsonPath = jsonPath;
         model.batPath = batPath;
         model.fingerprint = computeModelFingerprint(model.jsonPath);
+        const QStringList covers = child.entryList(QStringList() << QStringLiteral("model_cover.*"),
+                                                   QDir::Files | QDir::NoDotAndDotDot);
+        if (!covers.isEmpty())
+            model.thumbnailPath = QDir::cleanPath(child.filePath(covers.first()));
         models.push_back(model);
     }
 
@@ -3621,6 +3887,61 @@ QPixmap MainWindow::loadLibraryThumbnail(const SchemeLibraryEntry& entry) const
     return QPixmap::fromImage(image);
 }
 
+QPixmap MainWindow::loadModelThumbnail(const ModelRecord& model) const
+{
+    if (model.thumbnailPath.isEmpty())
+        return QPixmap();
+
+    QImageReader reader(model.thumbnailPath);
+    reader.setAutoTransform(true);
+    const QImage image = reader.read();
+    if (image.isNull())
+        return QPixmap();
+    return QPixmap::fromImage(image);
+}
+
+QString MainWindow::storeModelThumbnail(const QString& modelDir,
+                                        const QString& sourcePath) const
+{
+    if (modelDir.isEmpty() || sourcePath.trimmed().isEmpty())
+        return QString();
+
+    QFileInfo srcInfo(sourcePath);
+    if (!srcInfo.exists() || !srcInfo.isFile())
+        return QString();
+
+    if (!ensureDirectoryExists(modelDir))
+        return QString();
+
+    QDir dir(modelDir);
+    const QString suffix = srcInfo.suffix().isEmpty()
+                               ? QStringLiteral("png")
+                               : srcInfo.suffix().toLower();
+    const QString targetName = QStringLiteral("model_cover.%1").arg(suffix);
+    const QString targetPath = dir.filePath(targetName);
+
+    if (!QFileInfo(sourcePath).absoluteFilePath().compare(targetPath, Qt::CaseInsensitive))
+        return QDir::cleanPath(targetPath);
+
+    if (QFile::exists(targetPath))
+        QFile::remove(targetPath);
+
+    if (!QFile::copy(srcInfo.absoluteFilePath(), targetPath))
+        return QString();
+
+    const QStringList duplicates = dir.entryList(QStringList() << QStringLiteral("model_cover.*"),
+                                                 QDir::Files | QDir::NoDotAndDotDot);
+    for (const QString& dup : duplicates)
+    {
+        const QString absoluteDup = dir.filePath(dup);
+        if (absoluteDup.compare(targetPath, Qt::CaseInsensitive) == 0)
+            continue;
+        QFile::remove(absoluteDup);
+    }
+
+    return QDir::cleanPath(QFileInfo(targetPath).absoluteFilePath());
+}
+
 void MainWindow::applyLibraryThumbnail(SchemeLibraryEntry& entry,
                                        const QString& sourcePath)
 {
@@ -3689,6 +4010,28 @@ void MainWindow::applySchemeThumbnail(SchemeRecord& scheme, const QString& sourc
         QFile::remove(scheme.thumbnailPath);
 
     scheme.thumbnailPath = stored;
+}
+
+void MainWindow::applyModelThumbnail(ModelRecord& model, const QString& sourcePath)
+{
+    const QString trimmed = sourcePath.trimmed();
+    if (trimmed.isEmpty())
+    {
+        if (isPathWithinDirectory(model.thumbnailPath, model.directory))
+            QFile::remove(model.thumbnailPath);
+        model.thumbnailPath.clear();
+        return;
+    }
+
+    QString stored = storeModelThumbnail(model.directory, trimmed);
+    if (stored.isEmpty())
+        stored = QDir::cleanPath(QFileInfo(trimmed).absoluteFilePath());
+
+    if (!model.thumbnailPath.isEmpty() && model.thumbnailPath != stored &&
+        isPathWithinDirectory(model.thumbnailPath, model.directory))
+        QFile::remove(model.thumbnailPath);
+
+    model.thumbnailPath = stored;
 }
 
 void MainWindow::promptAddScheme()
@@ -3766,6 +4109,45 @@ void MainWindow::promptAddModel(const QString& schemeId)
     {
         ui->stackedWidget->setCurrentWidget(ui->MainPage);
         selectTreeItem(schemeId, added.first());
+
+        bool thumbnailUpdated = false;
+        QString lastDir = m_lastModelImageDir;
+        for (const QString& modelId : added)
+        {
+            SchemeRecord* owner = nullptr;
+            ModelRecord* model = modelById(modelId, &owner);
+            if (!model)
+                continue;
+
+            QString initialDir = lastDir;
+            if (initialDir.isEmpty())
+            {
+                if (!model->thumbnailPath.isEmpty())
+                    initialDir = QFileInfo(model->thumbnailPath).absolutePath();
+                else
+                    initialDir = model->directory;
+            }
+
+            const QString caption = tr("选择模型图片 - %1").arg(
+                model->name.isEmpty() ? tr("Untitled Model") : model->name);
+            const QString file = QFileDialog::getOpenFileName(
+                this, caption, initialDir,
+                tr("图片文件 (*.png *.jpg *.jpeg *.bmp *.gif)"));
+            if (file.isEmpty())
+                continue;
+
+            applyModelThumbnail(*model, file);
+            lastDir = QFileInfo(file).absolutePath();
+            thumbnailUpdated = true;
+        }
+
+        if (thumbnailUpdated)
+        {
+            persistSchemes();
+            m_lastModelImageDir = lastDir;
+            refreshNavigation(schemeId, added.first());
+            refreshCurrentDetail();
+        }
     }
 }
 
@@ -3849,6 +4231,7 @@ void MainWindow::removeSchemeById(const QString& id)
                 m_activeSchemeId.clear();
                 m_activeModelId.clear();
             }
+            updateModelImagePreview(nullptr);
             persistSchemes();
 
             const QString workingDir = scheme.workingDirectory;
@@ -3891,6 +4274,7 @@ void MainWindow::removeModelById(const QString& id)
                     m_activeModelId.clear();
                 persistSchemes();
                 refreshNavigation(scheme.id);
+                updateModelImagePreview(nullptr);
                 const QString modelDir = model.directory;
                 if (!modelDir.isEmpty())
                 {
@@ -4200,6 +4584,71 @@ void MainWindow::appendLogMessage(const QString& message)
         bar->setValue(bar->maximum());
 }
 
+void MainWindow::updateModelImagePreview(const ModelRecord* model)
+{
+    if (!ui->modelImageLabel)
+        return;
+
+    QPixmap pixmap;
+    QString message = tr("尚未选择模型图片");
+
+    if (!model)
+    {
+        message = tr("请选择模型以查看图片");
+    }
+    else
+    {
+        pixmap = loadModelThumbnail(*model);
+        if (!pixmap.isNull())
+            message.clear();
+        else
+            message = tr("此模型尚未设置图片");
+    }
+
+    m_currentModelThumbnail = pixmap;
+
+    if (pixmap.isNull())
+    {
+        ui->modelImageLabel->setPixmap(QPixmap());
+        ui->modelImageLabel->setText(message);
+        ui->modelImageLabel->setToolTip(QString());
+    }
+    else
+    {
+        ui->modelImageLabel->setText(QString());
+        ui->modelImageLabel->setToolTip(model && !model->thumbnailPath.isEmpty()
+                                            ? QDir::toNativeSeparators(model->thumbnailPath)
+                                            : QString());
+        refreshModelImagePreview();
+        if (ui->previewTabs && ui->imagePreviewTab)
+            ui->previewTabs->setCurrentWidget(ui->imagePreviewTab);
+    }
+}
+
+void MainWindow::refreshModelImagePreview()
+{
+    if (!ui->modelImageLabel)
+        return;
+
+    if (m_currentModelThumbnail.isNull())
+        return;
+
+    const QSize labelSize = ui->modelImageLabel->size();
+    if (labelSize.width() <= 0 || labelSize.height() <= 0)
+    {
+        ui->modelImageLabel->setPixmap(m_currentModelThumbnail);
+        return;
+    }
+
+    const qreal ratio = ui->modelImageLabel->devicePixelRatioF();
+    QSize targetSize(qMax(1, int(labelSize.width() * ratio)),
+                     qMax(1, int(labelSize.height() * ratio)));
+    QPixmap scaled = m_currentModelThumbnail.scaled(targetSize, Qt::KeepAspectRatio,
+                                                   Qt::SmoothTransformation);
+    scaled.setDevicePixelRatio(ratio);
+    ui->modelImageLabel->setPixmap(scaled);
+}
+
 void MainWindow::displayResultFile(const QString& filePath)
 {
     if (filePath.isEmpty())
@@ -4434,6 +4883,9 @@ bool MainWindow::readProjectStorage(const QString& projectRoot,
             model.jsonPath = QDir::cleanPath(mo.value(QStringLiteral("jsonPath")).toString());
             model.batPath = QDir::cleanPath(mo.value(QStringLiteral("batPath")).toString());
             model.remarks = mo.value(QStringLiteral("remarks")).toString();
+            const QString storedModelThumb = mo.value(QStringLiteral("thumbnailPath")).toString().trimmed();
+            if (!storedModelThumb.isEmpty())
+                model.thumbnailPath = QDir::cleanPath(QFileInfo(storedModelThumb).absoluteFilePath());
             model.fingerprint = mo.value(QStringLiteral("fingerprint")).toString();
             if (model.fingerprint.isEmpty())
                 model.fingerprint = computeModelFingerprint(model.jsonPath);
@@ -4500,6 +4952,7 @@ void MainWindow::saveSchemesToStorage() const
                                      : model.fingerprint;
             mo.insert(QStringLiteral("fingerprint"), fingerprint);
             mo.insert(QStringLiteral("remarks"), model.remarks);
+            mo.insert(QStringLiteral("thumbnailPath"), model.thumbnailPath);
             modelArray.append(mo);
         }
         obj.insert(QStringLiteral("models"), modelArray);

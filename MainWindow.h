@@ -62,6 +62,7 @@ private:
         QString batPath;
         QString remarks;
         QString fingerprint;
+        QString thumbnailPath;
     };
 
     struct SchemeLibraryEntry {
@@ -128,6 +129,8 @@ private:
     void appendLogMessage(const QString& message);
     void displayResultFile(const QString& filePath);
     void clearVtkScene();
+    void updateModelImagePreview(const ModelRecord* model);
+    void refreshModelImagePreview();
     QString projectDisplayName() const;
     QString projectDisplayName(const QString& projectPath) const;
 
@@ -157,6 +160,9 @@ private:
     QPixmap loadSchemeThumbnail(const SchemeRecord& scheme) const;
     void applySchemeThumbnail(SchemeRecord& scheme, const QString& sourcePath);
     QString storeSchemeThumbnail(const QString& schemeDir, const QString& sourcePath) const;
+    QPixmap loadModelThumbnail(const ModelRecord& model) const;
+    void applyModelThumbnail(ModelRecord& model, const QString& sourcePath);
+    QString storeModelThumbnail(const QString& modelDir, const QString& sourcePath) const;
     bool isPathWithinDirectory(const QString& filePath, const QString& directory) const;
     bool hasActiveProject() const;
     void updateRecentProjects(const QString& canonicalPath);
@@ -227,6 +233,9 @@ private:
     QDateTime m_projectUpdatedAt;
     QStringList m_recentProjects;
     QString m_baseWindowTitle;
+    QPixmap m_currentModelThumbnail;
+    ModelRecord m_libraryPreviewModel;
+    QString m_lastModelImageDir;
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
     vtkSmartPointer<vtkRenderer> m_renderer;
     vtkSmartPointer<vtkActor> m_currentActor;
