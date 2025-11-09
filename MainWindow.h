@@ -234,6 +234,7 @@ private:
     QStringList m_recentProjects;
     QString m_baseWindowTitle;
     QPixmap m_currentModelThumbnail;
+    ModelRecord m_libraryPreviewModel;
     QString m_lastModelImageDir;
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
     vtkSmartPointer<vtkRenderer> m_renderer;

@@ -44,6 +44,7 @@
 #include <QScrollArea>
 #include <QSet>
 #include <QShortcut>
+#include <QSharedPointer>
 #include <QSplitter>
 #include <QEvent>
 #include <QtGlobal>
@@ -2529,8 +2530,8 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     listWidget->setSpacing(6);
     listWidget->setIconSize(QSize(48, 48));
     listWidget->setFrameShape(QFrame::NoFrame);
+    listWidget->setContextMenuPolicy(Qt::CustomContextMenu);
     listLayout->addWidget(listWidget);
-
 
     auto* emptyLabel = new QLabel(
         tr("暂无模型，请点击下方“添加模型”按钮导入。"), listFrame);
@@ -2596,16 +2597,30 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
         }
     };
 
+    auto libraryModels = QSharedPointer<QVector<ModelRecord>>::create();
+
     auto refreshModels = [this, entry, listWidget, emptyLabel, countLabel,
-                          applySelectionState]() {
+                          applySelectionState, libraryModels]() {
+        QSet<QString> previouslySelected;
+        const QList<QListWidgetItem*> currentSelection = listWidget->selectedItems();
+        for (QListWidgetItem* item : currentSelection)
+        {
+            if (!item)
+                continue;
+            previouslySelected.insert(item->data(Qt::UserRole).toString());
+        }
+
         listWidget->clear();
-        const QVector<ModelRecord> models = scanSchemeFolder(entry->directory);
-        countLabel->setText(tr("%1 个模型").arg(models.size()));
-        const bool empty = models.isEmpty();
+        libraryModels->clear();
+        *libraryModels = scanSchemeFolder(entry->directory);
+        countLabel->setText(tr("%1 个模型").arg(libraryModels->size()));
+        const bool empty = libraryModels->isEmpty();
         listWidget->setVisible(!empty);
         emptyLabel->setVisible(empty);
-        for (const ModelRecord& model : models)
+
+        for (int i = 0; i < libraryModels->size(); ++i)
         {
+            const ModelRecord& model = libraryModels->at(i);
             QIcon icon(QStringLiteral(":/icons/icons/model.svg"));
             const QPixmap thumb = loadModelThumbnail(model);
             if (!thumb.isNull())
@@ -2622,9 +2637,39 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
             item->setToolTip(QDir::toNativeSeparators(model.jsonPath));
             item->setData(Qt::UserRole, model.directory);
             item->setData(Qt::UserRole + 1, model.name);
+            item->setData(Qt::UserRole + 2, model.thumbnailPath);
+            item->setData(Qt::UserRole + 3, i);
             listWidget->addItem(item);
+
+            if (previouslySelected.contains(model.directory))
+                item->setSelected(true);
         }
+
         applySelectionState();
+
+        if (listWidget->selectedItems().isEmpty())
+        {
+            updateModelImagePreview(nullptr);
+            clearVtkScene();
+        }
+        else
+        {
+            QListWidgetItem* first = listWidget->selectedItems().first();
+            const int index = first->data(Qt::UserRole + 3).toInt();
+            if (index >= 0 && index < libraryModels->size())
+            {
+                m_libraryPreviewModel = libraryModels->at(index);
+                updateModelImagePreview(&m_libraryPreviewModel);
+                clearVtkScene();
+                if (ui->previewTabs && ui->imagePreviewTab)
+                    ui->previewTabs->setCurrentWidget(ui->imagePreviewTab);
+            }
+            else
+            {
+                updateModelImagePreview(nullptr);
+                clearVtkScene();
+            }
+        }
     };
 
     refreshModels();
@@ -2633,7 +2678,114 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
         titleLabel->setText(entryDisplayName());
     };
 
-    connect(listWidget, &QListWidget::itemSelectionChanged, this, applySelectionState);
+    connect(listWidget, &QListWidget::itemSelectionChanged, this,
+            [this, listWidget, applySelectionState, libraryModels]() {
+                applySelectionState();
+                const QList<QListWidgetItem*> selected = listWidget->selectedItems();
+                if (selected.isEmpty())
+                {
+                    updateModelImagePreview(nullptr);
+                    clearVtkScene();
+                    return;
+                }
+
+                const int index = selected.first()->data(Qt::UserRole + 3).toInt();
+                if (index < 0 || index >= libraryModels->size())
+                {
+                    updateModelImagePreview(nullptr);
+                    clearVtkScene();
+                    return;
+                }
+
+                m_libraryPreviewModel = libraryModels->at(index);
+                updateModelImagePreview(&m_libraryPreviewModel);
+                clearVtkScene();
+                if (ui->previewTabs && ui->imagePreviewTab)
+                    ui->previewTabs->setCurrentWidget(ui->imagePreviewTab);
+            });
+
+    connect(listWidget, &QListWidget::customContextMenuRequested, this,
+            [this, listWidget, libraryModels](const QPoint& pos) {
+                QListWidgetItem* item = listWidget->itemAt(pos);
+                if (!item)
+                    return;
+
+                const int index = item->data(Qt::UserRole + 3).toInt();
+                if (index < 0 || index >= libraryModels->size())
+                    return;
+
+                QMenu menu(listWidget);
+                QAction* setImageAction = menu.addAction(tr("设置模型图片"));
+                QAction* clearImageAction = menu.addAction(tr("清除模型图片"));
+
+                ModelRecord& model = (*libraryModels)[index];
+                clearImageAction->setEnabled(!model.thumbnailPath.isEmpty());
+
+                QAction* chosen = menu.exec(listWidget->viewport()->mapToGlobal(pos));
+                if (!chosen)
+                    return;
+
+                if (chosen == setImageAction)
+                {
+                    QString initialDir = m_lastModelImageDir;
+                    if (initialDir.isEmpty())
+                    {
+                        if (!model.thumbnailPath.isEmpty())
+                            initialDir = QFileInfo(model.thumbnailPath).absolutePath();
+                        else
+                            initialDir = model.directory;
+                    }
+
+                    const QString caption = tr("选择模型图片 - %1")
+                                                .arg(model.name.isEmpty()
+                                                         ? tr("Untitled Model")
+                                                         : model.name);
+                    const QString file = QFileDialog::getOpenFileName(
+                        this, caption, initialDir,
+                        tr("图片文件 (*.png *.jpg *.jpeg *.bmp *.gif)"));
+                    if (file.isEmpty())
+                        return;
+
+                    applyModelThumbnail(model, file);
+                    m_lastModelImageDir = QFileInfo(file).absolutePath();
+
+                    QPixmap thumb = loadModelThumbnail(model);
+                    QIcon icon(QStringLiteral(":/icons/icons/model.svg"));
+                    if (!thumb.isNull())
+                    {
+                        QPixmap scaled = thumb.scaled(listWidget->iconSize(), Qt::KeepAspectRatio,
+                                                      Qt::SmoothTransformation);
+                        icon = QIcon(scaled);
+                    }
+                    item->setIcon(icon);
+                    item->setData(Qt::UserRole + 2, model.thumbnailPath);
+
+                    if (item->isSelected())
+                    {
+                        m_libraryPreviewModel = model;
+                        updateModelImagePreview(&m_libraryPreviewModel);
+                        clearVtkScene();
+                        if (ui->previewTabs && ui->imagePreviewTab)
+                            ui->previewTabs->setCurrentWidget(ui->imagePreviewTab);
+                    }
+                }
+                else if (chosen == clearImageAction)
+                {
+                    if (model.thumbnailPath.isEmpty())
+                        return;
+
+                    applyModelThumbnail(model, QString());
+                    item->setIcon(QIcon(QStringLiteral(":/icons/icons/model.svg")));
+                    item->setData(Qt::UserRole + 2, model.thumbnailPath);
+
+                    if (item->isSelected())
+                    {
+                        m_libraryPreviewModel = model;
+                        updateModelImagePreview(&m_libraryPreviewModel);
+                        clearVtkScene();
+                    }
+                }
+            });
 
     connect(renameBtn, &QPushButton::clicked, this,
             [this, entry, entryDisplayName, refreshEntryUi, refreshModels]() {
@@ -3062,8 +3214,10 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
 
     m_currentDetailWidget = container;
     ui->settingWidget->layout()->addWidget(container);
-    setVisualizationVisible(false);
+    setVisualizationVisible(true);
     clearVtkScene();
+    if (ui->previewTabs && ui->imagePreviewTab)
+        ui->previewTabs->setCurrentWidget(ui->imagePreviewTab);
     updateSelectionInfo(entry->directory,
                         linkedScheme ? linkedScheme->remarks : QString());
 }
