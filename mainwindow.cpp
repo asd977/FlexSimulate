@@ -45,6 +45,8 @@
 #include <QSet>
 #include <QShortcut>
 #include <QSplitter>
+#include <QEvent>
+#include <QtGlobal>
 #include <QVector>
 #include <QVector3D>
 #include <QCryptographicHash>
@@ -55,6 +57,7 @@
 #include <QVBoxLayout>
 #include <QWidget>
 #include <algorithm>
+#include <functional>
 #include <utility>
 #include <cmath>
 
@@ -74,6 +77,27 @@
 
 namespace
 {
+class ResizeWatcher : public QObject
+{
+public:
+    explicit ResizeWatcher(std::function<void()> callback, QObject* parent = nullptr)
+        : QObject(parent)
+        , m_callback(std::move(callback))
+    {
+    }
+
+protected:
+    bool eventFilter(QObject* watched, QEvent* event) override
+    {
+        if (event && event->type() == QEvent::Resize && m_callback)
+            m_callback();
+        return QObject::eventFilter(watched, event);
+    }
+
+private:
+    std::function<void()> m_callback;
+};
+
 QString canonicalPathForDir(const QDir& dir)
 {
     QString canonical = dir.canonicalPath();
@@ -1405,6 +1429,34 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
                     if (ModelRecord* model = modelById(modelId, &owner))
                         QDesktopServices::openUrl(QUrl::fromLocalFile(model->directory));
                 });
+                menu.addAction(tr("设置模型图片"), this, [this, modelId]() {
+                    SchemeRecord* owner = nullptr;
+                    if (ModelRecord* model = modelById(modelId, &owner))
+                    {
+                        const QString initialDir = model->thumbnailPath.isEmpty()
+                                                       ? model->directory
+                                                       : QFileInfo(model->thumbnailPath).absolutePath();
+                        const QString file = QFileDialog::getOpenFileName(
+                            this, tr("选择模型图片"), initialDir,
+                            tr("图片文件 (*.png *.jpg *.jpeg *.bmp *.gif)"));
+                        if (file.isEmpty())
+                            return;
+                        applyModelThumbnail(*model, file);
+                        persistSchemes();
+                        refreshCurrentDetail();
+                    }
+                });
+                menu.addAction(tr("清除模型图片"), this, [this, modelId]() {
+                    SchemeRecord* owner = nullptr;
+                    if (ModelRecord* model = modelById(modelId, &owner))
+                    {
+                        if (model->thumbnailPath.isEmpty())
+                            return;
+                        applyModelThumbnail(*model, QString());
+                        persistSchemes();
+                        refreshCurrentDetail();
+                    }
+                });
                 menu.addAction(tr("重命名"), this, [this, item]() {
                     if (ui->treeModels)
                         ui->treeModels->editItem(item, 0);
@@ -1973,7 +2025,120 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
     auto* container = new QWidget(ui->settingWidget);
     auto* layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
-    layout->setSpacing(8);
+    layout->setSpacing(12);
+
+    auto* thumbFrame = new QFrame(container);
+    thumbFrame->setObjectName(QStringLiteral("modelThumbnailFrame"));
+    thumbFrame->setStyleSheet(
+        "QFrame#modelThumbnailFrame{background:#ffffff;border:1px solid #d0d5dd;"
+        "border-radius:10px;}");
+    auto* thumbLayout = new QHBoxLayout(thumbFrame);
+    thumbLayout->setContentsMargins(12, 12, 12, 12);
+    thumbLayout->setSpacing(12);
+
+    auto* preview = new QLabel(thumbFrame);
+    preview->setMinimumSize(260, 160);
+    preview->setAlignment(Qt::AlignCenter);
+    preview->setWordWrap(true);
+    preview->setStyleSheet("background:#f6f7fb;border:1px dashed #d0d6e5;"
+                           "border-radius:8px;color:#8a93a6;padding:12px;"
+                           "line-height:20px;");
+    thumbLayout->addWidget(preview, 1);
+
+    auto* buttonColumn = new QVBoxLayout();
+    buttonColumn->setContentsMargins(0, 0, 0, 0);
+    buttonColumn->setSpacing(8);
+
+    auto* selectBtn = new QPushButton(tr("选择图片..."), thumbFrame);
+    selectBtn->setCursor(Qt::PointingHandCursor);
+    buttonColumn->addWidget(selectBtn);
+
+    auto* clearBtn = new QPushButton(tr("清除图片"), thumbFrame);
+    clearBtn->setCursor(Qt::PointingHandCursor);
+    clearBtn->setEnabled(false);
+    buttonColumn->addWidget(clearBtn);
+    buttonColumn->addStretch(1);
+
+    thumbLayout->addLayout(buttonColumn, 0);
+    layout->addWidget(thumbFrame);
+
+    const QString modelId = model.id;
+    auto updatePreview = [this, preview, clearBtn, modelId]() {
+        if (!preview)
+            return;
+
+        SchemeRecord* owner = nullptr;
+        const ModelRecord* current = modelById(modelId, &owner);
+        QPixmap pixmap;
+        QString thumbPath;
+        if (current)
+        {
+            pixmap = loadModelThumbnail(*current);
+            thumbPath = current->thumbnailPath;
+        }
+
+        if (pixmap.isNull())
+        {
+            preview->setPixmap(QPixmap());
+            preview->setText(tr("尚未选择模型图片"));
+        }
+        else
+        {
+            preview->setText(QString());
+            const QSize labelSize = preview->size();
+            if (labelSize.width() > 0 && labelSize.height() > 0)
+            {
+                const qreal ratio = preview->devicePixelRatioF();
+                QSize targetSize(qMax(1, int(labelSize.width() * ratio)),
+                                 qMax(1, int(labelSize.height() * ratio)));
+                QPixmap scaled = pixmap.scaled(targetSize, Qt::KeepAspectRatio,
+                                               Qt::SmoothTransformation);
+                scaled.setDevicePixelRatio(ratio);
+                preview->setPixmap(scaled);
+            }
+            else
+            {
+                preview->setPixmap(pixmap);
+            }
+        }
+
+        if (clearBtn)
+            clearBtn->setEnabled(!thumbPath.isEmpty());
+    };
+
+    auto* watcher = new ResizeWatcher(updatePreview, preview);
+    preview->installEventFilter(watcher);
+    updatePreview();
+
+    connect(selectBtn, &QPushButton::clicked, this,
+            [this, modelId, updatePreview]() {
+                SchemeRecord* owner = nullptr;
+                ModelRecord* editable = modelById(modelId, &owner);
+                if (!editable)
+                    return;
+                const QString initialDir = editable->thumbnailPath.isEmpty()
+                                               ? editable->directory
+                                               : QFileInfo(editable->thumbnailPath).absolutePath();
+                const QString file = QFileDialog::getOpenFileName(
+                    this, tr("选择模型图片"), initialDir,
+                    tr("图片文件 (*.png *.jpg *.jpeg *.bmp *.gif)"));
+                if (file.isEmpty())
+                    return;
+                applyModelThumbnail(*editable, file);
+                persistSchemes();
+                updatePreview();
+            });
+
+    connect(clearBtn, &QPushButton::clicked, this,
+            [this, modelId, updatePreview]() {
+                SchemeRecord* owner = nullptr;
+                ModelRecord* editable = modelById(modelId, &owner);
+                if (!editable || editable->thumbnailPath.isEmpty())
+                    return;
+                applyModelThumbnail(*editable, QString());
+                persistSchemes();
+                updatePreview();
+            });
 
     auto* builder = new JsonPageBuilder(model.jsonPath, container);
     layout->addWidget(builder, 1);
@@ -2317,7 +2482,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     listWidget->setObjectName("libraryModelList");
     listWidget->setSelectionMode(QAbstractItemView::ExtendedSelection);
     listWidget->setSpacing(6);
-    listWidget->setIconSize(QSize(20, 20));
+    listWidget->setIconSize(QSize(48, 48));
     listWidget->setFrameShape(QFrame::NoFrame);
     listLayout->addWidget(listWidget);
 
@@ -2396,8 +2561,16 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
         emptyLabel->setVisible(empty);
         for (const ModelRecord& model : models)
         {
+            QIcon icon(QStringLiteral(":/icons/icons/model.svg"));
+            const QPixmap thumb = loadModelThumbnail(model);
+            if (!thumb.isNull())
+            {
+                QPixmap scaled = thumb.scaled(listWidget->iconSize(), Qt::KeepAspectRatio,
+                                              Qt::SmoothTransformation);
+                icon = QIcon(scaled);
+            }
             auto* item = new QListWidgetItem(
-                QIcon(QStringLiteral(":/icons/icons/model.svg")),
+                icon,
                 tr("%1\n%2")
                     .arg(model.name,
                          QDir::toNativeSeparators(model.directory)));
@@ -3178,6 +3351,10 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             model.jsonPath = destDir.filePath(jsonName);
             const QString batName = QFileInfo(batPath).fileName();
             model.batPath = batName.isEmpty() ? QString() : destDir.filePath(batName);
+            const QStringList covers = destDir.entryList(QStringList() << QStringLiteral("model_cover.*"),
+                                                         QDir::Files | QDir::NoDotAndDotDot);
+            if (!covers.isEmpty())
+                model.thumbnailPath = QDir::cleanPath(destDir.filePath(covers.first()));
             if (model.directory.isEmpty() || existingPaths.contains(model.directory))
             {
                 QDir(destPath).removeRecursively();
@@ -3236,6 +3413,10 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             model.jsonPath = destDir.filePath(jsonName);
             const QString batName = QFileInfo(model.batPath).fileName();
             model.batPath = batName.isEmpty() ? QString() : destDir.filePath(batName);
+            const QStringList covers = destDir.entryList(QStringList() << QStringLiteral("model_cover.*"),
+                                                         QDir::Files | QDir::NoDotAndDotDot);
+            if (!covers.isEmpty())
+                model.thumbnailPath = QDir::cleanPath(destDir.filePath(covers.first()));
             model.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
             model.name = makeUniqueModelName(*scheme, model.name);
 
@@ -3447,6 +3628,10 @@ QVector<MainWindow::ModelRecord> MainWindow::scanSchemeFolder(const QString& sch
         model.jsonPath = jsonPath;
         model.batPath = batPath;
         model.fingerprint = computeModelFingerprint(model.jsonPath);
+        const QStringList covers = child.entryList(QStringList() << QStringLiteral("model_cover.*"),
+                                                   QDir::Files | QDir::NoDotAndDotDot);
+        if (!covers.isEmpty())
+            model.thumbnailPath = QDir::cleanPath(child.filePath(covers.first()));
         models.push_back(model);
     }
 
@@ -3621,6 +3806,61 @@ QPixmap MainWindow::loadLibraryThumbnail(const SchemeLibraryEntry& entry) const
     return QPixmap::fromImage(image);
 }
 
+QPixmap MainWindow::loadModelThumbnail(const ModelRecord& model) const
+{
+    if (model.thumbnailPath.isEmpty())
+        return QPixmap();
+
+    QImageReader reader(model.thumbnailPath);
+    reader.setAutoTransform(true);
+    const QImage image = reader.read();
+    if (image.isNull())
+        return QPixmap();
+    return QPixmap::fromImage(image);
+}
+
+QString MainWindow::storeModelThumbnail(const QString& modelDir,
+                                        const QString& sourcePath) const
+{
+    if (modelDir.isEmpty() || sourcePath.trimmed().isEmpty())
+        return QString();
+
+    QFileInfo srcInfo(sourcePath);
+    if (!srcInfo.exists() || !srcInfo.isFile())
+        return QString();
+
+    if (!ensureDirectoryExists(modelDir))
+        return QString();
+
+    QDir dir(modelDir);
+    const QString suffix = srcInfo.suffix().isEmpty()
+                               ? QStringLiteral("png")
+                               : srcInfo.suffix().toLower();
+    const QString targetName = QStringLiteral("model_cover.%1").arg(suffix);
+    const QString targetPath = dir.filePath(targetName);
+
+    if (!QFileInfo(sourcePath).absoluteFilePath().compare(targetPath, Qt::CaseInsensitive))
+        return QDir::cleanPath(targetPath);
+
+    if (QFile::exists(targetPath))
+        QFile::remove(targetPath);
+
+    if (!QFile::copy(srcInfo.absoluteFilePath(), targetPath))
+        return QString();
+
+    const QStringList duplicates = dir.entryList(QStringList() << QStringLiteral("model_cover.*"),
+                                                 QDir::Files | QDir::NoDotAndDotDot);
+    for (const QString& dup : duplicates)
+    {
+        const QString absoluteDup = dir.filePath(dup);
+        if (absoluteDup.compare(targetPath, Qt::CaseInsensitive) == 0)
+            continue;
+        QFile::remove(absoluteDup);
+    }
+
+    return QDir::cleanPath(QFileInfo(targetPath).absoluteFilePath());
+}
+
 void MainWindow::applyLibraryThumbnail(SchemeLibraryEntry& entry,
                                        const QString& sourcePath)
 {
@@ -3689,6 +3929,28 @@ void MainWindow::applySchemeThumbnail(SchemeRecord& scheme, const QString& sourc
         QFile::remove(scheme.thumbnailPath);
 
     scheme.thumbnailPath = stored;
+}
+
+void MainWindow::applyModelThumbnail(ModelRecord& model, const QString& sourcePath)
+{
+    const QString trimmed = sourcePath.trimmed();
+    if (trimmed.isEmpty())
+    {
+        if (isPathWithinDirectory(model.thumbnailPath, model.directory))
+            QFile::remove(model.thumbnailPath);
+        model.thumbnailPath.clear();
+        return;
+    }
+
+    QString stored = storeModelThumbnail(model.directory, trimmed);
+    if (stored.isEmpty())
+        stored = QDir::cleanPath(QFileInfo(trimmed).absoluteFilePath());
+
+    if (!model.thumbnailPath.isEmpty() && model.thumbnailPath != stored &&
+        isPathWithinDirectory(model.thumbnailPath, model.directory))
+        QFile::remove(model.thumbnailPath);
+
+    model.thumbnailPath = stored;
 }
 
 void MainWindow::promptAddScheme()
@@ -4434,6 +4696,9 @@ bool MainWindow::readProjectStorage(const QString& projectRoot,
             model.jsonPath = QDir::cleanPath(mo.value(QStringLiteral("jsonPath")).toString());
             model.batPath = QDir::cleanPath(mo.value(QStringLiteral("batPath")).toString());
             model.remarks = mo.value(QStringLiteral("remarks")).toString();
+            const QString storedModelThumb = mo.value(QStringLiteral("thumbnailPath")).toString().trimmed();
+            if (!storedModelThumb.isEmpty())
+                model.thumbnailPath = QDir::cleanPath(QFileInfo(storedModelThumb).absoluteFilePath());
             model.fingerprint = mo.value(QStringLiteral("fingerprint")).toString();
             if (model.fingerprint.isEmpty())
                 model.fingerprint = computeModelFingerprint(model.jsonPath);
@@ -4500,6 +4765,7 @@ void MainWindow::saveSchemesToStorage() const
                                      : model.fingerprint;
             mo.insert(QStringLiteral("fingerprint"), fingerprint);
             mo.insert(QStringLiteral("remarks"), model.remarks);
+            mo.insert(QStringLiteral("thumbnailPath"), model.thumbnailPath);
             modelArray.append(mo);
         }
         obj.insert(QStringLiteral("models"), modelArray);

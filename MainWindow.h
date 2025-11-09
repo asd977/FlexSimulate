@@ -62,6 +62,7 @@ private:
         QString batPath;
         QString remarks;
         QString fingerprint;
+        QString thumbnailPath;
     };
 
     struct SchemeLibraryEntry {
@@ -157,6 +158,9 @@ private:
     QPixmap loadSchemeThumbnail(const SchemeRecord& scheme) const;
     void applySchemeThumbnail(SchemeRecord& scheme, const QString& sourcePath);
     QString storeSchemeThumbnail(const QString& schemeDir, const QString& sourcePath) const;
+    QPixmap loadModelThumbnail(const ModelRecord& model) const;
+    void applyModelThumbnail(ModelRecord& model, const QString& sourcePath);
+    QString storeModelThumbnail(const QString& modelDir, const QString& sourcePath) const;
     bool isPathWithinDirectory(const QString& filePath, const QString& directory) const;
     bool hasActiveProject() const;
     void updateRecentProjects(const QString& canonicalPath);
