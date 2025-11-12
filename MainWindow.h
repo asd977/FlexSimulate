@@ -3,6 +3,7 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QVector>
+#include <QStringList>
 #include <QHash>
 #include <QPixmap>
 #include <QUrl>
@@ -13,6 +14,7 @@
 #include <QDateTime>
 #include <QMap>
 #include <QSqlDatabase>
+#include <QJsonObject>
 #include <vtkSmartPointer.h>
 
 QT_BEGIN_NAMESPACE
@@ -118,7 +120,7 @@ private:
         QString lastUpdateDate;
         QString status;
         QString formId;
-        QVector<QString> specs;
+        QStringList specs;
         QVector<MaterialProperty> properties;
     };
 
@@ -257,6 +259,14 @@ private:
     const MaterialRecord* materialByKey(const QString& key) const;
     QString materialDisplayName(const MaterialRecord& material) const;
     QVector<MaterialRecord> fetchMaterialsFromRemote(QString* errorMessage);
+    QVector<MaterialRecord> loadMaterialsFromTestData(QString* errorMessage = nullptr) const;
+    bool parseMaterialsPage(const QJsonObject& root,
+                            QVector<MaterialRecord>* outRecords,
+                            int* totalOut = nullptr,
+                            QString* errorMessage = nullptr) const;
+    bool applyMaterialDetail(MaterialRecord& record,
+                             const QJsonObject& detailRoot,
+                             QString* errorMessage = nullptr) const;
     QByteArray performGetRequest(const QUrl& url,
                                  const QMap<QString, QString>& headers,
                                  QString* errorMessage) const;

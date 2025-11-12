@@ -955,6 +955,302 @@ QString MainWindow::materialDisplayName(const MaterialRecord& material) const
     return parts.join(QStringLiteral(" "));
 }
 
+bool MainWindow::parseMaterialsPage(const QJsonObject& root,
+                                    QVector<MaterialRecord>* outRecords,
+                                    int* totalOut,
+                                    QString* errorMessage) const
+{
+    if (!outRecords)
+        return false;
+
+    if (errorMessage)
+        errorMessage->clear();
+
+    const QString code = root.value(QStringLiteral("code")).toString();
+    if (code.compare(QStringLiteral("ok"), Qt::CaseInsensitive) != 0)
+    {
+        if (errorMessage)
+            *errorMessage = tr("材料列表接口返回错误：%1").arg(code);
+        return false;
+    }
+
+    int totalValue = -1;
+    const QJsonValue totalJson = root.value(QStringLiteral("total"));
+    if (!totalJson.isUndefined())
+        totalValue = totalJson.toVariant().toInt();
+    if (totalOut)
+        *totalOut = totalValue;
+
+    const QJsonArray table = root.value(QStringLiteral("table")).toArray();
+    for (const QJsonValue& value : table)
+    {
+        const QJsonObject obj = value.toObject();
+        MaterialRecord record;
+        record.baseId = obj.value(QStringLiteral("id")).toString();
+        record.materialId = obj.value(QStringLiteral("materialId")).toString();
+        record.materialKey = record.materialId.trimmed().isEmpty() ? record.baseId : record.materialId;
+        record.materialName = obj.value(QStringLiteral("materialName")).toString();
+        record.materialType = obj.value(QStringLiteral("materialType")).toString();
+        record.materialTypeCode = obj.value(QStringLiteral("materialTypeCode")).toString();
+        record.materialTypeValue = obj.value(QStringLiteral("materialTypeValue")).toString();
+        record.materialStatus = obj.value(QStringLiteral("materialStatus")).toString();
+        record.supplierOptionValue = obj.value(QStringLiteral("supplierOptionValue")).toString();
+        record.supplierOptionCode = obj.value(QStringLiteral("supplierOptionCode")).toString();
+        record.supplierCode = obj.value(QStringLiteral("supplierCode")).toString();
+        record.supplierProduceCode = obj.value(QStringLiteral("supplierProduceCode")).toString();
+        record.materialTrademark = obj.value(QStringLiteral("materialTrademark")).toString();
+        record.gacMaterialTrademark = obj.value(QStringLiteral("gacMaterialTrademark")).toString();
+        record.authenticationStatusValue = obj.value(QStringLiteral("authenticationStatusValue")).toString(
+            obj.value(QStringLiteral("authenticationStatus")).toString());
+        record.standardType = obj.value(QStringLiteral("standardType")).toString();
+        record.standardCode = obj.value(QStringLiteral("standardCode")).toString();
+        record.creationDate = obj.value(QStringLiteral("creationDate")).toString();
+        record.lastUpdateDate = obj.value(QStringLiteral("lastUpdateDate")).toString();
+        record.status = obj.value(QStringLiteral("status")).toString();
+        record.formId = obj.value(QStringLiteral("formId")).toString();
+
+        if (record.materialKey.trimmed().isEmpty())
+        {
+            if (!record.materialId.trimmed().isEmpty())
+                record.materialKey = record.materialId.trimmed();
+            else if (!record.baseId.trimmed().isEmpty())
+                record.materialKey = record.baseId.trimmed();
+        }
+
+        outRecords->append(record);
+    }
+
+    return true;
+}
+
+bool MainWindow::applyMaterialDetail(MaterialRecord& record,
+                                     const QJsonObject& detailRoot,
+                                     QString* errorMessage) const
+{
+    if (errorMessage)
+        errorMessage->clear();
+
+    const QString detailCode = detailRoot.value(QStringLiteral("code")).toString();
+    if (detailCode.compare(QStringLiteral("ok"), Qt::CaseInsensitive) != 0)
+    {
+        if (errorMessage)
+            *errorMessage = tr("材料 %1 详细信息返回错误：%2")
+                                .arg(materialDisplayName(record), detailCode);
+        return false;
+    }
+
+    const QJsonObject dataObj = detailRoot.value(QStringLiteral("data")).toObject();
+    const QJsonArray baseList = dataObj.value(QStringLiteral("materialBaseDataList")).toArray();
+    if (!baseList.isEmpty())
+    {
+        const QJsonObject entry = baseList.first().toObject();
+        const QJsonObject info = entry.value(QStringLiteral("materialBaseInfo")).toObject();
+        if (!info.isEmpty())
+        {
+            record.baseId = info.value(QStringLiteral("id")).toString(record.baseId);
+            const QString materialId = info.value(QStringLiteral("materialId")).toString();
+            if (!materialId.trimmed().isEmpty())
+            {
+                record.materialId = materialId.trimmed();
+                record.materialKey = record.materialId;
+            }
+            record.materialName = info.value(QStringLiteral("materialName")).toString(record.materialName);
+            record.materialType = info.value(QStringLiteral("materialType")).toString(record.materialType);
+            record.materialTypeValue = info.value(QStringLiteral("materialTypeValue")).toString(record.materialTypeValue);
+            record.materialTypeCode = info.value(QStringLiteral("materialTypeCode")).toString(record.materialTypeCode);
+            record.materialStatus = info.value(QStringLiteral("materialStatus")).toString(record.materialStatus);
+            record.supplierOptionValue = info.value(QStringLiteral("supplierOptionValue")).toString(record.supplierOptionValue);
+            record.supplierOptionCode = info.value(QStringLiteral("supplierOptionCode")).toString(record.supplierOptionCode);
+            record.supplierCode = info.value(QStringLiteral("supplierCode")).toString(record.supplierCode);
+            record.supplierProduceCode = info.value(QStringLiteral("supplierProduceCode")).toString(record.supplierProduceCode);
+            record.materialTrademark = info.value(QStringLiteral("materialTrademark")).toString(record.materialTrademark);
+            record.gacMaterialTrademark = info.value(QStringLiteral("gacMaterialTrademark")).toString(record.gacMaterialTrademark);
+            record.authenticationStatusValue = info.value(QStringLiteral("authenticationStatusValue")).toString(
+                record.authenticationStatusValue);
+            record.standardType = info.value(QStringLiteral("standardType")).toString(record.standardType);
+            record.standardCode = info.value(QStringLiteral("standardCode")).toString(record.standardCode);
+            record.creationDate = info.value(QStringLiteral("creationDate")).toString(record.creationDate);
+            record.lastUpdateDate = info.value(QStringLiteral("lastUpdateDate")).toString(record.lastUpdateDate);
+            record.status = info.value(QStringLiteral("status")).toString(record.status);
+            record.formId = info.value(QStringLiteral("formId")).toString(record.formId);
+        }
+
+        record.properties.clear();
+        const QJsonArray propertiesArray = entry.value(QStringLiteral("materialPropertiesEntityList")).toArray();
+        for (const QJsonValue& propValue : propertiesArray)
+        {
+            const QJsonObject propObj = propValue.toObject();
+            MaterialProperty property;
+            property.id = propObj.value(QStringLiteral("id")).toString();
+            property.name = propObj.value(QStringLiteral("propertyName")).toString();
+            const QJsonValue numberValue = propObj.value(QStringLiteral("propertyNumericalValue"));
+            if (numberValue.isDouble())
+                property.value = QString::number(numberValue.toDouble());
+            else
+                property.value = numberValue.toVariant().toString();
+            property.unit = propObj.value(QStringLiteral("propertyUnit")).toString();
+            record.properties.append(property);
+        }
+    }
+    else
+    {
+        record.properties.clear();
+    }
+
+    record.specs.clear();
+    const QJsonArray specArray = dataObj.value(QStringLiteral("specList")).toArray();
+    for (const QJsonValue& specValue : specArray)
+    {
+        QString spec = specValue.toVariant().toString().trimmed();
+        if (!spec.isEmpty())
+            record.specs.append(spec);
+    }
+
+    return true;
+}
+
+QVector<MainWindow::MaterialRecord> MainWindow::loadMaterialsFromTestData(QString* errorMessage) const
+{
+    if (errorMessage)
+        *errorMessage = QString();
+
+    QVector<MaterialRecord> materials;
+
+    const QString appDir = QCoreApplication::applicationDirPath();
+    QDir appDirPath(appDir);
+    QStringList searchRoots;
+    searchRoots << appDirPath.filePath(QStringLiteral("sample_data/materials"));
+    searchRoots << appDirPath.filePath(QStringLiteral("../sample_data/materials"));
+    searchRoots << QDir::current().filePath(QStringLiteral("sample_data/materials"));
+
+    QString basePath;
+    for (const QString& candidate : std::as_const(searchRoots))
+    {
+        QDir dir(candidate);
+        if (dir.exists())
+        {
+            basePath = dir.canonicalPath();
+            if (basePath.isEmpty())
+                basePath = dir.absolutePath();
+            break;
+        }
+    }
+
+    if (basePath.isEmpty())
+    {
+        if (errorMessage)
+            *errorMessage = tr("未找到材料测试数据目录。请确认 sample_data/materials 已存在。");
+        return materials;
+    }
+
+    QDir baseDir(basePath);
+    const QStringList pageFiles = baseDir.entryList(QStringList() << QStringLiteral("materials_page*.json"), QDir::Files, QDir::Name);
+    if (pageFiles.isEmpty())
+    {
+        if (errorMessage)
+            *errorMessage = tr("材料测试数据目录中缺少列表文件 materials_page*.json。");
+        return materials;
+    }
+
+    QSet<QString> seenKeys;
+    for (const QString& fileName : pageFiles)
+    {
+        QFile file(baseDir.filePath(fileName));
+        if (!file.open(QIODevice::ReadOnly))
+        {
+            if (errorMessage)
+                *errorMessage = tr("无法读取材料测试数据文件：%1").arg(file.fileName());
+            return {};
+        }
+
+        QJsonParseError parseError{};
+        const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
+        if (parseError.error != QJsonParseError::NoError || !doc.isObject())
+        {
+            if (errorMessage)
+                *errorMessage = tr("解析材料测试数据失败：%1").arg(file.fileName());
+            return {};
+        }
+
+        QVector<MaterialRecord> pageRecords;
+        int pageTotal = -1;
+        QString parseErrorMessage;
+        if (!parseMaterialsPage(doc.object(), &pageRecords, &pageTotal, &parseErrorMessage))
+        {
+            if (errorMessage)
+                *errorMessage = parseErrorMessage;
+            return {};
+        }
+
+        for (MaterialRecord& record : pageRecords)
+        {
+            const QString key = record.materialKey.trimmed();
+            if (!key.isEmpty())
+            {
+                if (seenKeys.contains(key))
+                    continue;
+                seenKeys.insert(key);
+            }
+            materials.append(record);
+        }
+    }
+
+    const QStringList detailFiles = baseDir.entryList(QStringList() << QStringLiteral("material_detail_*.json"), QDir::Files, QDir::Name);
+    QHash<QString, QString> detailFileMap;
+    for (const QString& fileName : detailFiles)
+    {
+        const QString baseName = fileName.mid(QStringLiteral("material_detail_").size(), fileName.size() - QStringLiteral("material_detail_").size() - QStringLiteral(".json").size());
+        detailFileMap.insert(baseName.toLower(), baseDir.filePath(fileName));
+    }
+
+    const auto sanitizeKey = [](const QString& key) {
+        QString cleaned = key;
+        cleaned.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9_\-]")), QStringLiteral("_"));
+        return cleaned.toLower();
+    };
+
+    for (MaterialRecord& record : materials)
+    {
+        const QString trademark = !record.gacMaterialTrademark.isEmpty() ? record.gacMaterialTrademark : record.materialTrademark;
+        if (trademark.isEmpty())
+            continue;
+
+        const QString sanitized = sanitizeKey(trademark);
+        const QString detailPath = detailFileMap.value(sanitized);
+        if (detailPath.isEmpty())
+            continue;
+
+        QFile detailFile(detailPath);
+        if (!detailFile.open(QIODevice::ReadOnly))
+        {
+            if (errorMessage)
+                *errorMessage = tr("无法读取材料详细测试数据：%1").arg(detailFile.fileName());
+            return {};
+        }
+
+        QJsonParseError detailError{};
+        const QJsonDocument detailDoc = QJsonDocument::fromJson(detailFile.readAll(), &detailError);
+        if (detailError.error != QJsonParseError::NoError || !detailDoc.isObject())
+        {
+            if (errorMessage)
+                *errorMessage = tr("解析材料详细测试数据失败：%1").arg(detailFile.fileName());
+            return {};
+        }
+
+        QString applyError;
+        if (!applyMaterialDetail(record, detailDoc.object(), &applyError))
+        {
+            if (errorMessage)
+                *errorMessage = applyError;
+            return {};
+        }
+    }
+
+    if (errorMessage)
+        errorMessage->clear();
+    return materials;
+}
+
 QVector<MainWindow::MaterialRecord> MainWindow::fetchMaterialsFromRemote(QString* errorMessage)
 {
     if (errorMessage)
@@ -985,6 +1281,7 @@ QVector<MainWindow::MaterialRecord> MainWindow::fetchMaterialsFromRemote(QString
     }
 
     QVector<MaterialRecord> materials;
+    QSet<QString> seenKeys;
     int page = 1;
     int total = -1;
 
@@ -1033,57 +1330,32 @@ QVector<MainWindow::MaterialRecord> MainWindow::fetchMaterialsFromRemote(QString
             return {};
         }
 
-        const QJsonObject root = doc.object();
-        const QString code = root.value(QStringLiteral("code")).toString();
-        if (code.compare(QStringLiteral("ok"), Qt::CaseInsensitive) != 0)
+        QVector<MaterialRecord> pageRecords;
+        int pageTotal = -1;
+        QString parseErrorMessage;
+        if (!parseMaterialsPage(doc.object(), &pageRecords, &pageTotal, &parseErrorMessage))
         {
             if (errorMessage)
-                *errorMessage = tr("材料列表接口返回错误：%1").arg(code);
+                *errorMessage = parseErrorMessage;
             return {};
         }
 
-        if (total < 0)
-            total = root.value(QStringLiteral("total")).toVariant().toInt();
+        if (total < 0 && pageTotal >= 0)
+            total = pageTotal;
 
-        const QJsonArray table = root.value(QStringLiteral("table")).toArray();
-        for (const QJsonValue& value : table)
+        for (MaterialRecord& record : pageRecords)
         {
-            const QJsonObject obj = value.toObject();
-            MaterialRecord record;
-            record.baseId = obj.value(QStringLiteral("id")).toString();
-            record.materialId = obj.value(QStringLiteral("materialId")).toString();
-            record.materialKey = record.materialId.isEmpty() ? record.baseId : record.materialId;
-            record.materialName = obj.value(QStringLiteral("materialName")).toString();
-            record.materialType = obj.value(QStringLiteral("materialType")).toString();
-            record.materialTypeCode = obj.value(QStringLiteral("materialTypeCode")).toString();
-            record.materialTypeValue = obj.value(QStringLiteral("materialTypeValue")).toString();
-            record.materialStatus = obj.value(QStringLiteral("materialStatus")).toString();
-            record.supplierOptionValue = obj.value(QStringLiteral("supplierOptionValue")).toString();
-            record.supplierOptionCode = obj.value(QStringLiteral("supplierOptionCode")).toString();
-            record.materialTrademark = obj.value(QStringLiteral("materialTrademark")).toString();
-            record.gacMaterialTrademark = obj.value(QStringLiteral("gacMaterialTrademark")).toString();
-            record.authenticationStatusValue = obj.value(QStringLiteral("authenticationStatus")).toString();
-            record.standardCode = obj.value(QStringLiteral("standardCode")).toString();
-            record.standardType = obj.value(QStringLiteral("standardType")).toString();
-            record.creationDate = obj.value(QStringLiteral("creationDate")).toString();
-            record.lastUpdateDate = obj.value(QStringLiteral("lastUpdateDate")).toString();
-            record.status = obj.value(QStringLiteral("status")).toString();
-            record.formId = obj.value(QStringLiteral("formId")).toString();
-
-            bool duplicate = false;
-            for (const MaterialRecord& existing : materials)
+            const QString key = record.materialKey.trimmed();
+            if (!key.isEmpty())
             {
-                if (!record.materialKey.isEmpty() && existing.materialKey == record.materialKey)
-                {
-                    duplicate = true;
-                    break;
-                }
+                if (seenKeys.contains(key))
+                    continue;
+                seenKeys.insert(key);
             }
-            if (!duplicate)
-                materials.append(record);
+            materials.append(record);
         }
 
-        if (table.isEmpty())
+        if (pageRecords.isEmpty())
             break;
 
         if (total >= 0 && materials.size() >= total)
@@ -1129,76 +1401,12 @@ QVector<MainWindow::MaterialRecord> MainWindow::fetchMaterialsFromRemote(QString
             return {};
         }
 
-        const QJsonObject detailRoot = detailDoc.object();
-        const QString detailCode = detailRoot.value(QStringLiteral("code")).toString();
-        if (detailCode.compare(QStringLiteral("ok"), Qt::CaseInsensitive) != 0)
+        QString detailErrorMessage;
+        if (!applyMaterialDetail(record, detailDoc.object(), &detailErrorMessage))
         {
             if (errorMessage)
-                *errorMessage = tr("材料 %1 详细信息返回错误：%2")
-                                    .arg(materialDisplayName(record), detailCode);
+                *errorMessage = detailErrorMessage;
             return {};
-        }
-
-        const QJsonObject dataObj = detailRoot.value(QStringLiteral("data")).toObject();
-        const QJsonArray baseList = dataObj.value(QStringLiteral("materialBaseDataList")).toArray();
-        if (!baseList.isEmpty())
-        {
-            const QJsonObject entry = baseList.first().toObject();
-            const QJsonObject info = entry.value(QStringLiteral("materialBaseInfo")).toObject();
-            if (!info.isEmpty())
-            {
-                record.baseId = info.value(QStringLiteral("id")).toString(record.baseId);
-                const QString materialId = info.value(QStringLiteral("materialId")).toString();
-                if (!materialId.isEmpty())
-                {
-                    record.materialId = materialId;
-                    record.materialKey = materialId;
-                }
-                record.materialName = info.value(QStringLiteral("materialName")).toString(record.materialName);
-                record.materialType = info.value(QStringLiteral("materialType")).toString(record.materialType);
-                record.materialTypeValue = info.value(QStringLiteral("materialTypeValue")).toString(record.materialTypeValue);
-                record.materialTypeCode = info.value(QStringLiteral("materialTypeCode")).toString(record.materialTypeCode);
-                record.materialStatus = info.value(QStringLiteral("materialStatus")).toString(record.materialStatus);
-                record.supplierOptionValue = info.value(QStringLiteral("supplierOptionValue")).toString(record.supplierOptionValue);
-                record.supplierOptionCode = info.value(QStringLiteral("supplierOptionCode")).toString(record.supplierOptionCode);
-                record.supplierCode = info.value(QStringLiteral("supplierCode")).toString(record.supplierCode);
-                record.supplierProduceCode = info.value(QStringLiteral("supplierProduceCode")).toString(record.supplierProduceCode);
-                record.materialTrademark = info.value(QStringLiteral("materialTrademark")).toString(record.materialTrademark);
-                record.gacMaterialTrademark = info.value(QStringLiteral("gacMaterialTrademark")).toString(record.gacMaterialTrademark);
-                record.authenticationStatusValue = info.value(QStringLiteral("authenticationStatusValue")).toString(record.authenticationStatusValue);
-                record.standardType = info.value(QStringLiteral("standardType")).toString(record.standardType);
-                record.standardCode = info.value(QStringLiteral("standardCode")).toString(record.standardCode);
-                record.creationDate = info.value(QStringLiteral("creationDate")).toString(record.creationDate);
-                record.lastUpdateDate = info.value(QStringLiteral("lastUpdateDate")).toString(record.lastUpdateDate);
-                record.status = info.value(QStringLiteral("status")).toString(record.status);
-                record.formId = info.value(QStringLiteral("formId")).toString(record.formId);
-            }
-
-            record.properties.clear();
-            const QJsonArray propertiesArray = entry.value(QStringLiteral("materialPropertiesEntityList")).toArray();
-            for (const QJsonValue& propValue : propertiesArray)
-            {
-                const QJsonObject propObj = propValue.toObject();
-                MaterialProperty property;
-                property.id = propObj.value(QStringLiteral("id")).toString();
-                property.name = propObj.value(QStringLiteral("propertyName")).toString();
-                property.value = propObj.value(QStringLiteral("propertyNumericalValue")).toString();
-                property.unit = propObj.value(QStringLiteral("propertyUnit")).toString();
-                record.properties.append(property);
-            }
-        }
-        else
-        {
-            record.properties.clear();
-        }
-
-        record.specs.clear();
-        const QJsonArray specArray = dataObj.value(QStringLiteral("specList")).toArray();
-        for (const QJsonValue& specValue : specArray)
-        {
-            const QString spec = specValue.toString().trimmed();
-            if (!spec.isEmpty())
-                record.specs.append(spec);
         }
     }
 
@@ -1295,8 +1503,28 @@ void MainWindow::on_syncMaterialsButton_clicked()
 
     if (!error.isEmpty())
     {
+        QString testError;
+        QVector<MaterialRecord> testMaterials = loadMaterialsFromTestData(&testError);
+        if (!testMaterials.isEmpty())
+        {
+            appendLogMessage(tr("同步失败，已加载本地测试材料数据：%1").arg(error));
+            saveMaterialsToDatabase(testMaterials);
+            loadMaterialsFromDatabase();
+            if (ui->materialsStatusLabel)
+            {
+                const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+                ui->materialsStatusLabel->setText(tr("网络同步失败，已于 %1 加载 %2 条测试数据")
+                                                    .arg(timestamp)
+                                                    .arg(m_materials.size()));
+            }
+            ui->syncMaterialsButton->setEnabled(true);
+            return;
+        }
+
         if (ui->materialsStatusLabel)
             ui->materialsStatusLabel->setText(tr("同步失败：%1").arg(error));
+        if (!testError.isEmpty())
+            error = tr("同步失败：%1\n测试数据加载失败：%2").arg(error, testError);
         QMessageBox::warning(this, tr("同步材料数据"), error);
         ui->syncMaterialsButton->setEnabled(true);
         return;
