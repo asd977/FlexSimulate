@@ -3,6 +3,7 @@
 #include <QMainWindow>
 #include <QPointer>
 #include <QVector>
+#include <QStringList>
 #include <QHash>
 #include <QPixmap>
 #include <QUrl>
@@ -11,6 +12,9 @@
 #include <QList>
 #include <QSet>
 #include <QDateTime>
+#include <QMap>
+#include <QSqlDatabase>
+#include <QJsonObject>
 #include <vtkSmartPointer.h>
 
 QT_BEGIN_NAMESPACE
@@ -25,6 +29,7 @@ class JsonPageBuilder;
 class vtkGenericOpenGLRenderWindow;
 class vtkRenderer;
 class vtkActor;
+class QListWidgetItem;
 
 class MainWindow : public QMainWindow
 {
@@ -52,6 +57,9 @@ private slots:
     void on_selectModelButton_clicked();
 
     void on_loadModelButton_clicked();
+    void on_syncMaterialsButton_clicked();
+    void on_materialsListWidget_currentItemChanged(QListWidgetItem* current,
+                                                   QListWidgetItem* previous);
 
 private:
     struct ModelRecord {
@@ -81,6 +89,39 @@ private:
         QString thumbnailPath;
         QString remarks;
         QVector<ModelRecord> models;
+    };
+
+    struct MaterialProperty {
+        QString id;
+        QString name;
+        QString value;
+        QString unit;
+    };
+
+    struct MaterialRecord {
+        QString baseId;
+        QString materialKey;
+        QString materialId;
+        QString materialName;
+        QString materialType;
+        QString materialTypeCode;
+        QString materialTypeValue;
+        QString materialStatus;
+        QString supplierOptionValue;
+        QString supplierOptionCode;
+        QString supplierCode;
+        QString supplierProduceCode;
+        QString materialTrademark;
+        QString gacMaterialTrademark;
+        QString authenticationStatusValue;
+        QString standardType;
+        QString standardCode;
+        QString creationDate;
+        QString lastUpdateDate;
+        QString status;
+        QString formId;
+        QStringList specs;
+        QVector<MaterialProperty> properties;
     };
 
     enum TreeRoles {
@@ -210,6 +251,29 @@ private:
     QString makeUniqueWorkspaceSubdir(const QString& baseName) const;
     QString workspaceRoot() const;
     QVector<SchemeRecord> loadProjectPreviewSchemes(const QString& projectPath) const;
+    void initializeMaterialsDatabase();
+    void loadMaterialsFromDatabase();
+    void saveMaterialsToDatabase(const QVector<MaterialRecord>& materials);
+    void refreshMaterialsUi();
+    void displayMaterialDetails(const MaterialRecord* material);
+    const MaterialRecord* materialByKey(const QString& key) const;
+    QString materialDisplayName(const MaterialRecord& material) const;
+    QVector<MaterialRecord> fetchMaterialsFromRemote(QString* errorMessage);
+    QVector<MaterialRecord> loadMaterialsFromTestData(QString* errorMessage = nullptr) const;
+    bool parseMaterialsPage(const QJsonObject& root,
+                            QVector<MaterialRecord>* outRecords,
+                            int* totalOut = nullptr,
+                            QString* errorMessage = nullptr) const;
+    bool applyMaterialDetail(MaterialRecord& record,
+                             const QJsonObject& detailRoot,
+                             QString* errorMessage = nullptr) const;
+    QByteArray performGetRequest(const QUrl& url,
+                                 const QMap<QString, QString>& headers,
+                                 QString* errorMessage) const;
+    QByteArray performPostRequest(const QUrl& url,
+                                  const QByteArray& body,
+                                  const QMap<QString, QString>& headers,
+                                  QString* errorMessage) const;
 
     Ui::MainWindow *ui;
     SchemeGalleryWidget* m_galleryWidget = nullptr;
@@ -241,4 +305,7 @@ private:
     vtkSmartPointer<vtkActor> m_currentActor;
     QList<int> m_lastSplitterSizes;
     bool m_visualizationVisible = false;
+    QString m_materialsDbPath;
+    QSqlDatabase m_materialsDb;
+    QVector<MaterialRecord> m_materials;
 };
