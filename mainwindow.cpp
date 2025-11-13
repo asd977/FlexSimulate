@@ -290,13 +290,6 @@ void MainWindow::setupUiHelpers()
                        "QVTKOpenGLNativeWidget{border:none;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
                    ));
 
-    applyPanelCard(ui->materialsListFrame, ui->materialsListTitle,
-                   QStringLiteral(
-                       "QListWidget{border:none;background:transparent;padding:8px 12px;}"
-                       "QListWidget::item{padding:6px 4px;}"
-                       "QListWidget::item:selected{background:#e2e8f0;border-radius:6px;color:#0f172a;}"
-                   ));
-
     applyPanelCard(ui->materialDetailsFrame, ui->materialDetailsTitle,
                    QStringLiteral(
                        "QLabel#materialBasicInfoLabel{padding:12px 16px;color:#0f172a;line-height:22px;}"
@@ -322,9 +315,6 @@ void MainWindow::setupUiHelpers()
     ui->contentSplitter->setStyleSheet(splitterStyle);
     if (ui->visualizationSplitter)
         ui->visualizationSplitter->setStyleSheet(splitterStyle);
-    if (ui->materialsSplitter)
-        ui->materialsSplitter->setStyleSheet(splitterStyle);
-
     ui->treeModels->header()->setStretchLastSection(true);
     ui->treeModels->setHeaderHidden(true);
     ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -359,12 +349,6 @@ void MainWindow::setupUiHelpers()
     m_renderer->SetBackground(colors->GetColor3d("AliceBlue").GetData());
     m_renderWindow->AddRenderer(m_renderer);
     ui->vtkWidget->setRenderWindow(m_renderWindow);
-
-    if (ui->materialsListWidget)
-    {
-        ui->materialsListWidget->setFrameShape(QFrame::NoFrame);
-        ui->materialsListWidget->setFocusPolicy(Qt::NoFocus);
-    }
 
     if (ui->materialPropertiesTable)
     {
@@ -833,13 +817,10 @@ void MainWindow::refreshMaterialsUi()
     {
         if (m_materialsSettingsList && m_materialsSettingsList->currentItem())
             previousKey = m_materialsSettingsList->currentItem()->data(Qt::UserRole).toString();
-        else if (ui->materialsListWidget && ui->materialsListWidget->currentItem())
-            previousKey = ui->materialsListWidget->currentItem()->data(Qt::UserRole).toString();
     }
 
     QString selectedKey;
     populateList(m_materialsSettingsList, previousKey, &selectedKey);
-    populateList(ui->materialsListWidget, previousKey, &selectedKey);
 
     const QString statusText = tr("已加载 %1 条材料数据").arg(m_materials.size());
     if (ui->materialsStatusLabel)
@@ -2759,7 +2740,7 @@ void MainWindow::rebuildTree()
     const QIcon libraryIcon(QStringLiteral(":/icons/icons/gallery.svg"));
     const QIcon schemeIcon(QStringLiteral(":/icons/icons/plan.svg"));
     const QIcon modelIcon(QStringLiteral(":/icons/icons/model.svg"));
-    const QIcon materialsIcon(QStringLiteral(":/icons/icons/model.svg"));
+    const QIcon materialsIcon(QStringLiteral(":/icons/icons/materials.svg"));
 
     const QBrush inactiveBrush(QColor(148, 163, 184));
 
@@ -2770,11 +2751,12 @@ void MainWindow::rebuildTree()
     m_libraryRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
     ui->treeModels->insertTopLevelItem(0, m_libraryRootItem);
 
-    m_materialsRootItem = new QTreeWidgetItem(m_libraryRootItem);
+    m_materialsRootItem = new QTreeWidgetItem();
     m_materialsRootItem->setText(0, tr("材料库"));
     m_materialsRootItem->setIcon(0, materialsIcon);
     m_materialsRootItem->setData(0, TypeRole, MaterialLibraryItem);
     m_materialsRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+    ui->treeModels->insertTopLevelItem(1, m_materialsRootItem);
 
     for (const QString& projectPath : m_recentProjects)
     {
