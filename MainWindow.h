@@ -318,5 +318,6 @@ private:
     QListWidget* m_materialsSettingsList = nullptr;
     QLabel* m_materialsSettingsStatusLabel = nullptr;
     QPushButton* m_materialsSettingsSyncButton = nullptr;
+    QString m_materialsStatusMessage;
     QString m_activeMaterialKey;
 };

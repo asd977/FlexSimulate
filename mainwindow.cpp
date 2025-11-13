@@ -48,6 +48,7 @@
 #include <QShortcut>
 #include <QSharedPointer>
 #include <QSplitter>
+#include <QSizePolicy>
 #include <QEvent>
 #include <QtGlobal>
 #include <QVector>
@@ -198,6 +199,7 @@ MainWindow::MainWindow(QWidget *parent)
 {
     ui->setupUi(this);
     m_baseWindowTitle = windowTitle();
+    m_materialsStatusMessage = tr("尚未同步材料数据");
 
     QString dataRoot = QCoreApplication::applicationDirPath();
     QDir dataDir(dataRoot);
@@ -290,14 +292,6 @@ void MainWindow::setupUiHelpers()
                        "QVTKOpenGLNativeWidget{border:none;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
                    ));
 
-    applyPanelCard(ui->materialDetailsFrame, ui->materialDetailsTitle,
-                   QStringLiteral(
-                       "QLabel#materialBasicInfoLabel{padding:12px 16px;color:#0f172a;line-height:22px;}"
-                       "QLabel#materialSpecsLabel{padding:0 16px 12px 16px;color:#475569;}"
-                       "QTableWidget{border:none;background:transparent;margin:0 16px 16px 16px;}"
-                       "QHeaderView::section{background:#eef2ff;border:none;padding:6px 8px;font-weight:600;color:#1e293b;}"
-                   ));
-
     applyPanelCard(ui->logPanel, ui->logTitle);
 
     if (ui->modelImageLabel)
@@ -359,21 +353,6 @@ void MainWindow::setupUiHelpers()
         ui->materialPropertiesTable->horizontalHeader()->setSectionResizeMode(2, QHeaderView::ResizeToContents);
         ui->materialPropertiesTable->verticalHeader()->setVisible(false);
     }
-
-    if (ui->materialBasicInfoLabel)
-    {
-        ui->materialBasicInfoLabel->setTextFormat(Qt::RichText);
-        ui->materialBasicInfoLabel->setWordWrap(true);
-    }
-
-    if (ui->materialSpecsLabel)
-    {
-        ui->materialSpecsLabel->setText(QString());
-        ui->materialSpecsLabel->setTextFormat(Qt::RichText);
-    }
-
-    if (ui->materialsStatusLabel)
-        ui->materialsStatusLabel->setText(tr("尚未同步材料数据"));
 
     updateModelImagePreview(nullptr);
 }
@@ -829,8 +808,7 @@ void MainWindow::refreshMaterialsUi()
     populateList(m_materialsSettingsList, previousKey, &selectedKey);
 
     const QString statusText = tr("已加载 %1 条材料数据").arg(m_materials.size());
-    if (ui->materialsStatusLabel)
-        ui->materialsStatusLabel->setText(statusText);
+    m_materialsStatusMessage = statusText;
     if (m_materialsSettingsStatusLabel)
         m_materialsSettingsStatusLabel->setText(statusText);
 
@@ -842,77 +820,18 @@ void MainWindow::refreshMaterialsUi()
 
 void MainWindow::displayMaterialDetails(const MaterialRecord* material)
 {
-    qDebug()<<"show Material";
-    if (!ui->materialBasicInfoLabel || !ui->materialPropertiesTable)
+    if (!ui->materialPropertiesTable)
         return;
 
     if (!material)
     {
         m_activeMaterialKey.clear();
-        ui->materialBasicInfoLabel->setText(tr("请选择材料以查看详细信息。"));
-        if (ui->materialSpecsLabel)
-            ui->materialSpecsLabel->clear();
         ui->materialPropertiesTable->clearContents();
         ui->materialPropertiesTable->setRowCount(0);
         return;
     }
 
     m_activeMaterialKey = material->materialKey;
-
-    QStringList infoLines;
-
-    if (!material->materialName.isEmpty())
-        infoLines << QStringLiteral("<h3 style=\"margin:0;\">%1</h3>").arg(material->materialName.toHtmlEscaped());
-
-    QStringList primaryMeta;
-    const QString typeText = material->materialTypeValue.isEmpty()
-                                 ? material->materialType
-                                 : material->materialTypeValue;
-    if (!typeText.isEmpty())
-        primaryMeta << tr("类型：%1").arg(typeText.toHtmlEscaped());
-    if (!material->materialStatus.isEmpty())
-        primaryMeta << tr("状态：%1").arg(material->materialStatus.toHtmlEscaped());
-    if (!material->supplierOptionValue.isEmpty())
-        primaryMeta << tr("供应商：%1").arg(material->supplierOptionValue.toHtmlEscaped());
-    else if (!material->supplierCode.isEmpty())
-        primaryMeta << tr("供应商：%1").arg(material->supplierCode.toHtmlEscaped());
-    if (!primaryMeta.isEmpty())
-        infoLines << primaryMeta.join(QStringLiteral("  |  "));
-
-    QStringList extraMeta;
-    const QString trademark = !material->gacMaterialTrademark.isEmpty()
-                                  ? material->gacMaterialTrademark
-                                  : material->materialTrademark;
-    if (!trademark.isEmpty())
-        extraMeta << tr("材料牌号：%1").arg(trademark.toHtmlEscaped());
-    if (!material->standardCode.isEmpty())
-        extraMeta << tr("标准：%1").arg(material->standardCode.toHtmlEscaped());
-    if (!material->authenticationStatusValue.isEmpty())
-        extraMeta << tr("认证状态：%1").arg(material->authenticationStatusValue.toHtmlEscaped());
-    if (!extraMeta.isEmpty())
-        infoLines << extraMeta.join(QStringLiteral("  |  "));
-
-    QStringList timeMeta;
-    if (!material->creationDate.isEmpty())
-        timeMeta << tr("创建时间：%1").arg(material->creationDate.toHtmlEscaped());
-    if (!material->lastUpdateDate.isEmpty())
-        timeMeta << tr("更新时间：%1").arg(material->lastUpdateDate.toHtmlEscaped());
-    if (!timeMeta.isEmpty())
-        infoLines << timeMeta.join(QStringLiteral("  |  "));
-
-    if (infoLines.isEmpty())
-        infoLines << materialDisplayName(*material).toHtmlEscaped();
-
-    ui->materialBasicInfoLabel->setText(infoLines.join(QStringLiteral("<br/>")));
-
-    if (ui->materialSpecsLabel)
-    {
-        if (material->specs.isEmpty())
-            ui->materialSpecsLabel->clear();
-        else
-            ui->materialSpecsLabel->setText(tr("可选规格：%1").arg(material->specs.join(QStringLiteral("、")).toHtmlEscaped()));
-    }
-    qDebug()<<"materialPropertiesTable";
 
     ui->materialPropertiesTable->clearContents();
     ui->materialPropertiesTable->setRowCount(material->properties.size());
@@ -1368,8 +1287,7 @@ void MainWindow::on_syncMaterialsButton_clicked()
     }
 
     const auto updateStatusText = [this](const QString& text) {
-        if (ui->materialsStatusLabel)
-            ui->materialsStatusLabel->setText(text);
+        m_materialsStatusMessage = text;
         if (m_materialsSettingsStatusLabel)
             m_materialsSettingsStatusLabel->setText(text);
     };
@@ -3254,8 +3172,9 @@ QWidget* MainWindow::buildMaterialsSettingsWidget()
 
     auto* statusLabel = new QLabel(frame);
     statusLabel->setObjectName(QStringLiteral("materialsSettingsStatusLabel"));
-    statusLabel->setText(ui->materialsStatusLabel ? ui->materialsStatusLabel->text()
-                                                 : tr("尚未同步材料数据"));
+    statusLabel->setText(m_materialsStatusMessage.isEmpty()
+                             ? tr("尚未同步材料数据")
+                             : m_materialsStatusMessage);
     headerLayout->addWidget(statusLabel);
 
     frameLayout->addLayout(headerLayout);
@@ -3266,10 +3185,11 @@ QWidget* MainWindow::buildMaterialsSettingsWidget()
     list->setSelectionMode(QAbstractItemView::SingleSelection);
     list->setFrameShape(QFrame::NoFrame);
     list->setFocusPolicy(Qt::NoFocus);
+    list->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     frameLayout->addWidget(list);
 
-    layout->addWidget(frame);
-    layout->addStretch(1);
+    frame->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
+    layout->addWidget(frame, 1);
 
     connect(syncButton, &QPushButton::clicked,
             this, &MainWindow::on_syncMaterialsButton_clicked);
