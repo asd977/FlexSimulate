@@ -511,6 +511,50 @@ void JsonPageBuilder::addMetalModel(int sectionIndex, const QString& modelKey)
     if (!mc.models.contains(modelKey))
         mc.models[modelKey] = MetalModelInfo{};
 
+    auto hasModel = [&](const QString& key) {
+        return mc.models.contains(key) && mc.models[key].present;
+    };
+
+    auto showConflictMessage = [&](const QString& firstKey, const QString& secondKey) {
+        QString firstName;
+        QString secondName;
+
+        if (firstKey == QString("elastic"))      firstName = tr("弹性 elastic");
+        else if (firstKey == QString("plastic")) firstName = tr("塑性 plastic");
+        else if (firstKey == QString("hyperelastic")) firstName = tr("超弹性 hyperelastic");
+        else firstName = firstKey;
+
+        if (secondKey == QString("elastic"))      secondName = tr("弹性 elastic");
+        else if (secondKey == QString("plastic")) secondName = tr("塑性 plastic");
+        else if (secondKey == QString("hyperelastic")) secondName = tr("超弹性 hyperelastic");
+        else secondName = secondKey;
+
+        QMessageBox::warning(this, tr("提示"),
+                             tr("同一材料不允许 %1 和 %2 模型共存。").arg(firstName, secondName));
+    };
+
+    if (modelKey == QString("hyperelastic"))
+    {
+        if (hasModel(QString("elastic")))
+        {
+            showConflictMessage(QString("elastic"), modelKey);
+            return;
+        }
+        if (hasModel(QString("plastic")))
+        {
+            showConflictMessage(QString("plastic"), modelKey);
+            return;
+        }
+    }
+    else if (modelKey == QString("elastic") || modelKey == QString("plastic"))
+    {
+        if (hasModel(QString("hyperelastic")))
+        {
+            showConflictMessage(QString("hyperelastic"), modelKey);
+            return;
+        }
+    }
+
     MetalModelInfo& info = mc.models[modelKey];
     if (info.present)
     {
