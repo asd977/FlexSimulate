@@ -290,13 +290,6 @@ void MainWindow::setupUiHelpers()
                        "QVTKOpenGLNativeWidget{border:none;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
                    ));
 
-    applyPanelCard(ui->materialsListFrame, ui->materialsListTitle,
-                   QStringLiteral(
-                       "QListWidget{border:none;background:transparent;padding:8px 12px;}"
-                       "QListWidget::item{padding:6px 4px;}"
-                       "QListWidget::item:selected{background:#e2e8f0;border-radius:6px;color:#0f172a;}"
-                   ));
-
     applyPanelCard(ui->materialDetailsFrame, ui->materialDetailsTitle,
                    QStringLiteral(
                        "QLabel#materialBasicInfoLabel{padding:12px 16px;color:#0f172a;line-height:22px;}"
@@ -322,9 +315,6 @@ void MainWindow::setupUiHelpers()
     ui->contentSplitter->setStyleSheet(splitterStyle);
     if (ui->visualizationSplitter)
         ui->visualizationSplitter->setStyleSheet(splitterStyle);
-    if (ui->materialsSplitter)
-        ui->materialsSplitter->setStyleSheet(splitterStyle);
-
     ui->treeModels->header()->setStretchLastSection(true);
     ui->treeModels->setHeaderHidden(true);
     ui->treeModels->setContextMenuPolicy(Qt::CustomContextMenu);
@@ -359,12 +349,6 @@ void MainWindow::setupUiHelpers()
     m_renderer->SetBackground(colors->GetColor3d("AliceBlue").GetData());
     m_renderWindow->AddRenderer(m_renderer);
     ui->vtkWidget->setRenderWindow(m_renderWindow);
-
-    if (ui->materialsListWidget)
-    {
-        ui->materialsListWidget->setFrameShape(QFrame::NoFrame);
-        ui->materialsListWidget->setFocusPolicy(Qt::NoFocus);
-    }
 
     if (ui->materialPropertiesTable)
     {
@@ -770,18 +754,12 @@ void MainWindow::saveMaterialsToDatabase(const QVector<MaterialRecord>& material
 
 void MainWindow::refreshMaterialsUi()
 {
-    if (!ui->materialsListWidget)
-        return;
+    auto populateList = [this](QListWidget* list, const QString& previousKey, QString* selectedKey) {
+        if (!list)
+            return;
 
-    QString previousKey;
-    if (QListWidgetItem* current = ui->materialsListWidget->currentItem())
-        previousKey = current->data(Qt::UserRole).toString();
-
-    QString selectedKey;
-
-    {
-        QSignalBlocker blocker(ui->materialsListWidget);
-        ui->materialsListWidget->clear();
+        QSignalBlocker blocker(list);
+        list->clear();
 
         for (const MaterialRecord& material : m_materials)
         {
@@ -805,15 +783,15 @@ void MainWindow::refreshMaterialsUi()
             if (!tooltipLines.isEmpty())
                 item->setToolTip(tooltipLines.join(QLatin1Char('\n')));
 
-            ui->materialsListWidget->addItem(item);
+            list->addItem(item);
         }
 
         int rowToSelect = -1;
         if (!previousKey.isEmpty())
         {
-            for (int i = 0; i < ui->materialsListWidget->count(); ++i)
+            for (int i = 0; i < list->count(); ++i)
             {
-                QListWidgetItem* item = ui->materialsListWidget->item(i);
+                QListWidgetItem* item = list->item(i);
                 if (item->data(Qt::UserRole).toString() == previousKey)
                 {
                     rowToSelect = i;
@@ -822,18 +800,33 @@ void MainWindow::refreshMaterialsUi()
             }
         }
 
-        if (rowToSelect < 0 && ui->materialsListWidget->count() > 0)
+        if (rowToSelect < 0 && list->count() > 0)
             rowToSelect = 0;
 
         if (rowToSelect >= 0)
         {
-            ui->materialsListWidget->setCurrentRow(rowToSelect);
-            selectedKey = ui->materialsListWidget->item(rowToSelect)->data(Qt::UserRole).toString();
+            list->setCurrentRow(rowToSelect);
+            const QString key = list->item(rowToSelect)->data(Qt::UserRole).toString();
+            if (selectedKey && selectedKey->isEmpty())
+                *selectedKey = key;
         }
+    };
+
+    QString previousKey = m_activeMaterialKey;
+    if (previousKey.isEmpty())
+    {
+        if (m_materialsSettingsList && m_materialsSettingsList->currentItem())
+            previousKey = m_materialsSettingsList->currentItem()->data(Qt::UserRole).toString();
     }
 
+    QString selectedKey;
+    populateList(m_materialsSettingsList, previousKey, &selectedKey);
+
+    const QString statusText = tr("已加载 %1 条材料数据").arg(m_materials.size());
     if (ui->materialsStatusLabel)
-        ui->materialsStatusLabel->setText(tr("已加载 %1 条材料数据").arg(m_materials.size()));
+        ui->materialsStatusLabel->setText(statusText);
+    if (m_materialsSettingsStatusLabel)
+        m_materialsSettingsStatusLabel->setText(statusText);
 
     if (!selectedKey.isEmpty())
         displayMaterialDetails(materialByKey(selectedKey));
@@ -849,6 +842,7 @@ void MainWindow::displayMaterialDetails(const MaterialRecord* material)
 
     if (!material)
     {
+        m_activeMaterialKey.clear();
         ui->materialBasicInfoLabel->setText(tr("请选择材料以查看详细信息。"));
         if (ui->materialSpecsLabel)
             ui->materialSpecsLabel->clear();
@@ -856,6 +850,8 @@ void MainWindow::displayMaterialDetails(const MaterialRecord* material)
         ui->materialPropertiesTable->setRowCount(0);
         return;
     }
+
+    m_activeMaterialKey = material->materialKey;
 
     QStringList infoLines;
 
@@ -1349,13 +1345,27 @@ QByteArray MainWindow::performPostRequest(const QUrl& url,
 
 void MainWindow::on_syncMaterialsButton_clicked()
 {
-    if (!ui->syncMaterialsButton)
-        return;
+    QList<QPushButton*> buttons;
+    if (auto* clickedButton = qobject_cast<QPushButton*>(sender()))
+        buttons << clickedButton;
 
-    ui->syncMaterialsButton->setEnabled(false);
+    if (m_materialsSettingsSyncButton && !buttons.contains(m_materialsSettingsSyncButton))
+        buttons << m_materialsSettingsSyncButton;
 
-    if (ui->materialsStatusLabel)
-        ui->materialsStatusLabel->setText(tr("正在同步材料数据..."));
+    for (QPushButton* button : buttons)
+    {
+        if (button)
+            button->setEnabled(false);
+    }
+
+    const auto updateStatusText = [this](const QString& text) {
+        if (ui->materialsStatusLabel)
+            ui->materialsStatusLabel->setText(text);
+        if (m_materialsSettingsStatusLabel)
+            m_materialsSettingsStatusLabel->setText(text);
+    };
+
+    updateStatusText(tr("正在同步材料数据..."));
 
     QApplication::setOverrideCursor(Qt::BusyCursor);
     QString error;
@@ -1363,17 +1373,31 @@ void MainWindow::on_syncMaterialsButton_clicked()
     QApplication::restoreOverrideCursor();
 
 
+    const int fetchedCount = fetched.size();
+
     saveMaterialsToDatabase(fetched);
     loadMaterialsFromDatabase();
 
-    if (ui->materialsStatusLabel)
-    {
-        const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
-        ui->materialsStatusLabel->setText(tr("已于 %1 同步 %2 条材料数据").arg(timestamp).arg(m_materials.size()));
-    }
+    const int storedCount = m_materials.size();
+    const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+    updateStatusText(tr("已于 %1 同步 %2 条材料数据").arg(timestamp).arg(storedCount));
 
-    ui->syncMaterialsButton->setEnabled(true);
-    appendLogMessage(tr("成功同步 %1 条材料数据。").arg(fetched.size()));
+    for (QPushButton* button : buttons)
+    {
+        if (button)
+            button->setEnabled(true);
+    }
+    if (storedCount == fetchedCount)
+    {
+        appendLogMessage(tr("成功同步 %1 条材料数据。").arg(storedCount));
+    }
+    else
+    {
+        const int skippedCount = qMax(0, fetchedCount - storedCount);
+        appendLogMessage(tr("成功同步 %1 条材料数据（忽略 %2 条重复记录）。")
+                             .arg(storedCount)
+                             .arg(skippedCount));
+    }
 }
 
 void MainWindow::on_materialsListWidget_currentItemChanged(QListWidgetItem* current,
@@ -2098,6 +2122,7 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
     }
 
     const int type = current->data(0, TypeRole).toInt();
+    m_viewingMaterials = false;
 
     if (type == LibraryItem)
     {
@@ -2110,6 +2135,21 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         if (ui->stackedWidget)
             ui->stackedWidget->setCurrentWidget(ui->planPage);
         updateGallery();
+        updateSelectionInfo();
+    }
+    else if (type == MaterialLibraryItem)
+    {
+        m_activeSchemeId.clear();
+        m_activeModelId.clear();
+        m_viewingMaterials = true;
+        if (ui->stackedWidget)
+            ui->stackedWidget->setCurrentWidget(ui->MainPage);
+        clearVtkScene();
+        setVisualizationVisible(false);
+        updateModelImagePreview(nullptr);
+        showMaterialsSettings();
+        if (ui->previewTabs && ui->materialsTab)
+            ui->previewTabs->setCurrentWidget(ui->materialsTab);
         updateSelectionInfo();
     }
     else if (type == SchemeItem)
@@ -2517,6 +2557,10 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
                 });
             }
         }
+        else if (type == MaterialLibraryItem)
+        {
+            menu.addAction(tr("同步材料数据"), this, &MainWindow::on_syncMaterialsButton_clicked);
+        }
     }
 
     if (!menu.isEmpty())
@@ -2701,11 +2745,13 @@ void MainWindow::rebuildTree()
     m_modelItems.clear();
     m_projectRootItem = nullptr;
     m_libraryRootItem = nullptr;
+    m_materialsRootItem = nullptr;
 
     const QIcon projectIcon(QStringLiteral(":/icons/icons/project_logo.svg"));
     const QIcon libraryIcon(QStringLiteral(":/icons/icons/gallery.svg"));
     const QIcon schemeIcon(QStringLiteral(":/icons/icons/plan.svg"));
     const QIcon modelIcon(QStringLiteral(":/icons/icons/model.svg"));
+    const QIcon materialsIcon(QStringLiteral(":/icons/icons/materials.svg"));
 
     const QBrush inactiveBrush(QColor(148, 163, 184));
 
@@ -2715,6 +2761,13 @@ void MainWindow::rebuildTree()
     m_libraryRootItem->setData(0, TypeRole, LibraryItem);
     m_libraryRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
     ui->treeModels->insertTopLevelItem(0, m_libraryRootItem);
+
+    m_materialsRootItem = new QTreeWidgetItem();
+    m_materialsRootItem->setText(0, tr("材料资源"));
+    m_materialsRootItem->setIcon(0, materialsIcon);
+    m_materialsRootItem->setData(0, TypeRole, MaterialLibraryItem);
+    m_materialsRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
+    ui->treeModels->insertTopLevelItem(1, m_materialsRootItem);
 
     for (const QString& projectPath : m_recentProjects)
     {
@@ -2889,6 +2942,9 @@ void MainWindow::clearDetailWidget()
 
     m_currentDetailWidget->deleteLater();
     m_currentDetailWidget = nullptr;
+    m_materialsSettingsList = nullptr;
+    m_materialsSettingsStatusLabel = nullptr;
+    m_materialsSettingsSyncButton = nullptr;
 }
 
 void MainWindow::showProjectInfo()
@@ -2967,6 +3023,19 @@ void MainWindow::showModelSettings(const QString& modelId)
     {
         clearVtkScene();
     }
+}
+
+void MainWindow::showMaterialsSettings()
+{
+    m_viewingMaterials = true;
+    clearDetailWidget();
+    m_currentDetailWidget = buildMaterialsSettingsWidget();
+    if (auto* layout = ui->settingWidget->layout())
+        layout->addWidget(m_currentDetailWidget);
+
+    refreshMaterialsUi();
+    setVisualizationVisible(false);
+    updateModelImagePreview(nullptr);
 }
 
 QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
@@ -3127,6 +3196,80 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
 //        QDesktopServices::openUrl(QUrl::fromLocalFile(path));
 //    });
 //    layout->addWidget(openBtn, 0, Qt::AlignLeft);
+
+    return container;
+}
+
+QWidget* MainWindow::buildMaterialsSettingsWidget()
+{
+    auto* container = new QWidget(ui->settingWidget);
+    container->setObjectName(QStringLiteral("materialsSettingsWidget"));
+    auto* layout = new QVBoxLayout(container);
+    layout->setContentsMargins(0, 0, 0, 0);
+    layout->setSpacing(12);
+
+    auto* title = new QLabel(tr("材料列表"), container);
+    title->setStyleSheet(QStringLiteral("font-size:18px;font-weight:600;color:#0f172a;"));
+    layout->addWidget(title);
+
+    auto* frame = new QFrame(container);
+    frame->setObjectName(QStringLiteral("materialsSettingsFrame"));
+    frame->setStyleSheet(
+        QStringLiteral(
+            "QFrame#materialsSettingsFrame{background:#ffffff;border:1px solid #d0d5dd;border-radius:10px;}"
+            "QListWidget#materialsSettingsList{border:none;background:transparent;}"
+            "QListWidget#materialsSettingsList::item{padding:8px 6px;border-radius:6px;}"
+            "QListWidget#materialsSettingsList::item:hover{background:#f1f5f9;}"
+            "QListWidget#materialsSettingsList::item:selected{background:#e2e8f0;color:#0f172a;}"
+            "QPushButton#materialsSettingsSyncButton{padding:8px 18px;border-radius:18px;border:none;"
+            "background:#2563eb;color:#ffffff;font-weight:600;}"
+            "QPushButton#materialsSettingsSyncButton:disabled{background:#94a3b8;}"
+            "QPushButton#materialsSettingsSyncButton:hover:!disabled{background:#1d4ed8;}"
+            "QPushButton#materialsSettingsSyncButton:pressed:!disabled{background:#1e3a8a;}"
+            "QLabel#materialsSettingsStatusLabel{color:#475569;}"
+        ));
+    auto* frameLayout = new QVBoxLayout(frame);
+    frameLayout->setContentsMargins(16, 16, 16, 16);
+    frameLayout->setSpacing(12);
+
+    auto* headerLayout = new QHBoxLayout();
+    headerLayout->setContentsMargins(0, 0, 0, 0);
+    headerLayout->setSpacing(8);
+
+    auto* syncButton = new QPushButton(tr("同步材料数据"), frame);
+    syncButton->setObjectName(QStringLiteral("materialsSettingsSyncButton"));
+    syncButton->setCursor(Qt::PointingHandCursor);
+    headerLayout->addWidget(syncButton);
+
+    headerLayout->addStretch();
+
+    auto* statusLabel = new QLabel(frame);
+    statusLabel->setObjectName(QStringLiteral("materialsSettingsStatusLabel"));
+    statusLabel->setText(ui->materialsStatusLabel ? ui->materialsStatusLabel->text()
+                                                 : tr("尚未同步材料数据"));
+    headerLayout->addWidget(statusLabel);
+
+    frameLayout->addLayout(headerLayout);
+
+    auto* list = new QListWidget(frame);
+    list->setObjectName(QStringLiteral("materialsSettingsList"));
+    list->setAlternatingRowColors(true);
+    list->setSelectionMode(QAbstractItemView::SingleSelection);
+    list->setFrameShape(QFrame::NoFrame);
+    list->setFocusPolicy(Qt::NoFocus);
+    frameLayout->addWidget(list);
+
+    layout->addWidget(frame);
+    layout->addStretch(1);
+
+    connect(syncButton, &QPushButton::clicked,
+            this, &MainWindow::on_syncMaterialsButton_clicked);
+    connect(list, &QListWidget::currentItemChanged,
+            this, &MainWindow::on_materialsListWidget_currentItemChanged);
+
+    m_materialsSettingsList = list;
+    m_materialsSettingsStatusLabel = statusLabel;
+    m_materialsSettingsSyncButton = syncButton;
 
     return container;
 }
@@ -4137,7 +4280,9 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
 
 void MainWindow::refreshCurrentDetail()
 {
-    if (!m_activeModelId.isEmpty())
+    if (m_viewingMaterials)
+        showMaterialsSettings();
+    else if (!m_activeModelId.isEmpty())
         showModelSettings(m_activeModelId);
     else if (!m_activeSchemeId.isEmpty())
         showSchemeSettings(m_activeSchemeId);

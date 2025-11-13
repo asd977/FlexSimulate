@@ -26,6 +26,9 @@ class QWidget;
 class QShortcut;
 class SchemeGalleryWidget;
 class JsonPageBuilder;
+class QListWidget;
+class QLabel;
+class QPushButton;
 class vtkGenericOpenGLRenderWindow;
 class vtkRenderer;
 class vtkActor;
@@ -135,7 +138,8 @@ private:
         LibraryItem = 0,
         ProjectItem,
         SchemeItem,
-        ModelItem
+        ModelItem,
+        MaterialLibraryItem
     };
 
     void setupUiHelpers();
@@ -156,10 +160,12 @@ private:
     void clearDetailWidget();
     void showSchemeSettings(const QString& schemeId);
     void showModelSettings(const QString& modelId);
+    void showMaterialsSettings();
     void showProjectInfo();
     QWidget* buildSchemeSettingsWidget(const SchemeRecord& scheme);
     QWidget* buildModelSettingsWidget(const ModelRecord& model);
     QWidget* buildProjectInfoWidget();
+    QWidget* buildMaterialsSettingsWidget();
     void showLibrarySchemeDetail(const QString& entryId,
                                  const QString& projectSchemeId = QString());
     void refreshCurrentDetail();
@@ -283,8 +289,10 @@ private:
     QHash<QString, QTreeWidgetItem*> m_modelItems;
     QTreeWidgetItem* m_libraryRootItem = nullptr;
     QTreeWidgetItem* m_projectRootItem = nullptr;
+    QTreeWidgetItem* m_materialsRootItem = nullptr;
     QString m_activeSchemeId;
     QString m_activeModelId;
+    bool m_viewingMaterials = false;
     bool m_blockTreeSignals = false;
     QString m_appStateFilePath;
     QString m_projectRoot;
@@ -307,4 +315,8 @@ private:
     QString m_materialsDbPath;
     QSqlDatabase m_materialsDb;
     QVector<MaterialRecord> m_materials;
+    QListWidget* m_materialsSettingsList = nullptr;
+    QLabel* m_materialsSettingsStatusLabel = nullptr;
+    QPushButton* m_materialsSettingsSyncButton = nullptr;
+    QString m_activeMaterialKey;
 };
