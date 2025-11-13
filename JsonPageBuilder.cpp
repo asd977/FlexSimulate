@@ -25,6 +25,7 @@
 #include <QCheckBox>
 #include <QDebug>
 #include <QSet>
+#include <QSignalBlocker>
 
 namespace
 {
@@ -36,6 +37,24 @@ QFileInfo latestResultInfo(const QDir& dir)
     if (!files.isEmpty())
         return files.first();
     return QFileInfo();
+}
+
+QString modelKeyForField(const QString& fieldKey)
+{
+    if (fieldKey.compare(QStringLiteral("D"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("density");
+    if (fieldKey.compare(QStringLiteral("E"), Qt::CaseInsensitive) == 0 ||
+        fieldKey.compare(QStringLiteral("u"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("elastic");
+    if (fieldKey.compare(QStringLiteral("YS"), Qt::CaseInsensitive) == 0 ||
+        fieldKey.compare(QStringLiteral("UTS"), Qt::CaseInsensitive) == 0 ||
+        fieldKey.compare(QStringLiteral("e"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("plastic");
+    if (fieldKey.compare(QStringLiteral("C10"), Qt::CaseInsensitive) == 0 ||
+        fieldKey.compare(QStringLiteral("C01"), Qt::CaseInsensitive) == 0 ||
+        fieldKey.compare(QStringLiteral("D1"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("hyperelastic");
+    return QString();
 }
 }
 
@@ -94,6 +113,17 @@ JsonPageBuilder::JsonPageBuilder(const QString& jsonPath, QWidget* parent)
         sections = QJsonArray{};
     }
     buildUiFromJson(sections);
+}
+
+void JsonPageBuilder::setAvailableMaterials(const QVector<MaterialPreset>& materials)
+{
+    m_materialPresets = materials;
+
+    for (MetalSectionControls& controls : m_metalSections)
+    {
+        populateMaterialCombo(controls.materialPresetCombo);
+        updateMaterialApplyState(controls);
+    }
 }
 void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
 {
@@ -265,6 +295,52 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
             metalCtrl.addModelCombo  = combo;
             metalCtrl.addModelButton = addBtn;
 
+            const int sectionIndex = i;
+
+            auto* presetLayout = new QHBoxLayout();
+            presetLayout->setContentsMargins(0, 0, 0, 2);
+
+            auto* presetLabel = new QLabel(tr("材料库数据："), sectionFrame);
+            if (!introduction.isEmpty())
+                presetLabel->setToolTip(introduction);
+
+            auto* presetCombo = new QComboBox(sectionFrame);
+            presetCombo->setSizeAdjustPolicy(QComboBox::AdjustToContents);
+            presetCombo->setMinimumWidth(200);
+            presetCombo->setEnabled(!m_materialPresets.isEmpty());
+            populateMaterialCombo(presetCombo);
+
+            auto* applyBtn = new QPushButton(tr("一键替换"), sectionFrame);
+            applyBtn->setEnabled(false);
+            if (!introduction.isEmpty())
+            {
+                presetCombo->setToolTip(introduction);
+                applyBtn->setToolTip(introduction);
+            }
+
+            presetLayout->addWidget(presetLabel);
+            presetLayout->addWidget(presetCombo);
+            presetLayout->addWidget(applyBtn);
+            presetLayout->addStretch();
+            sectionLayout->addLayout(presetLayout);
+
+            metalCtrl.materialPresetCombo = presetCombo;
+            metalCtrl.applyMaterialButton = applyBtn;
+
+            connect(applyBtn, &QPushButton::clicked, this, [this, sectionIndex]() {
+                applyMaterialPreset(sectionIndex);
+            });
+
+            connect(presetCombo,
+                    qOverload<int>(&QComboBox::currentIndexChanged),
+                    this,
+                    [this, sectionIndex](int) {
+                        if (sectionIndex >= 0 && sectionIndex < m_metalSections.size())
+                            updateMaterialApplyState(m_metalSections[sectionIndex]);
+                    });
+
+            updateMaterialApplyState(metalCtrl);
+
             // 模型网格布局
             auto* grid = new QGridLayout();
             grid->setHorizontalSpacing(12);
@@ -282,7 +358,6 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
             metalCtrl.models[QString("hyperelastic")];
 
             // 添加按钮逻辑：根据下拉框当前选择添加模型
-            const int sectionIndex = i;
             connect(addBtn, &QPushButton::clicked, this, [this, sectionIndex, combo]() {
                 const QString key = combo->currentData().toString();
                 if (!key.isEmpty())
@@ -510,6 +585,128 @@ void JsonPageBuilder::removeMetalModel(int sectionIndex, const QString& modelKey
     }
 
     info.present = false;
+}
+
+void JsonPageBuilder::populateMaterialCombo(QComboBox* combo) const
+{
+    if (!combo)
+        return;
+
+    QString previousKey;
+    if (combo->count() > 0)
+        previousKey = combo->currentData().toString();
+
+    QSignalBlocker blocker(combo);
+    combo->clear();
+    combo->addItem(tr("选择材料..."), QString());
+
+    for (const MaterialPreset& preset : m_materialPresets)
+    {
+        combo->addItem(preset.displayName, preset.key);
+    }
+
+    int index = combo->findData(previousKey);
+    if (index >= 0)
+        combo->setCurrentIndex(index);
+    else
+        combo->setCurrentIndex(0);
+
+    combo->setEnabled(combo->count() > 1);
+}
+
+void JsonPageBuilder::updateMaterialApplyState(MetalSectionControls& controls)
+{
+    if (controls.materialPresetCombo)
+        controls.materialPresetCombo->setEnabled(controls.materialPresetCombo->count() > 1);
+
+    if (!controls.applyMaterialButton)
+        return;
+
+    bool enabled = false;
+    if (controls.materialPresetCombo)
+        enabled = !controls.materialPresetCombo->currentData().toString().isEmpty();
+    controls.applyMaterialButton->setEnabled(enabled);
+}
+
+void JsonPageBuilder::applyMaterialPreset(int sectionIndex)
+{
+    if (sectionIndex < 0 || sectionIndex >= m_metalSections.size())
+        return;
+
+    MetalSectionControls& controls = m_metalSections[sectionIndex];
+    if (!controls.materialPresetCombo)
+        return;
+
+    const QString key = controls.materialPresetCombo->currentData().toString();
+    if (key.isEmpty())
+        return;
+
+    const MaterialPreset* preset = findMaterialPreset(key);
+    if (!preset)
+        return;
+
+    applyPresetToSection(sectionIndex, *preset);
+}
+
+const JsonPageBuilder::MaterialPreset* JsonPageBuilder::findMaterialPreset(const QString& key) const
+{
+    if (key.isEmpty())
+        return nullptr;
+
+    for (const MaterialPreset& preset : m_materialPresets)
+    {
+        if (preset.key == key)
+            return &preset;
+    }
+    return nullptr;
+}
+
+void JsonPageBuilder::applyPresetToSection(int sectionIndex, const MaterialPreset& preset)
+{
+    if (sectionIndex < 0 || sectionIndex >= m_metalSections.size())
+        return;
+
+    MetalSectionControls& controls = m_metalSections[sectionIndex];
+    if (!controls.isMetal)
+        return;
+
+    bool applied = false;
+
+    for (auto it = preset.valuesByFieldKey.constBegin();
+         it != preset.valuesByFieldKey.constEnd(); ++it)
+    {
+        const QString fieldKey = it.key();
+        const QString value = it.value();
+        if (fieldKey.isEmpty())
+            continue;
+
+        const QString modelKey = modelKeyForField(fieldKey);
+        if (modelKey.isEmpty())
+            continue;
+
+        if (!controls.models.contains(modelKey))
+            controls.models.insert(modelKey, MetalModelInfo{});
+
+        if (!controls.models[modelKey].present)
+            addMetalModel(sectionIndex, modelKey);
+
+        MetalModelInfo& info = controls.models[modelKey];
+        QLineEdit* edit = info.editsByName.value(fieldKey, nullptr);
+        if (!edit)
+            continue;
+
+        edit->setText(value);
+        applied = true;
+    }
+
+    if (!applied && controls.applyMaterialButton)
+    {
+        QMessageBox::information(this,
+                                 tr("提示"),
+                                 tr("所选材料没有可应用的金属模型参数。"));
+    }
+
+    updateMaterialApplyState(controls);
 }
 
 // ===== JSON 读写 =====

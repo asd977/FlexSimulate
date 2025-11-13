@@ -2072,7 +2072,7 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         if (ui->stackedWidget)
             ui->stackedWidget->setCurrentWidget(ui->MainPage);
         clearVtkScene();
-        setVisualizationVisible(false);
+        setVisualizationVisible(true);
         updateModelImagePreview(nullptr);
         showMaterialsSettings();
         if (ui->previewTabs && ui->materialsTab)
@@ -3110,6 +3110,73 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
                              .arg(QDir::toNativeSeparators(resultPath)));
         displayResultFile(resultPath);
     });
+
+    QVector<JsonPageBuilder::MaterialPreset> materialPresets;
+    materialPresets.reserve(m_materials.size());
+
+    const auto propertyNameToFieldKey = [](const QString& propertyName) -> QString {
+        const QString trimmed = propertyName.trimmed();
+        if (trimmed.isEmpty())
+            return QString();
+
+        if (trimmed.compare(QStringLiteral("密度ρ"), Qt::CaseInsensitive) == 0 ||
+            trimmed.compare(QStringLiteral("密度"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("D");
+        if (trimmed.compare(QStringLiteral("弹性模量E"), Qt::CaseInsensitive) == 0 ||
+            trimmed.compare(QStringLiteral("弹性模量"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("E");
+        if (trimmed.compare(QStringLiteral("泊松比v"), Qt::CaseInsensitive) == 0 ||
+            trimmed.compare(QStringLiteral("泊松比"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("u");
+        if (trimmed.compare(QStringLiteral("屈服强度YS"), Qt::CaseInsensitive) == 0 ||
+            trimmed.compare(QStringLiteral("屈服强度"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("YS");
+        if (trimmed.compare(QStringLiteral("断后延伸率A"), Qt::CaseInsensitive) == 0 ||
+            trimmed.compare(QStringLiteral("断后延伸率"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("e");
+        if (trimmed.compare(QStringLiteral("抗拉强度UTS"), Qt::CaseInsensitive) == 0 ||
+            trimmed.compare(QStringLiteral("抗拉强度"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("UTS");
+        return QString();
+    };
+
+    const auto isMetalMaterial = [](const MaterialRecord& material) -> bool {
+        if (material.materialTypeCode.compare(QStringLiteral("metal"), Qt::CaseInsensitive) == 0)
+            return true;
+        if (material.materialType.contains(QStringLiteral("金属"), Qt::CaseInsensitive))
+            return true;
+        if (material.materialTypeValue.contains(QStringLiteral("金属"), Qt::CaseInsensitive))
+            return true;
+        return false;
+    };
+
+    for (const MaterialRecord& material : m_materials)
+    {
+        if (!isMetalMaterial(material))
+            continue;
+
+        JsonPageBuilder::MaterialPreset preset;
+        preset.key = material.materialKey;
+        preset.displayName = materialDisplayName(material);
+
+        for (const MaterialProperty& property : material.properties)
+        {
+            const QString fieldKey = propertyNameToFieldKey(property.name);
+            if (fieldKey.isEmpty())
+                continue;
+
+            const QString valueText = property.value.trimmed();
+            if (valueText.isEmpty())
+                continue;
+
+            preset.valuesByFieldKey.insert(fieldKey, valueText);
+        }
+
+        if (!preset.key.isEmpty() && !preset.valuesByFieldKey.isEmpty())
+            materialPresets.push_back(preset);
+    }
+
+    builder->setAvailableMaterials(materialPresets);
 
 //    auto* openBtn = new QPushButton(tr("打开模型目录"), container);
 //    openBtn->setCursor(Qt::PointingHandCursor);

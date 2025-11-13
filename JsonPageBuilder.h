@@ -23,6 +23,15 @@ class JsonPageBuilder : public QWidget
 public:
     explicit JsonPageBuilder(const QString& jsonPath, QWidget* parent = nullptr);
 
+    struct MaterialPreset
+    {
+        QString key;                     // 材料唯一 key
+        QString displayName;             // 下拉框显示文本
+        QMap<QString, QString> valuesByFieldKey; // 参数名 (如 D/YS) -> 数值
+    };
+
+    void setAvailableMaterials(const QVector<MaterialPreset>& materials);
+
 signals:
     void logMessage(const QString& msg);
     void calculationFinished(const QString& objPath);
@@ -47,6 +56,11 @@ private:
     // metal section：添加 / 删除模型
     void addMetalModel(int sectionIndex, const QString& modelKey);
     void removeMetalModel(int sectionIndex, const QString& modelKey);
+    void populateMaterialCombo(QComboBox* combo) const;
+    void updateMaterialApplyState(MetalSectionControls& controls);
+    void applyMaterialPreset(int sectionIndex);
+    void applyPresetToSection(int sectionIndex, const MaterialPreset& preset);
+    const MaterialPreset* findMaterialPreset(const QString& key) const;
 
     // ===== 文件读取 / 文本处理 =====
     QString readWholeFile(const QString& path);
@@ -76,6 +90,8 @@ private:
 
         QComboBox*  addModelCombo  = nullptr;
         QPushButton* addModelButton = nullptr;
+        QComboBox*  materialPresetCombo = nullptr;
+        QPushButton* applyMaterialButton = nullptr;
         QGridLayout* grid = nullptr;
         int gridNextRow = 0;
 
@@ -98,6 +114,7 @@ private:
 
     // metal section 控件，与 sections 一一对应
     QVector<MetalSectionControls>  m_metalSections;
+    QVector<MaterialPreset>        m_materialPresets;
 
     QPushButton*                   m_calculateButton = nullptr;
 
