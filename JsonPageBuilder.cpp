@@ -2,10 +2,12 @@
 
 #include <QVBoxLayout>
 #include <QHBoxLayout>
+#include <QGridLayout>
 #include <QLabel>
 #include <QMessageBox>
 #include <QFile>
 #include <QJsonDocument>
+#include <QJsonObject>
 #include <QJsonValue>
 #include <QProcess>
 #include <QRegularExpression>
@@ -16,12 +18,19 @@
 #include <QStringList>
 #include <QDir>
 #include <QProgressDialog>
+#include <QComboBox>
+#include <QFrame>
+#include <QPushButton>
+#include <QLineEdit>
+#include <QCheckBox>
+#include <QDebug>
+#include <QSet>
 
 namespace
 {
 QFileInfo latestResultInfo(const QDir& dir)
 {
-    const QStringList objPatterns{ QStringLiteral("*.obj"), QStringLiteral("*.OBJ") };
+    const QStringList objPatterns{ QString("*.obj"), QString("*.OBJ") };
     QFileInfoList files = dir.entryInfoList(objPatterns, QDir::Files,
                                             QDir::Time | QDir::IgnoreCase);
     if (!files.isEmpty())
@@ -43,12 +52,15 @@ JsonPageBuilder::JsonPageBuilder(const QString& jsonPath, QWidget* parent)
     : QWidget(parent)
     , m_jsonPath(QFileInfo(jsonPath).absoluteFilePath())
 {
+    // 统一字体，避免中文/特殊字符在某些系统字体下显示不好
+    this->setFont(QFont(QString("Microsoft YaHei UI"), 9));
+
     QFileInfo info(m_jsonPath);
     QDir parentDir = info.exists() ? info.dir() : QDir(info.absolutePath());
 
     // 始终使用 para.json 作为参数文件
-    const QFileInfo paraInfo(parentDir.filePath(QStringLiteral("para.json")));
-    if (!info.exists() || info.fileName().compare(QStringLiteral("para.json"), Qt::CaseInsensitive) != 0)
+    const QFileInfo paraInfo(parentDir.filePath(QString("para.json")));
+    if (!info.exists() || info.fileName().compare(QString("para.json"), Qt::CaseInsensitive) != 0)
     {
         if (paraInfo.exists())
         {
@@ -61,16 +73,16 @@ JsonPageBuilder::JsonPageBuilder(const QString& jsonPath, QWidget* parent)
 
     if (info.exists())
     {
-        m_datPath = info.dir().filePath(QStringLiteral("Job-2.dat"));
-        m_msgPath = info.dir().filePath(QStringLiteral("Job-2.msg"));
+        m_datPath = info.dir().filePath(QString("Job-2.dat"));
+        m_msgPath = info.dir().filePath(QString("Job-2.msg"));
     }
     else
     {
-        m_datPath = parentDir.filePath(QStringLiteral("Job-2.dat"));
-        m_msgPath = parentDir.filePath(QStringLiteral("Job-2.msg"));
+        m_datPath = parentDir.filePath(QString("Job-2.dat"));
+        m_msgPath = parentDir.filePath(QString("Job-2.msg"));
     }
 
-    const QFileInfo batInfo(parentDir.filePath(QStringLiteral("calculate.bat")));
+    const QFileInfo batInfo(parentDir.filePath(QString("calculate.bat")));
     if (batInfo.exists())
         m_batPath = batInfo.absoluteFilePath();
 
@@ -79,83 +91,253 @@ JsonPageBuilder::JsonPageBuilder(const QString& jsonPath, QWidget* parent)
     {
         QMessageBox::critical(this, tr("错误"),
                               tr("无法读取 JSON：%1").arg(m_jsonPath));
-
         sections = QJsonArray{};
     }
     buildUiFromJson(sections);
 }
-
 void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
 {
     auto* mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(12);
     mainLayout->setContentsMargins(10, 10, 10, 10);
 
+    m_titleButtons.clear();
+    m_labelNameWidgets.clear();
+    m_labelDataWidgets.clear();
+    m_metalSections.clear();
+
+    m_labelNameWidgets.reserve(sections.size());
+    m_labelDataWidgets.reserve(sections.size());
+    m_metalSections.reserve(sections.size());
+
     for (int i = 0; i < sections.size(); ++i)
     {
-        const QJsonObject sec = sections.at(i).toObject();
-        const QString title = sec.value("title").toString();
+        const QJsonObject sec      = sections.at(i).toObject();
+        const QString title        = sec.value(QString("title")).toString();
+        const QString introduction = sec.value(QString("introduction")).toString();
+        const QString mattype      = sec.value(QString("mattype")).toString();
+        const QJsonArray dataList  = sec.value(QString("data")).toArray();
 
-        // 标题按钮
-        auto* titleBtn = new QPushButton(title, this);
-        titleBtn->setMinimumHeight(40);
-        titleBtn->setStyleSheet(kBtnQss);
-        mainLayout->addWidget(titleBtn);
+        // ★★ 关键：先在 m_metalSections 中占一个位置，再通过引用来用它 ★★
+        m_metalSections.push_back(MetalSectionControls{});
+        MetalSectionControls& metalCtrl = m_metalSections.last();
+
+        // ===== A. 每个 section 一张卡片 =====
+        auto* sectionFrame = new QFrame(this);
+        sectionFrame->setObjectName(QString("SectionFrame"));
+        sectionFrame->setFrameShape(QFrame::StyledPanel);
+        sectionFrame->setFrameShadow(QFrame::Plain);
+        sectionFrame->setStyleSheet(
+            "QFrame#SectionFrame {"
+            "  background-color: #f7f9fc;"
+            "  border: 1px solid #d0d7e2;"
+            "  border-radius: 6px;"
+            "}"
+        );
+
+        auto* sectionLayout = new QVBoxLayout(sectionFrame);
+        sectionLayout->setSpacing(4);
+        sectionLayout->setContentsMargins(8, 6, 8, 8);
+
+        // ===== B. 标题按钮 =====
+        auto* titleBtn = new QPushButton(title, sectionFrame);
+        titleBtn->setMinimumHeight(32);
+        titleBtn->setStyleSheet(
+            QString::fromLatin1(kBtnQss) +
+            "QPushButton { font-size: 13pt; font-weight: bold; }"
+        );
+        if (!introduction.isEmpty())
+            titleBtn->setToolTip(introduction);
+
+        sectionLayout->addWidget(titleBtn);
         m_titleButtons.push_back(titleBtn);
 
-        // 本分组的网格布局：左列标签，右列输入框
-        auto* grid = new QGridLayout();
-        grid->setHorizontalSpacing(12);
-        grid->setVerticalSpacing(8);
-        grid->setContentsMargins(6, 0, 6, 6);
-        grid->setColumnStretch(0, 0); // label 列不拉伸
-        grid->setColumnStretch(1, 1); // edit 列自适应拉伸
+        // ===== C. introduction 说明文字 =====
+        if (!introduction.isEmpty())
+        {
+            auto* introLabel = new QLabel(introduction, sectionFrame);
+            introLabel->setWordWrap(true);
+            QFont f = introLabel->font();
+            f.setPointSizeF(f.pointSizeF() - 1);
+            introLabel->setFont(f);
+            introLabel->setStyleSheet(QString("color: #666666;"));
+            introLabel->setContentsMargins(2, 0, 2, 2);
+            sectionLayout->addWidget(introLabel);
+        }
 
-        QVector<QLabel*> nameLabels;
+        QVector<QLabel*>    nameLabels;
         QVector<QLineEdit*> edits;
 
-        const QJsonArray dataList = sec.value("data").toArray();
-        for (int row = 0; row < dataList.size(); ++row) {
-            const QJsonObject item = dataList.at(row).toObject();
-            const QString cnName = item.value("cn_name").toString();
-            const QJsonValue val = item.value("value");
+        const bool isMetal =
+            !mattype.isEmpty() &&
+            mattype.compare(QString("metal"), Qt::CaseInsensitive) == 0;
 
-            auto* lab = new QLabel(cnName + QString("："), this);
-            lab->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        if (!isMetal)
+        {
+            // ===== 非 metal：按原始 data 简单生成 label + edit =====
+            auto* grid = new QGridLayout();
+            grid->setHorizontalSpacing(12);
+            grid->setVerticalSpacing(6);
+            grid->setContentsMargins(0, 2, 0, 0);
+            grid->setColumnStretch(0, 0);
+            grid->setColumnStretch(1, 1);
 
-            auto* edit = new QLineEdit(this);
-            // JSON 值回显为字符串
-            if (val.isDouble()) {
-                edit->setText(QString::number(val.toDouble(), 'g', 15));
-            } else if (val.isString()) {
-                edit->setText(val.toString());
-            } else if (val.isBool()) {
-                edit->setText(val.toBool() ? QString("1") : QString("0"));
-            } else if (val.isArray()) {
-                edit->setText(QString::fromUtf8(QJsonDocument(val.toArray())
-                                                .toJson(QJsonDocument::Compact)));
-            } else if (val.isObject()) {
-                edit->setText(QString::fromUtf8(QJsonDocument(val.toObject())
-                                                .toJson(QJsonDocument::Compact)));
-            } else { // null / undefined
-                edit->setText(QString());
+            auto createEdit = [&](const QJsonValue& val, QWidget* parent) -> QLineEdit*
+            {
+                auto* edit = new QLineEdit(parent);
+                if (val.isDouble()) {
+                    edit->setText(QString::number(val.toDouble(), 'g', 15));
+                } else if (val.isString()) {
+                    edit->setText(val.toString());
+                } else if (val.isBool()) {
+                    edit->setText(val.toBool() ? QString("1") : QString("0"));
+                } else if (val.isArray()) {
+                    edit->setText(QString::fromUtf8(
+                        QJsonDocument(val.toArray()).toJson(QJsonDocument::Compact)));
+                } else if (val.isObject()) {
+                    edit->setText(QString::fromUtf8(
+                        QJsonDocument(val.toObject()).toJson(QJsonDocument::Compact)));
+                } else {
+                    edit->setText(QString());
+                }
+                return edit;
+            };
+
+            int row = 0;
+            for (const QJsonValue& v : dataList)
+            {
+                const QJsonObject item = v.toObject();
+                const QString cnName   = item.value(QString("cn_name")).toString();
+                const QJsonValue val   = item.value(QString("value"));
+
+                auto* lab  = new QLabel(cnName + QString("："), sectionFrame);
+                lab->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+                if (!introduction.isEmpty())
+                    lab->setToolTip(introduction);
+
+                auto* edit = createEdit(val, sectionFrame);
+
+                grid->addWidget(lab,  row, 0);
+                grid->addWidget(edit, row, 1);
+
+                nameLabels.push_back(lab);
+                edits.push_back(edit);
+                ++row;
             }
 
-            grid->addWidget(lab,  row, 0);
-            grid->addWidget(edit, row, 1);
+            sectionLayout->addLayout(grid);
 
-            nameLabels.push_back(lab);
-            edits.push_back(edit);
+            metalCtrl.isMetal = false;   // 非 metal
+        }
+        else
+        {
+            // ===== metal：固定四种模型，可添加 / 删除 =====
+            metalCtrl.isMetal       = true;
+            metalCtrl.introduction  = introduction;
+            metalCtrl.gridNextRow   = 0;
+
+            // “添加材料性质” 行
+            auto* addLayout = new QHBoxLayout();
+            addLayout->setContentsMargins(0, 0, 0, 2);
+
+            auto* addLabel = new QLabel(tr("添加材料性质："), sectionFrame);
+            if (!introduction.isEmpty())
+                addLabel->setToolTip(introduction);
+
+            auto* combo = new QComboBox(sectionFrame);
+            combo->addItem(tr("密度 density"),          QString("density"));
+            combo->addItem(tr("弹性 elastic"),          QString("elastic"));
+            combo->addItem(tr("塑性 plastic"),          QString("plastic"));
+            combo->addItem(tr("超弹性 hyperelastic"),   QString("hyperelastic"));
+            if (!introduction.isEmpty())
+                combo->setToolTip(introduction);
+
+            auto* addBtn = new QPushButton(tr("添加"), sectionFrame);
+            if (!introduction.isEmpty())
+                addBtn->setToolTip(introduction);
+
+            addLayout->addWidget(addLabel);
+            addLayout->addWidget(combo);
+            addLayout->addWidget(addBtn);
+            addLayout->addStretch();
+            sectionLayout->addLayout(addLayout);
+
+            metalCtrl.addModelCombo  = combo;
+            metalCtrl.addModelButton = addBtn;
+
+            // 模型网格布局
+            auto* grid = new QGridLayout();
+            grid->setHorizontalSpacing(12);
+            grid->setVerticalSpacing(4);
+            grid->setContentsMargins(0, 2, 0, 0);
+            grid->setColumnStretch(0, 0);
+            grid->setColumnStretch(1, 1);
+
+            metalCtrl.grid = grid;
+
+            // 预创建四种 key
+            metalCtrl.models[QString("density")];
+            metalCtrl.models[QString("elastic")];
+            metalCtrl.models[QString("plastic")];
+            metalCtrl.models[QString("hyperelastic")];
+
+            // 添加按钮逻辑：根据下拉框当前选择添加模型
+            const int sectionIndex = i;
+            connect(addBtn, &QPushButton::clicked, this, [this, sectionIndex, combo]() {
+                const QString key = combo->currentData().toString();
+                if (!key.isEmpty())
+                    addMetalModel(sectionIndex, key);
+            });
+
+            // 先根据现有 data 中的 model 列出有哪些模型
+            QSet<QString> modelKeys;
+            for (const QJsonValue& v : dataList) {
+                const QJsonObject item = v.toObject();
+                const QString model = item.value(QString("model")).toString();
+                if (!model.isEmpty())
+                    modelKeys.insert(model);
+            }
+
+            // ★★ 这里现在 addMetalModel 真正能拿到 m_metalSections[sectionIndex] ★★
+            for (const QString& mk : modelKeys) {
+                addMetalModel(i, mk);
+            }
+
+            // 再把数据填回对应的输入框
+            for (const QJsonValue& v : dataList)
+            {
+                const QJsonObject item = v.toObject();
+                const QString model = item.value(QString("model")).toString();
+                const QString name  = item.value(QString("name")).toString();
+                const QJsonValue val = item.value(QString("value"));
+
+                if (!metalCtrl.models.contains(model))
+                    continue;
+                MetalModelInfo& info = metalCtrl.models[model];
+                if (!info.present)
+                    continue;
+
+                QLineEdit* edit = info.editsByName.value(name, nullptr);
+                if (!edit)
+                    continue;
+
+                if (val.isDouble())
+                    edit->setText(QString::number(val.toDouble(), 'g', 15));
+                else
+                    edit->setText(val.toVariant().toString());
+            }
+
+            sectionLayout->addLayout(grid);
         }
 
         m_labelNameWidgets.push_back(nameLabels);
         m_labelDataWidgets.push_back(edits);
 
-        mainLayout->addLayout(grid);
+        mainLayout->addWidget(sectionFrame);
     }
 
     // 计算按钮
-    m_calculateButton = new QPushButton(QString("计算"), this);
+    m_calculateButton = new QPushButton(tr("计算"), this);
     m_calculateButton->setMinimumHeight(40);
     connect(m_calculateButton, &QPushButton::clicked,
             this, &JsonPageBuilder::onCalculateButtonClicked);
@@ -165,6 +347,172 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
     setLayout(mainLayout);
 }
 
+// ===== metal 模型添加 / 删除 =====
+
+void JsonPageBuilder::addMetalModel(int sectionIndex, const QString& modelKey)
+{
+    if (sectionIndex < 0 || sectionIndex >= m_metalSections.size())
+        return;
+
+    MetalSectionControls& mc = m_metalSections[sectionIndex];
+    if (!mc.isMetal || !mc.grid)
+        return;
+
+    if (!mc.models.contains(modelKey))
+        mc.models[modelKey] = MetalModelInfo{};
+
+    MetalModelInfo& info = mc.models[modelKey];
+    if (info.present)
+    {
+        QString modelName;
+        if (modelKey == QString("density"))       modelName = tr("密度 density");
+        else if (modelKey == QString("elastic"))  modelName = tr("弹性 elastic");
+        else if (modelKey == QString("plastic"))  modelName = tr("塑性 plastic");
+        else if (modelKey == QString("hyperelastic")) modelName = tr("超弹性 hyperelastic");
+        else modelName = modelKey;
+
+        QMessageBox::warning(this, tr("提示"),
+                             tr("该材料的 %1 模型已存在，不能重复添加。").arg(modelName));
+        return;
+    }
+
+    const QString intro = mc.introduction;
+
+    // 标题行：模型名 + 删除按钮
+    QString headerText;
+    if (modelKey == QString("density"))
+        headerText = tr("模型：密度 density");
+    else if (modelKey == QString("elastic"))
+        headerText = tr("模型：弹性 elastic");
+    else if (modelKey == QString("plastic"))
+        headerText = tr("模型：塑性 plastic");
+    else if (modelKey == QString("hyperelastic"))
+        headerText = tr("模型：超弹性 hyperelastic");
+    else
+        headerText = tr("模型：%1").arg(modelKey);
+
+    int row = mc.gridNextRow;
+
+    auto* headerLabel = new QLabel(headerText, this);
+    QFont hf = headerLabel->font();
+    hf.setBold(true);
+    headerLabel->setFont(hf);
+    headerLabel->setStyleSheet(QString("color: #004a7f;"));
+    if (!intro.isEmpty())
+        headerLabel->setToolTip(intro);
+
+    auto* removeBtn = new QPushButton(tr("删除"), this);
+    removeBtn->setFixedWidth(60);
+
+    mc.grid->addWidget(headerLabel, row, 0);
+    mc.grid->addWidget(removeBtn, row, 1, Qt::AlignRight);
+    mc.gridNextRow++;
+
+    info.labels.push_back(headerLabel);
+    info.removeButton = removeBtn;
+
+    // 删除按钮逻辑
+    connect(removeBtn, &QPushButton::clicked,
+            this, [this, sectionIndex, modelKey]() {
+        removeMetalModel(sectionIndex, modelKey);
+    });
+
+    // 不同模型的参数行
+    auto addParamRow = [&](const QString& name,
+                           const QString& cnName) -> QLineEdit*
+    {
+        auto* lab = new QLabel(cnName + QString("："), this);
+        lab->setAlignment(Qt::AlignLeft | Qt::AlignVCenter);
+        if (!intro.isEmpty())
+            lab->setToolTip(intro);
+
+        auto* edit = new QLineEdit(this);
+
+        mc.grid->addWidget(lab,  mc.gridNextRow, 0);
+        mc.grid->addWidget(edit, mc.gridNextRow, 1);
+        mc.gridNextRow++;
+
+        info.labels.push_back(lab);
+        info.editsByName.insert(name, edit);
+        return edit;
+    };
+
+    if (modelKey == QString("density"))
+    {
+        addParamRow(QString("D"), QString("密度ρ"));
+    }
+    else if (modelKey == QString("elastic"))
+    {
+        addParamRow(QString("E"), QString("弹性模量E"));
+        addParamRow(QString("u"), QString("泊松比v"));
+    }
+    else if (modelKey == QString("plastic"))
+    {
+        addParamRow(QString("YS"),  QString("屈服强度YS"));
+        addParamRow(QString("e"),   QString("断后延伸率A"));
+        addParamRow(QString("UTS"), QString("抗拉强度UTS"));
+    }
+    else if (modelKey == QString("hyperelastic"))
+    {
+        addParamRow(QString("C10"), QString("C10"));
+        addParamRow(QString("C01"), QString("C01"));
+        addParamRow(QString("D1"),  QString("D1"));
+    }
+    else
+    {
+        // 未知模型：不做参数行
+    }
+
+    info.present = true;
+}
+
+void JsonPageBuilder::removeMetalModel(int sectionIndex, const QString& modelKey)
+{
+    if (sectionIndex < 0 || sectionIndex >= m_metalSections.size())
+        return;
+
+    MetalSectionControls& mc = m_metalSections[sectionIndex];
+    if (!mc.isMetal || !mc.grid)
+        return;
+
+    if (!mc.models.contains(modelKey))
+        return;
+
+    MetalModelInfo& info = mc.models[modelKey];
+    if (!info.present)
+        return;
+
+    // 删除标题 & 参数标签
+    for (QLabel* lab : info.labels) {
+        if (!lab) continue;
+        mc.grid->removeWidget(lab);
+        lab->hide();
+        lab->deleteLater();
+    }
+    info.labels.clear();
+
+    // 删除输入框
+    for (auto it = info.editsByName.begin(); it != info.editsByName.end(); ++it) {
+        QLineEdit* edit = it.value();
+        if (!edit) continue;
+        mc.grid->removeWidget(edit);
+        edit->hide();
+        edit->deleteLater();
+    }
+    info.editsByName.clear();
+
+    // 删除按钮
+    if (info.removeButton) {
+        mc.grid->removeWidget(info.removeButton);
+        info.removeButton->hide();
+        info.removeButton->deleteLater();
+        info.removeButton = nullptr;
+    }
+
+    info.present = false;
+}
+
+// ===== JSON 读写 =====
 
 bool JsonPageBuilder::loadJson(const QString& path, QJsonArray& outSections)
 {
@@ -189,7 +537,7 @@ bool JsonPageBuilder::loadJson(const QString& path, QJsonArray& outSections)
     }
     else if (doc.isObject())
     {
-        const QJsonArray arr = doc.object().value("data").toArray();
+        const QJsonArray arr = doc.object().value(QString("data")).toArray();
         outSections = arr;
         return true;
     }
@@ -202,23 +550,106 @@ bool JsonPageBuilder::saveJson(const QString& path)
     if (!loadJson(path, sections))
         return false;
 
-    // 将界面数据写回
-    for (int i = 0; i < m_titleButtons.size(); ++i) {
-        const QString title = m_titleButtons[i]->text();
-        const auto& nameLabs = m_labelNameWidgets[i];
-        const auto& edits = m_labelDataWidgets[i];
+    const int secCount = qMin(sections.size(), m_titleButtons.size());
 
-        for (int j = 0; j < nameLabs.size() && j < edits.size(); ++j) {
-            QString cn = nameLabs[j]->text();
-            if (cn.endsWith(("：")))
-                cn.chop(1);
-            const QString valText = edits[j]->text();
+    for (int i = 0; i < secCount; ++i) {
+        QJsonObject secObj = sections.at(i).toObject();
+        const QString title   = secObj.value(QString("title")).toString();
+        const QString mattype = secObj.value(QString("mattype")).toString();
 
-            applyEditToJson(sections, title, cn, valText);
+        const bool isMetal =
+            !mattype.isEmpty() &&
+            mattype.compare(QString("metal"), Qt::CaseInsensitive) == 0;
+
+        if (!isMetal) {
+            // 非 metal：只更新 value
+            const auto& nameLabs = m_labelNameWidgets[i];
+            const auto& edits    = m_labelDataWidgets[i];
+
+            for (int j = 0; j < nameLabs.size() && j < edits.size(); ++j) {
+                QString cn = nameLabs[j]->text();
+                if (cn.endsWith(QString("：")) || cn.endsWith(":"))
+                    cn.chop(1);
+                cn = cn.trimmed();
+
+                const QString valText = edits[j]->text();
+                applyEditToJson(sections, title, cn, valText);
+            }
+        } else {
+            // metal：按 UI 中存在的模型重建 data 数组
+            QJsonArray newData;
+            if (i < m_metalSections.size()) {
+                const MetalSectionControls& mc = m_metalSections[i];
+
+                auto appendModel = [&](const QString& modelKey,
+                                       const QString& name,
+                                       const QString& cnName,
+                                       const QLineEdit* edit)
+                {
+                    if (!mc.models.contains(modelKey))
+                        return;
+                    const MetalModelInfo& info = mc.models[modelKey];
+                    if (!info.present)
+                        return;
+                    if (!edit)
+                        return;
+                    QJsonObject obj;
+                    obj[QString("model")]   = modelKey;
+                    obj[QString("name")]    = name;
+                    obj[QString("cn_name")] = cnName;
+                    obj[QString("value")]   = strictConvert(edit->text());
+                    newData.append(obj);
+                };
+
+                const MetalModelInfo& densityInfo = mc.models.value(QString("density"));
+                if (densityInfo.present) {
+                    appendModel(QString("density"), QString("D"),
+                                QString("密度ρ"),
+                                densityInfo.editsByName.value(QString("D"), nullptr));
+                }
+
+                const MetalModelInfo& elasticInfo = mc.models.value(QString("elastic"));
+                if (elasticInfo.present) {
+                    appendModel(QString("elastic"), QString("E"),
+                                QString("弹性模量E"),
+                                elasticInfo.editsByName.value(QString("E"), nullptr));
+                    appendModel(QString("elastic"), QString("u"),
+                                QString("泊松比v"),
+                                elasticInfo.editsByName.value(QString("u"), nullptr));
+                }
+
+                const MetalModelInfo& plasticInfo = mc.models.value(QString("plastic"));
+                if (plasticInfo.present) {
+                    appendModel(QString("plastic"), QString("YS"),
+                                QString("屈服强度YS"),
+                                plasticInfo.editsByName.value(QString("YS"), nullptr));
+                    appendModel(QString("plastic"), QString("e"),
+                                QString("断后延伸率A"),
+                                plasticInfo.editsByName.value(QString("e"), nullptr));
+                    appendModel(QString("plastic"), QString("UTS"),
+                                QString("抗拉强度UTS"),
+                                plasticInfo.editsByName.value(QString("UTS"), nullptr));
+                }
+
+                const MetalModelInfo& hyperInfo = mc.models.value(QString("hyperelastic"));
+                if (hyperInfo.present) {
+                    appendModel(QString("hyperelastic"), QString("C10"),
+                                QString("C10"),
+                                hyperInfo.editsByName.value(QString("C10"), nullptr));
+                    appendModel(QString("hyperelastic"), QString("C01"),
+                                QString("C01"),
+                                hyperInfo.editsByName.value(QString("C01"), nullptr));
+                    appendModel(QString("hyperelastic"), QString("D1"),
+                                QString("D1"),
+                                hyperInfo.editsByName.value(QString("D1"), nullptr));
+                }
+            }
+
+            secObj[QString("data")] = newData;
+            sections[i] = secObj;
         }
     }
 
-    // 保存
     QFile f(path);
     if (!f.open(QIODevice::WriteOnly | QIODevice::Text))
         return false;
@@ -226,25 +657,25 @@ bool JsonPageBuilder::saveJson(const QString& path)
     QJsonDocument doc(sections);
     f.write(doc.toJson(QJsonDocument::Indented));
     f.close();
-    qInfo("成功修改json内容");
+    qInfo("成功修改 json 内容");
     return true;
 }
 
 void JsonPageBuilder::applyEditToJson(QJsonArray& sections,
-                                    const QString& title,
-                                    const QString& cnName,
-                                    const QString& valueText)
+                                      const QString& title,
+                                      const QString& cnName,
+                                      const QString& valueText)
 {
     for (int i = 0; i < sections.size(); ++i) {
         QJsonObject sec = sections[i].toObject();
-        if (sec.value("title").toString() == title) {
-            QJsonArray dataArr = sec.value("data").toArray();
+        if (sec.value(QString("title")).toString() == title) {
+            QJsonArray dataArr = sec.value(QString("data")).toArray();
             for (int j = 0; j < dataArr.size(); ++j) {
                 QJsonObject item = dataArr[j].toObject();
-                if (item.value("cn_name").toString() == cnName) {
-                    item["value"] = strictConvert(valueText);
+                if (item.value(QString("cn_name")).toString() == cnName) {
+                    item[QString("value")] = strictConvert(valueText);
                     dataArr[j] = item;
-                    sec["data"] = dataArr;
+                    sec[QString("data")] = dataArr;
                     sections[i] = sec;
                     return;
                 }
@@ -266,6 +697,8 @@ QJsonValue JsonPageBuilder::strictConvert(const QString& text)
     // 如果既不是 int 也不是 double，就按字符串保存（避免崩溃）
     return text;
 }
+
+// ===== 文件读取 / 文本处理 =====
 
 QString JsonPageBuilder::readWholeFile(const QString& path)
 {
@@ -315,6 +748,8 @@ QString JsonPageBuilder::extractErrorMsgFromDat(const QString& content)
     return cleanText(last);
 }
 
+// ===== 计算相关 =====
+
 void JsonPageBuilder::onCalculateButtonClicked()
 {
     if (m_process)
@@ -324,7 +759,7 @@ void JsonPageBuilder::onCalculateButtonClicked()
         m_calculateButton->setEnabled(false);
 
     m_calculationTimestamp = QDateTime::currentDateTime()
-                                 .toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+                                 .toString(QString("yyyy-MM-dd HH:mm:ss"));
 
     QFileInfo jsonInfo(m_jsonPath);
     if (!jsonInfo.exists())
@@ -358,7 +793,7 @@ void JsonPageBuilder::onCalculateButtonClicked()
     QFileInfo batInfo;
     if (!m_batPath.isEmpty())
         batInfo.setFile(m_batPath);
-    const QString expectedBatPath = workingDir.absoluteFilePath(QStringLiteral("calculate.bat"));
+    const QString expectedBatPath = workingDir.absoluteFilePath(QString("calculate.bat"));
     if (!batInfo.exists())
         batInfo.setFile(expectedBatPath);
 
@@ -426,8 +861,8 @@ void JsonPageBuilder::onCalculateButtonClicked()
     connect(m_process, &QProcess::errorOccurred,
             this, &JsonPageBuilder::handleProcessError);
 
-    m_process->start(QStringLiteral("cmd"),
-                     QStringList() << QStringLiteral("/c")
+    m_process->start(QString("cmd"),
+                     QStringList() << QString("/c")
                                    << QDir::toNativeSeparators(m_batPath));
 }
 
@@ -490,7 +925,7 @@ void JsonPageBuilder::finalizeCalculation(int exitCode, bool finishedSuccessfull
 
     QString timestamp = m_calculationTimestamp;
     if (timestamp.isEmpty())
-        timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+        timestamp = QDateTime::currentDateTime().toString(QString("yyyy-MM-dd HH:mm:ss"));
     m_calculationTimestamp.clear();
 
     QString message;
@@ -525,7 +960,7 @@ void JsonPageBuilder::finalizeCalculation(int exitCode, bool finishedSuccessfull
                                  : tr("计算脚本执行异常，退出码 %1 时间：%2");
         message = base.arg(exitCode).arg(timestamp);
         if (!stderrText.trimmed().isEmpty())
-            message += QStringLiteral("\n%1").arg(stderrText.trimmed());
+            message += QString("\n%1").arg(stderrText.trimmed());
     }
 
     QString newResultPath;

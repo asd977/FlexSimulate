@@ -344,7 +344,7 @@
                  <item>
                   <widget class="QTabWidget" name="previewTabs">
                    <property name="currentIndex">
-                    <number>0</number>
+                    <number>2</number>
                    </property>
                    <widget class="QWidget" name="modelPreviewTab">
                     <attribute name="title">
@@ -463,17 +463,17 @@
                          <height>240</height>
                         </size>
                        </property>
-                       <property name="alignment">
-                        <set>Qt::AlignCenter</set>
-                       </property>
-                       <property name="wordWrap">
-                        <bool>true</bool>
-                       </property>
                        <property name="styleSheet">
                         <string notr="true">background:#f6f7fb;border:1px dashed #d0d6e5;border-radius:8px;color:#8a93a6;padding:12px;line-height:20px;</string>
                        </property>
                        <property name="text">
                         <string>尚未选择模型图片</string>
+                       </property>
+                       <property name="alignment">
+                        <set>Qt::AlignCenter</set>
+                       </property>
+                       <property name="wordWrap">
+                        <bool>true</bool>
                        </property>
                       </widget>
                      </item>
@@ -500,38 +500,59 @@
                       <number>12</number>
                      </property>
                      <item>
-                      <layout class="QHBoxLayout" name="materialsHeaderLayout">
-                       <property name="spacing">
-                        <number>8</number>
+                      <widget class="QWidget" name="widget" native="true">
+                       <property name="sizePolicy">
+                        <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                         <horstretch>0</horstretch>
+                         <verstretch>0</verstretch>
+                        </sizepolicy>
                        </property>
-                       <item>
-                        <widget class="QPushButton" name="syncMaterialsButton">
-                         <property name="text">
-                          <string>同步材料数据</string>
-                         </property>
-                        </widget>
-                       </item>
-                       <item>
-                        <spacer name="materialsHeaderSpacer">
-                         <property name="orientation">
-                          <enum>Qt::Horizontal</enum>
-                         </property>
-                         <property name="sizeHint" stdset="0">
-                          <size>
-                           <width>40</width>
-                           <height>20</height>
-                          </size>
-                         </property>
-                        </spacer>
-                       </item>
-                       <item>
-                        <widget class="QLabel" name="materialsStatusLabel">
-                         <property name="text">
-                          <string>尚未同步材料数据</string>
-                         </property>
-                        </widget>
-                       </item>
-                      </layout>
+                       <layout class="QHBoxLayout" name="horizontalLayout_2">
+                        <item>
+                         <layout class="QHBoxLayout" name="materialsHeaderLayout">
+                          <property name="spacing">
+                           <number>8</number>
+                          </property>
+                          <item>
+                           <widget class="QPushButton" name="syncMaterialsButton">
+                            <property name="text">
+                             <string>同步材料数据</string>
+                            </property>
+                           </widget>
+                          </item>
+                          <item>
+                           <spacer name="materialsHeaderSpacer">
+                            <property name="orientation">
+                             <enum>Qt::Horizontal</enum>
+                            </property>
+                            <property name="sizeType">
+                             <enum>QSizePolicy::Preferred</enum>
+                            </property>
+                            <property name="sizeHint" stdset="0">
+                             <size>
+                              <width>40</width>
+                              <height>1</height>
+                             </size>
+                            </property>
+                           </spacer>
+                          </item>
+                          <item>
+                           <widget class="QLabel" name="materialsStatusLabel">
+                            <property name="sizePolicy">
+                             <sizepolicy hsizetype="Preferred" vsizetype="Fixed">
+                              <horstretch>0</horstretch>
+                              <verstretch>0</verstretch>
+                             </sizepolicy>
+                            </property>
+                            <property name="text">
+                             <string>尚未同步材料数据</string>
+                            </property>
+                           </widget>
+                          </item>
+                         </layout>
+                        </item>
+                       </layout>
+                      </widget>
                      </item>
                      <item>
                       <widget class="QSplitter" name="materialsSplitter">
@@ -629,20 +650,20 @@
                            <property name="editTriggers">
                             <set>QAbstractItemView::NoEditTriggers</set>
                            </property>
-                           <property name="selectionMode">
-                            <enum>QAbstractItemView::NoSelection</enum>
-                           </property>
                            <property name="alternatingRowColors">
                             <bool>true</bool>
+                           </property>
+                           <property name="selectionMode">
+                            <enum>QAbstractItemView::NoSelection</enum>
                            </property>
                            <property name="showGrid">
                             <bool>true</bool>
                            </property>
-                           <property name="columnCount">
-                            <number>3</number>
-                           </property>
                            <property name="rowCount">
                             <number>0</number>
+                           </property>
+                           <property name="columnCount">
+                            <number>3</number>
                            </property>
                            <column>
                             <property name="text">
@@ -660,7 +681,7 @@
                             </property>
                            </column>
                           </widget>
-                        </item>
+                         </item>
                         </layout>
                        </widget>
                       </widget>

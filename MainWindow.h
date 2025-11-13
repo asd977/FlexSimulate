@@ -259,7 +259,6 @@ private:
     const MaterialRecord* materialByKey(const QString& key) const;
     QString materialDisplayName(const MaterialRecord& material) const;
     QVector<MaterialRecord> fetchMaterialsFromRemote(QString* errorMessage);
-    QVector<MaterialRecord> loadMaterialsFromTestData(QString* errorMessage = nullptr) const;
     bool parseMaterialsPage(const QJsonObject& root,
                             QVector<MaterialRecord>* outRecords,
                             int* totalOut = nullptr,

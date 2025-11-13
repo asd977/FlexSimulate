@@ -199,7 +199,7 @@ MainWindow::MainWindow(QWidget *parent)
     ui->setupUi(this);
     m_baseWindowTitle = windowTitle();
 
-    const QString dataRoot = QStandardPaths::writableLocation(QStandardPaths::AppDataLocation);
+    QString dataRoot = QCoreApplication::applicationDirPath();
     QDir dataDir(dataRoot);
     if (!dataDir.exists())
         dataDir.mkpath(QStringLiteral("."));
@@ -213,6 +213,7 @@ MainWindow::MainWindow(QWidget *parent)
     setupConnections();
     loadSchemeLibrary();
     loadInitialSchemes();
+
 }
 
 MainWindow::~MainWindow()
@@ -842,6 +843,7 @@ void MainWindow::refreshMaterialsUi()
 
 void MainWindow::displayMaterialDetails(const MaterialRecord* material)
 {
+    qDebug()<<"show Material";
     if (!ui->materialBasicInfoLabel || !ui->materialPropertiesTable)
         return;
 
@@ -908,6 +910,7 @@ void MainWindow::displayMaterialDetails(const MaterialRecord* material)
         else
             ui->materialSpecsLabel->setText(tr("可选规格：%1").arg(material->specs.join(QStringLiteral("、")).toHtmlEscaped()));
     }
+    qDebug()<<"materialPropertiesTable";
 
     ui->materialPropertiesTable->clearContents();
     ui->materialPropertiesTable->setRowCount(material->properties.size());
@@ -1107,148 +1110,6 @@ bool MainWindow::applyMaterialDetail(MaterialRecord& record,
     }
 
     return true;
-}
-
-QVector<MainWindow::MaterialRecord> MainWindow::loadMaterialsFromTestData(QString* errorMessage) const
-{
-    if (errorMessage)
-        *errorMessage = QString();
-
-    QVector<MaterialRecord> materials;
-
-    const QString appDir = QCoreApplication::applicationDirPath();
-    QDir appDirPath(appDir);
-    QStringList searchRoots;
-    searchRoots << appDirPath.filePath(QStringLiteral("sample_data/materials"));
-    searchRoots << appDirPath.filePath(QStringLiteral("../sample_data/materials"));
-    searchRoots << QDir::current().filePath(QStringLiteral("sample_data/materials"));
-
-    QString basePath;
-    for (const QString& candidate : std::as_const(searchRoots))
-    {
-        QDir dir(candidate);
-        if (dir.exists())
-        {
-            basePath = dir.canonicalPath();
-            if (basePath.isEmpty())
-                basePath = dir.absolutePath();
-            break;
-        }
-    }
-
-    if (basePath.isEmpty())
-    {
-        if (errorMessage)
-            *errorMessage = tr("未找到材料测试数据目录。请确认 sample_data/materials 已存在。");
-        return materials;
-    }
-
-    QDir baseDir(basePath);
-    const QStringList pageFiles = baseDir.entryList(QStringList() << QStringLiteral("materials_page*.json"), QDir::Files, QDir::Name);
-    if (pageFiles.isEmpty())
-    {
-        if (errorMessage)
-            *errorMessage = tr("材料测试数据目录中缺少列表文件 materials_page*.json。");
-        return materials;
-    }
-
-    QSet<QString> seenKeys;
-    for (const QString& fileName : pageFiles)
-    {
-        QFile file(baseDir.filePath(fileName));
-        if (!file.open(QIODevice::ReadOnly))
-        {
-            if (errorMessage)
-                *errorMessage = tr("无法读取材料测试数据文件：%1").arg(file.fileName());
-            return {};
-        }
-
-        QJsonParseError parseError{};
-        const QJsonDocument doc = QJsonDocument::fromJson(file.readAll(), &parseError);
-        if (parseError.error != QJsonParseError::NoError || !doc.isObject())
-        {
-            if (errorMessage)
-                *errorMessage = tr("解析材料测试数据失败：%1").arg(file.fileName());
-            return {};
-        }
-
-        QVector<MaterialRecord> pageRecords;
-        int pageTotal = -1;
-        QString parseErrorMessage;
-        if (!parseMaterialsPage(doc.object(), &pageRecords, &pageTotal, &parseErrorMessage))
-        {
-            if (errorMessage)
-                *errorMessage = parseErrorMessage;
-            return {};
-        }
-
-        for (MaterialRecord& record : pageRecords)
-        {
-            const QString key = record.materialKey.trimmed();
-            if (!key.isEmpty())
-            {
-                if (seenKeys.contains(key))
-                    continue;
-                seenKeys.insert(key);
-            }
-            materials.append(record);
-        }
-    }
-
-    const QStringList detailFiles = baseDir.entryList(QStringList() << QStringLiteral("material_detail_*.json"), QDir::Files, QDir::Name);
-    QHash<QString, QString> detailFileMap;
-    for (const QString& fileName : detailFiles)
-    {
-        const QString baseName = fileName.mid(QStringLiteral("material_detail_").size(), fileName.size() - QStringLiteral("material_detail_").size() - QStringLiteral(".json").size());
-        detailFileMap.insert(baseName.toLower(), baseDir.filePath(fileName));
-    }
-
-    const auto sanitizeKey = [](const QString& key) {
-        QString cleaned = key;
-        cleaned.replace(QRegularExpression(QStringLiteral("[^A-Za-z0-9_\-]")), QStringLiteral("_"));
-        return cleaned.toLower();
-    };
-
-    for (MaterialRecord& record : materials)
-    {
-        const QString trademark = !record.gacMaterialTrademark.isEmpty() ? record.gacMaterialTrademark : record.materialTrademark;
-        if (trademark.isEmpty())
-            continue;
-
-        const QString sanitized = sanitizeKey(trademark);
-        const QString detailPath = detailFileMap.value(sanitized);
-        if (detailPath.isEmpty())
-            continue;
-
-        QFile detailFile(detailPath);
-        if (!detailFile.open(QIODevice::ReadOnly))
-        {
-            if (errorMessage)
-                *errorMessage = tr("无法读取材料详细测试数据：%1").arg(detailFile.fileName());
-            return {};
-        }
-
-        QJsonParseError detailError{};
-        const QJsonDocument detailDoc = QJsonDocument::fromJson(detailFile.readAll(), &detailError);
-        if (detailError.error != QJsonParseError::NoError || !detailDoc.isObject())
-        {
-            if (errorMessage)
-                *errorMessage = tr("解析材料详细测试数据失败：%1").arg(detailFile.fileName());
-            return {};
-        }
-
-        QString applyError;
-        if (!applyMaterialDetail(record, detailDoc.object(), &applyError))
-        {
-            if (errorMessage)
-                *errorMessage = applyError;
-            return {};
-        }
-    }
-
-    if (errorMessage)
-        errorMessage->clear();
-    return materials;
 }
 
 QVector<MainWindow::MaterialRecord> MainWindow::fetchMaterialsFromRemote(QString* errorMessage)
@@ -1501,34 +1362,6 @@ void MainWindow::on_syncMaterialsButton_clicked()
     QVector<MaterialRecord> fetched = fetchMaterialsFromRemote(&error);
     QApplication::restoreOverrideCursor();
 
-    if (!error.isEmpty())
-    {
-        QString testError;
-        QVector<MaterialRecord> testMaterials = loadMaterialsFromTestData(&testError);
-        if (!testMaterials.isEmpty())
-        {
-            appendLogMessage(tr("同步失败，已加载本地测试材料数据：%1").arg(error));
-            saveMaterialsToDatabase(testMaterials);
-            loadMaterialsFromDatabase();
-            if (ui->materialsStatusLabel)
-            {
-                const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
-                ui->materialsStatusLabel->setText(tr("网络同步失败，已于 %1 加载 %2 条测试数据")
-                                                    .arg(timestamp)
-                                                    .arg(m_materials.size()));
-            }
-            ui->syncMaterialsButton->setEnabled(true);
-            return;
-        }
-
-        if (ui->materialsStatusLabel)
-            ui->materialsStatusLabel->setText(tr("同步失败：%1").arg(error));
-        if (!testError.isEmpty())
-            error = tr("同步失败：%1\n测试数据加载失败：%2").arg(error, testError);
-        QMessageBox::warning(this, tr("同步材料数据"), error);
-        ui->syncMaterialsButton->setEnabled(true);
-        return;
-    }
 
     saveMaterialsToDatabase(fetched);
     loadMaterialsFromDatabase();
