@@ -73,6 +73,7 @@
 #include <QHeaderView>
 #include <algorithm>
 #include <functional>
+#include <initializer_list>
 #include <utility>
 #include <cmath>
 
@@ -843,6 +844,56 @@ void MainWindow::displayMaterialDetails(const MaterialRecord* material)
         ui->materialPropertiesTable->setItem(row, 2, new QTableWidgetItem(prop.unit));
     }
     ui->materialPropertiesTable->scrollToTop();
+}
+
+void MainWindow::handleMaterialPresetSelected(const QString& materialKey)
+{
+    if (materialKey.isEmpty())
+    {
+        displayMaterialDetails(nullptr);
+        return;
+    }
+
+    const MaterialRecord* material = materialByKey(materialKey);
+    if (!material)
+    {
+        displayMaterialDetails(nullptr);
+        return;
+    }
+
+    displayMaterialDetails(material);
+    selectMaterialInList(materialKey);
+
+    if (ui->previewTabs && ui->materialsTab)
+        ui->previewTabs->setCurrentWidget(ui->materialsTab);
+
+    setVisualizationVisible(true);
+}
+
+void MainWindow::selectMaterialInList(const QString& materialKey)
+{
+    if (!m_materialsSettingsList || materialKey.isEmpty())
+        return;
+
+    QListWidgetItem* matchedItem = nullptr;
+    {
+        QSignalBlocker blocker(m_materialsSettingsList);
+        for (int i = 0; i < m_materialsSettingsList->count(); ++i)
+        {
+            QListWidgetItem* item = m_materialsSettingsList->item(i);
+            if (!item)
+                continue;
+            if (item->data(Qt::UserRole).toString() == materialKey)
+            {
+                m_materialsSettingsList->setCurrentRow(i);
+                matchedItem = item;
+                break;
+            }
+        }
+    }
+
+    if (matchedItem)
+        m_materialsSettingsList->scrollToItem(matchedItem);
 }
 
 const MainWindow::MaterialRecord* MainWindow::materialByKey(const QString& key) const
@@ -2072,7 +2123,7 @@ void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidge
         if (ui->stackedWidget)
             ui->stackedWidget->setCurrentWidget(ui->MainPage);
         clearVtkScene();
-        setVisualizationVisible(false);
+        setVisualizationVisible(true);
         updateModelImagePreview(nullptr);
         showMaterialsSettings();
         if (ui->previewTabs && ui->materialsTab)
@@ -2961,7 +3012,7 @@ void MainWindow::showMaterialsSettings()
         layout->addWidget(m_currentDetailWidget);
 
     refreshMaterialsUi();
-    setVisualizationVisible(false);
+    setVisualizationVisible(true);
     updateModelImagePreview(nullptr);
 }
 
@@ -3110,6 +3161,177 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
                              .arg(QDir::toNativeSeparators(resultPath)));
         displayResultFile(resultPath);
     });
+
+    QVector<JsonPageBuilder::MaterialPreset> materialPresets;
+    materialPresets.reserve(m_materials.size());
+
+    const auto propertyNameToFieldKey = [](const QString& propertyName) -> QString {
+        const QString trimmed = propertyName.trimmed();
+        if (trimmed.isEmpty())
+            return QString();
+
+        const auto equalsIgnoreCase = [&](const QString& candidate) -> bool {
+            return trimmed.compare(candidate, Qt::CaseInsensitive) == 0;
+        };
+
+        if (equalsIgnoreCase(QStringLiteral("密度ρ")) || equalsIgnoreCase(QStringLiteral("密度")))
+            return QStringLiteral("D");
+        if (equalsIgnoreCase(QStringLiteral("弹性模量E")) || equalsIgnoreCase(QStringLiteral("弹性模量")))
+            return QStringLiteral("E");
+        if (equalsIgnoreCase(QStringLiteral("泊松比v")) || equalsIgnoreCase(QStringLiteral("泊松比")))
+            return QStringLiteral("u");
+        if (equalsIgnoreCase(QStringLiteral("屈服强度YS")) || equalsIgnoreCase(QStringLiteral("屈服强度")))
+            return QStringLiteral("YS");
+        if (equalsIgnoreCase(QStringLiteral("断后延伸率A")) || equalsIgnoreCase(QStringLiteral("断后延伸率")))
+            return QStringLiteral("e");
+        if (equalsIgnoreCase(QStringLiteral("抗拉强度UTS")) || equalsIgnoreCase(QStringLiteral("抗拉强度")))
+            return QStringLiteral("UTS");
+
+        const QString lowered = trimmed.toLower();
+        QString normalized = lowered;
+        normalized.remove(QRegularExpression(QStringLiteral("[^\\p{L}\\p{Nd}]")));
+
+        const auto containsToken = [&](const QString& token) -> bool {
+            if (token.isEmpty())
+                return false;
+            const QString loweredToken = token.toLower();
+            return lowered.contains(loweredToken) || normalized.contains(loweredToken);
+        };
+
+        const auto containsAny = [&](std::initializer_list<QString> tokens) -> bool {
+            for (const QString& token : tokens)
+            {
+                if (containsToken(token))
+                    return true;
+            }
+            return false;
+        };
+
+        const auto containsAll = [&](std::initializer_list<QString> tokens) -> bool {
+            for (const QString& token : tokens)
+            {
+                if (!containsToken(token))
+                    return false;
+            }
+            return true;
+        };
+
+        if (containsAny({ QStringLiteral("密度"), QStringLiteral("density"), QStringLiteral("ρ"), QStringLiteral("rho") }))
+            return QStringLiteral("D");
+
+        if (containsAny({ QStringLiteral("弹性模量"), QStringLiteral("杨氏"), QStringLiteral("elasticmodulus") }) ||
+            containsAll({ QStringLiteral("young"), QStringLiteral("modulus") }) ||
+            containsAll({ QStringLiteral("elastic"), QStringLiteral("modulus") }))
+            return QStringLiteral("E");
+
+        if (containsAny({ QStringLiteral("泊松比"), QStringLiteral("poisson") }))
+            return QStringLiteral("u");
+
+        if (containsAny({ QStringLiteral("屈服强度"), QStringLiteral("屈服") }) ||
+            containsAll({ QStringLiteral("yield"), QStringLiteral("strength") }) ||
+            containsToken(QStringLiteral("ys")))
+            return QStringLiteral("YS");
+
+        if (containsAny({ QStringLiteral("断后延伸率"),
+                          QStringLiteral("延伸率"),
+                          QStringLiteral("elongation"),
+                          QStringLiteral("elongate") }))
+            return QStringLiteral("e");
+
+        if (containsAny({ QStringLiteral("抗拉强度"), QStringLiteral("抗拉") }) ||
+            containsAll({ QStringLiteral("tensile"), QStringLiteral("strength") }) ||
+            containsToken(QStringLiteral("uts")))
+            return QStringLiteral("UTS");
+
+        return QString();
+    };
+
+    const auto labelForFieldKey = [](const QString& fieldKey) -> QString {
+        if (fieldKey.compare(QStringLiteral("D"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("密度ρ");
+        if (fieldKey.compare(QStringLiteral("E"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("弹性模量E");
+        if (fieldKey.compare(QStringLiteral("u"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("泊松比v");
+        if (fieldKey.compare(QStringLiteral("YS"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("屈服强度YS");
+        if (fieldKey.compare(QStringLiteral("e"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("断后延伸率A");
+        if (fieldKey.compare(QStringLiteral("UTS"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("抗拉强度UTS");
+        if (fieldKey.compare(QStringLiteral("C10"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("C10");
+        if (fieldKey.compare(QStringLiteral("C01"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("C01");
+        if (fieldKey.compare(QStringLiteral("D1"), Qt::CaseInsensitive) == 0)
+            return QStringLiteral("D1");
+        return QString();
+    };
+
+    const auto isMetalMaterial = [](const MaterialRecord& material) -> bool {
+        const auto containsToken = [](const QString& text, const QStringList& tokens) -> bool {
+            const QString lowered = text.trimmed().toLower();
+            for (const QString& token : tokens)
+            {
+                if (token.isEmpty())
+                    continue;
+                if (lowered.contains(token))
+                    return true;
+            }
+            return false;
+        };
+
+        const QStringList metalTokens{ QStringLiteral("metal"), QStringLiteral("金属") };
+
+        if (material.materialTypeCode.compare(QStringLiteral("metal"), Qt::CaseInsensitive) == 0)
+            return true;
+        if (containsToken(material.materialTypeCode, metalTokens))
+            return true;
+        if (containsToken(material.materialType, metalTokens))
+            return true;
+        if (containsToken(material.materialTypeValue, metalTokens))
+            return true;
+        return false;
+    };
+
+    for (const MaterialRecord& material : m_materials)
+    {
+        if (!isMetalMaterial(material))
+            continue;
+
+        JsonPageBuilder::MaterialPreset preset;
+        preset.key = material.materialKey;
+        preset.displayName = materialDisplayName(material);
+
+        for (const MaterialProperty& property : material.properties)
+        {
+            const QString trimmedName = property.name.trimmed();
+            const QString fieldKey = propertyNameToFieldKey(trimmedName);
+
+            const QString valueText = property.value.trimmed();
+            if (valueText.isEmpty())
+                continue;
+
+            if (!fieldKey.isEmpty())
+                preset.valuesByFieldKey.insert(fieldKey, valueText);
+
+            QString label = !fieldKey.isEmpty() ? labelForFieldKey(fieldKey) : trimmedName;
+            if (label.isEmpty())
+                label = trimmedName;
+            if (!label.isEmpty())
+                preset.valuesByLabel.insert(label, valueText);
+        }
+
+        if (!preset.key.isEmpty() && (!preset.valuesByFieldKey.isEmpty() || !preset.valuesByLabel.isEmpty()))
+            materialPresets.push_back(preset);
+    }
+
+    builder->setAvailableMaterials(materialPresets);
+
+    connect(builder, &JsonPageBuilder::materialPresetSelected,
+            this, [this](const QString& materialKey) {
+                handleMaterialPresetSelected(materialKey);
+            });
 
 //    auto* openBtn = new QPushButton(tr("打开模型目录"), container);
 //    openBtn->setCursor(Qt::PointingHandCursor);
@@ -5603,13 +5825,11 @@ void MainWindow::setVisualizationVisible(bool visible)
     if (!ui->vtkPanel || !ui->logPanel || !ui->logTextEdit || !ui->contentSplitter)
         return;
 
-    if (m_visualizationVisible == visible)
-        return;
-
-    m_visualizationVisible = visible;
+    const bool wasVisible = m_visualizationVisible;
 
     if (visible)
     {
+        m_visualizationVisible = true;
         ui->vtkPanel->setVisible(true);
         ui->logPanel->setVisible(true);
         ui->logTitle->setVisible(true);
@@ -5656,7 +5876,10 @@ void MainWindow::setVisualizationVisible(bool visible)
     }
     else
     {
-        m_lastSplitterSizes = ui->contentSplitter->sizes();
+        if (wasVisible)
+            m_lastSplitterSizes = ui->contentSplitter->sizes();
+
+        m_visualizationVisible = false;
 
         ui->vtkPanel->setVisible(false);
         ui->logPanel->setVisible(false);
