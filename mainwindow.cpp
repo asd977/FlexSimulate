@@ -3180,11 +3180,27 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
     };
 
     const auto isMetalMaterial = [](const MaterialRecord& material) -> bool {
+        const auto containsToken = [](const QString& text, const QStringList& tokens) -> bool {
+            const QString lowered = text.trimmed().toLower();
+            for (const QString& token : tokens)
+            {
+                if (token.isEmpty())
+                    continue;
+                if (lowered.contains(token))
+                    return true;
+            }
+            return false;
+        };
+
+        const QStringList metalTokens{ QStringLiteral("metal"), QStringLiteral("金属") };
+
         if (material.materialTypeCode.compare(QStringLiteral("metal"), Qt::CaseInsensitive) == 0)
             return true;
-        if (material.materialType.contains(QStringLiteral("金属"), Qt::CaseInsensitive))
+        if (containsToken(material.materialTypeCode, metalTokens))
             return true;
-        if (material.materialTypeValue.contains(QStringLiteral("金属"), Qt::CaseInsensitive))
+        if (containsToken(material.materialType, metalTokens))
+            return true;
+        if (containsToken(material.materialTypeValue, metalTokens))
             return true;
         return false;
     };
