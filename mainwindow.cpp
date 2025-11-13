@@ -73,6 +73,7 @@
 #include <QHeaderView>
 #include <algorithm>
 #include <functional>
+#include <initializer_list>
 #include <utility>
 #include <cmath>
 
@@ -3119,24 +3120,62 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
         if (trimmed.isEmpty())
             return QString();
 
-        if (trimmed.compare(QStringLiteral("密度ρ"), Qt::CaseInsensitive) == 0 ||
-            trimmed.compare(QStringLiteral("密度"), Qt::CaseInsensitive) == 0)
+        const QString lowered = trimmed.toLower();
+        QString normalized = lowered;
+        normalized.remove(QRegularExpression(QStringLiteral("[^\\p{L}\\p{Nd}]")));
+
+        const auto containsToken = [&](const QString& token) -> bool {
+            if (token.isEmpty())
+                return false;
+            const QString loweredToken = token.toLower();
+            return lowered.contains(loweredToken) || normalized.contains(loweredToken);
+        };
+
+        const auto containsAny = [&](std::initializer_list<QString> tokens) -> bool {
+            for (const QString& token : tokens)
+            {
+                if (containsToken(token))
+                    return true;
+            }
+            return false;
+        };
+
+        const auto containsAll = [&](std::initializer_list<QString> tokens) -> bool {
+            for (const QString& token : tokens)
+            {
+                if (!containsToken(token))
+                    return false;
+            }
+            return true;
+        };
+
+        if (containsAny({ QStringLiteral("密度"), QStringLiteral("density"), QStringLiteral("ρ"), QStringLiteral("rho") }))
             return QStringLiteral("D");
-        if (trimmed.compare(QStringLiteral("弹性模量E"), Qt::CaseInsensitive) == 0 ||
-            trimmed.compare(QStringLiteral("弹性模量"), Qt::CaseInsensitive) == 0)
+
+        if (containsAny({ QStringLiteral("弹性模量"), QStringLiteral("杨氏"), QStringLiteral("elasticmodulus") }) ||
+            containsAll({ QStringLiteral("young"), QStringLiteral("modulus") }) ||
+            containsAll({ QStringLiteral("elastic"), QStringLiteral("modulus") }))
             return QStringLiteral("E");
-        if (trimmed.compare(QStringLiteral("泊松比v"), Qt::CaseInsensitive) == 0 ||
-            trimmed.compare(QStringLiteral("泊松比"), Qt::CaseInsensitive) == 0)
+
+        if (containsAny({ QStringLiteral("泊松比"), QStringLiteral("poisson") }))
             return QStringLiteral("u");
-        if (trimmed.compare(QStringLiteral("屈服强度YS"), Qt::CaseInsensitive) == 0 ||
-            trimmed.compare(QStringLiteral("屈服强度"), Qt::CaseInsensitive) == 0)
+
+        if (containsAny({ QStringLiteral("屈服强度"), QStringLiteral("屈服") }) ||
+            containsAll({ QStringLiteral("yield"), QStringLiteral("strength") }) ||
+            containsToken(QStringLiteral("ys")))
             return QStringLiteral("YS");
-        if (trimmed.compare(QStringLiteral("断后延伸率A"), Qt::CaseInsensitive) == 0 ||
-            trimmed.compare(QStringLiteral("断后延伸率"), Qt::CaseInsensitive) == 0)
+
+        if (containsAny({ QStringLiteral("断后延伸率"),
+                          QStringLiteral("延伸率"),
+                          QStringLiteral("elongation"),
+                          QStringLiteral("elongate") }))
             return QStringLiteral("e");
-        if (trimmed.compare(QStringLiteral("抗拉强度UTS"), Qt::CaseInsensitive) == 0 ||
-            trimmed.compare(QStringLiteral("抗拉强度"), Qt::CaseInsensitive) == 0)
+
+        if (containsAny({ QStringLiteral("抗拉强度"), QStringLiteral("抗拉") }) ||
+            containsAll({ QStringLiteral("tensile"), QStringLiteral("strength") }) ||
+            containsToken(QStringLiteral("uts")))
             return QStringLiteral("UTS");
+
         return QString();
     };
 
