@@ -56,6 +56,66 @@ QString modelKeyForField(const QString& fieldKey)
         return QStringLiteral("hyperelastic");
     return QString();
 }
+
+QString labelForFieldKey(const QString& fieldKey)
+{
+    if (fieldKey.compare(QStringLiteral("D"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("密度ρ");
+    if (fieldKey.compare(QStringLiteral("E"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("弹性模量E");
+    if (fieldKey.compare(QStringLiteral("u"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("泊松比v");
+    if (fieldKey.compare(QStringLiteral("YS"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("屈服强度YS");
+    if (fieldKey.compare(QStringLiteral("UTS"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("抗拉强度UTS");
+    if (fieldKey.compare(QStringLiteral("e"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("断后延伸率A");
+    if (fieldKey.compare(QStringLiteral("C10"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("C10");
+    if (fieldKey.compare(QStringLiteral("C01"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("C01");
+    if (fieldKey.compare(QStringLiteral("D1"), Qt::CaseInsensitive) == 0)
+        return QStringLiteral("D1");
+    return QString();
+}
+
+QString fieldKeyForLabel(const QString& label)
+{
+    const QString trimmed = label.trimmed();
+    if (trimmed.isEmpty())
+        return QString();
+
+    const auto equalsIgnoreCase = [&](const QString& a, const QString& b) {
+        return a.compare(b, Qt::CaseInsensitive) == 0;
+    };
+
+    if (equalsIgnoreCase(trimmed, QStringLiteral("密度ρ")) ||
+        equalsIgnoreCase(trimmed, QStringLiteral("密度")))
+        return QStringLiteral("D");
+    if (equalsIgnoreCase(trimmed, QStringLiteral("弹性模量E")) ||
+        equalsIgnoreCase(trimmed, QStringLiteral("弹性模量")))
+        return QStringLiteral("E");
+    if (equalsIgnoreCase(trimmed, QStringLiteral("泊松比v")) ||
+        equalsIgnoreCase(trimmed, QStringLiteral("泊松比")))
+        return QStringLiteral("u");
+    if (equalsIgnoreCase(trimmed, QStringLiteral("屈服强度YS")) ||
+        equalsIgnoreCase(trimmed, QStringLiteral("屈服强度")))
+        return QStringLiteral("YS");
+    if (equalsIgnoreCase(trimmed, QStringLiteral("断后延伸率A")) ||
+        equalsIgnoreCase(trimmed, QStringLiteral("断后延伸率")))
+        return QStringLiteral("e");
+    if (equalsIgnoreCase(trimmed, QStringLiteral("抗拉强度UTS")) ||
+        equalsIgnoreCase(trimmed, QStringLiteral("抗拉强度")))
+        return QStringLiteral("UTS");
+    if (equalsIgnoreCase(trimmed, QStringLiteral("C10")))
+        return QStringLiteral("C10");
+    if (equalsIgnoreCase(trimmed, QStringLiteral("C01")))
+        return QStringLiteral("C01");
+    if (equalsIgnoreCase(trimmed, QStringLiteral("D1")))
+        return QStringLiteral("D1");
+    return QString();
+}
 }
 
 static const char* kBtnQss =
@@ -121,8 +181,12 @@ void JsonPageBuilder::setAvailableMaterials(const QVector<MaterialPreset>& mater
 
     for (MetalSectionControls& controls : m_metalSections)
     {
+        if (!controls.materialPresetCombo)
+            continue;
+
         populateMaterialCombo(controls.materialPresetCombo);
         updateMaterialApplyState(controls);
+        notifyMaterialSelectionChanged(controls);
     }
 }
 void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
@@ -336,7 +400,11 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
                     this,
                     [this, sectionIndex](int) {
                         if (sectionIndex >= 0 && sectionIndex < m_metalSections.size())
-                            updateMaterialApplyState(m_metalSections[sectionIndex]);
+                        {
+                            MetalSectionControls& controls = m_metalSections[sectionIndex];
+                            updateMaterialApplyState(controls);
+                            notifyMaterialSelectionChanged(controls);
+                        }
                     });
 
             updateMaterialApplyState(metalCtrl);
@@ -392,7 +460,7 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
                 if (!info.present)
                     continue;
 
-                QLineEdit* edit = info.editsByName.value(name, nullptr);
+                QLineEdit* edit = info.editsByFieldKey.value(name, nullptr);
                 if (!edit)
                     continue;
 
@@ -508,7 +576,8 @@ void JsonPageBuilder::addMetalModel(int sectionIndex, const QString& modelKey)
         mc.gridNextRow++;
 
         info.labels.push_back(lab);
-        info.editsByName.insert(name, edit);
+        info.editsByFieldKey.insert(name, edit);
+        info.editsByLabel.insert(cnName.trimmed(), edit);
         return edit;
     };
 
@@ -567,14 +636,15 @@ void JsonPageBuilder::removeMetalModel(int sectionIndex, const QString& modelKey
     info.labels.clear();
 
     // 删除输入框
-    for (auto it = info.editsByName.begin(); it != info.editsByName.end(); ++it) {
+    for (auto it = info.editsByFieldKey.begin(); it != info.editsByFieldKey.end(); ++it) {
         QLineEdit* edit = it.value();
         if (!edit) continue;
         mc.grid->removeWidget(edit);
         edit->hide();
         edit->deleteLater();
     }
-    info.editsByName.clear();
+    info.editsByFieldKey.clear();
+    info.editsByLabel.clear();
 
     // 删除按钮
     if (info.removeButton) {
@@ -628,6 +698,15 @@ void JsonPageBuilder::updateMaterialApplyState(MetalSectionControls& controls)
     controls.applyMaterialButton->setEnabled(enabled);
 }
 
+void JsonPageBuilder::notifyMaterialSelectionChanged(MetalSectionControls& controls)
+{
+    if (!controls.materialPresetCombo)
+        return;
+
+    const QString key = controls.materialPresetCombo->currentData().toString();
+    emit materialPresetSelected(key);
+}
+
 void JsonPageBuilder::applyMaterialPreset(int sectionIndex)
 {
     if (sectionIndex < 0 || sectionIndex >= m_metalSections.size())
@@ -638,6 +717,7 @@ void JsonPageBuilder::applyMaterialPreset(int sectionIndex)
         return;
 
     const QString key = controls.materialPresetCombo->currentData().toString();
+    notifyMaterialSelectionChanged(controls);
     if (key.isEmpty())
         return;
 
@@ -672,6 +752,8 @@ void JsonPageBuilder::applyPresetToSection(int sectionIndex, const MaterialPrese
 
     bool applied = false;
 
+    QSet<QString> handledLabels;
+
     for (auto it = preset.valuesByFieldKey.constBegin();
          it != preset.valuesByFieldKey.constEnd(); ++it)
     {
@@ -691,11 +773,52 @@ void JsonPageBuilder::applyPresetToSection(int sectionIndex, const MaterialPrese
             addMetalModel(sectionIndex, modelKey);
 
         MetalModelInfo& info = controls.models[modelKey];
-        QLineEdit* edit = info.editsByName.value(fieldKey, nullptr);
+        const QString label = labelForFieldKey(fieldKey);
+        if (!label.isEmpty())
+            handledLabels.insert(label);
+
+        QLineEdit* edit = nullptr;
+        if (!label.isEmpty())
+            edit = info.editsByLabel.value(label, nullptr);
+        if (!edit)
+            edit = info.editsByFieldKey.value(fieldKey, nullptr);
         if (!edit)
             continue;
 
         edit->setText(value);
+        applied = true;
+    }
+
+    for (auto it = preset.valuesByLabel.constBegin();
+         it != preset.valuesByLabel.constEnd(); ++it)
+    {
+        const QString label = it.key().trimmed();
+        if (label.isEmpty() || handledLabels.contains(label))
+            continue;
+
+        const QString fieldKey = fieldKeyForLabel(label);
+        if (fieldKey.isEmpty())
+            continue;
+
+        const QString modelKey = modelKeyForField(fieldKey);
+        if (modelKey.isEmpty())
+            continue;
+
+        if (!controls.models.contains(modelKey))
+            controls.models.insert(modelKey, MetalModelInfo{});
+
+        if (!controls.models[modelKey].present)
+            addMetalModel(sectionIndex, modelKey);
+
+        MetalModelInfo& info = controls.models[modelKey];
+        QLineEdit* edit = info.editsByLabel.value(label, nullptr);
+        if (!edit)
+            edit = info.editsByFieldKey.value(fieldKey, nullptr);
+        if (!edit)
+            continue;
+
+        edit->setText(it.value());
+        handledLabels.insert(label);
         applied = true;
     }
 
@@ -800,45 +923,45 @@ bool JsonPageBuilder::saveJson(const QString& path)
 
                 const MetalModelInfo& densityInfo = mc.models.value(QString("density"));
                 if (densityInfo.present) {
-                    appendModel(QString("density"), QString("D"),
-                                QString("密度ρ"),
-                                densityInfo.editsByName.value(QString("D"), nullptr));
+                appendModel(QString("density"), QString("D"),
+                            QString("密度ρ"),
+                            densityInfo.editsByFieldKey.value(QString("D"), nullptr));
                 }
 
                 const MetalModelInfo& elasticInfo = mc.models.value(QString("elastic"));
                 if (elasticInfo.present) {
                     appendModel(QString("elastic"), QString("E"),
                                 QString("弹性模量E"),
-                                elasticInfo.editsByName.value(QString("E"), nullptr));
+                                elasticInfo.editsByFieldKey.value(QString("E"), nullptr));
                     appendModel(QString("elastic"), QString("u"),
                                 QString("泊松比v"),
-                                elasticInfo.editsByName.value(QString("u"), nullptr));
+                                elasticInfo.editsByFieldKey.value(QString("u"), nullptr));
                 }
 
                 const MetalModelInfo& plasticInfo = mc.models.value(QString("plastic"));
                 if (plasticInfo.present) {
                     appendModel(QString("plastic"), QString("YS"),
                                 QString("屈服强度YS"),
-                                plasticInfo.editsByName.value(QString("YS"), nullptr));
+                                plasticInfo.editsByFieldKey.value(QString("YS"), nullptr));
                     appendModel(QString("plastic"), QString("e"),
                                 QString("断后延伸率A"),
-                                plasticInfo.editsByName.value(QString("e"), nullptr));
+                                plasticInfo.editsByFieldKey.value(QString("e"), nullptr));
                     appendModel(QString("plastic"), QString("UTS"),
                                 QString("抗拉强度UTS"),
-                                plasticInfo.editsByName.value(QString("UTS"), nullptr));
+                                plasticInfo.editsByFieldKey.value(QString("UTS"), nullptr));
                 }
 
                 const MetalModelInfo& hyperInfo = mc.models.value(QString("hyperelastic"));
                 if (hyperInfo.present) {
                     appendModel(QString("hyperelastic"), QString("C10"),
                                 QString("C10"),
-                                hyperInfo.editsByName.value(QString("C10"), nullptr));
+                                hyperInfo.editsByFieldKey.value(QString("C10"), nullptr));
                     appendModel(QString("hyperelastic"), QString("C01"),
                                 QString("C01"),
-                                hyperInfo.editsByName.value(QString("C01"), nullptr));
+                                hyperInfo.editsByFieldKey.value(QString("C01"), nullptr));
                     appendModel(QString("hyperelastic"), QString("D1"),
                                 QString("D1"),
-                                hyperInfo.editsByName.value(QString("D1"), nullptr));
+                                hyperInfo.editsByFieldKey.value(QString("D1"), nullptr));
                 }
             }
 

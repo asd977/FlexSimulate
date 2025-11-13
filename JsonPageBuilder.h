@@ -28,6 +28,7 @@ public:
         QString key;                     // 材料唯一 key
         QString displayName;             // 下拉框显示文本
         QMap<QString, QString> valuesByFieldKey; // 参数名 (如 D/YS) -> 数值
+        QMap<QString, QString> valuesByLabel;    // 中文名 (如 密度ρ) -> 数值
     };
 
     void setAvailableMaterials(const QVector<MaterialPreset>& materials);
@@ -35,6 +36,7 @@ public:
 signals:
     void logMessage(const QString& msg);
     void calculationFinished(const QString& objPath);
+    void materialPresetSelected(const QString& materialKey);
 
 private slots:
     void onCalculateButtonClicked();
@@ -61,6 +63,7 @@ private:
     void removeMetalModel(int sectionIndex, const QString& modelKey);
     void populateMaterialCombo(QComboBox* combo) const;
     void updateMaterialApplyState(MetalSectionControls& controls);
+    void notifyMaterialSelectionChanged(MetalSectionControls& controls);
     void applyMaterialPreset(int sectionIndex);
     void applyPresetToSection(int sectionIndex, const MaterialPreset& preset);
     const MaterialPreset* findMaterialPreset(const QString& key) const;
@@ -83,7 +86,8 @@ private:
         bool present = false;                          // 当前模型是否已经被添加
         QPushButton* removeButton = nullptr;           // “删除”按钮
         QVector<QLabel*> labels;                       // 包含模型标题 + 参数标签
-        QMap<QString, QLineEdit*> editsByName;         // name -> 对应输入框指针
+        QMap<QString, QLineEdit*> editsByFieldKey;     // name -> 对应输入框指针
+        QMap<QString, QLineEdit*> editsByLabel;        // cn_name -> 对应输入框指针
     };
 
     // 每个 section 的 metal 控件集合

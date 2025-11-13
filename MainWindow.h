@@ -262,6 +262,8 @@ private:
     void saveMaterialsToDatabase(const QVector<MaterialRecord>& materials);
     void refreshMaterialsUi();
     void displayMaterialDetails(const MaterialRecord* material);
+    void handleMaterialPresetSelected(const QString& materialKey);
+    void selectMaterialInList(const QString& materialKey);
     const MaterialRecord* materialByKey(const QString& key) const;
     QString materialDisplayName(const MaterialRecord& material) const;
     QVector<MaterialRecord> fetchMaterialsFromRemote(QString* errorMessage);
