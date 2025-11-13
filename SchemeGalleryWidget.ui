@@ -15,27 +15,24 @@
   </property>
   <layout class="QVBoxLayout" name="verticalLayout_root">
    <property name="spacing">
-    <number>8</number>
+    <number>12</number>
    </property>
    <property name="leftMargin">
-    <number>8</number>
+    <number>16</number>
    </property>
    <property name="topMargin">
-    <number>8</number>
+    <number>16</number>
    </property>
    <property name="rightMargin">
-    <number>8</number>
+    <number>16</number>
    </property>
    <property name="bottomMargin">
-    <number>8</number>
+    <number>16</number>
    </property>
    <item>
     <layout class="QHBoxLayout" name="toolbarLayout">
      <item>
       <widget class="QLabel" name="titleLabel">
-       <property name="styleSheet">
-        <string notr="true">font-size:16px; font-weight:600;</string>
-       </property>
        <property name="text">
         <string>总成库</string>
        </property>
@@ -95,19 +92,19 @@
       </property>
       <layout class="QGridLayout" name="gridLayout">
        <property name="leftMargin">
-        <number>8</number>
+        <number>12</number>
        </property>
        <property name="topMargin">
-        <number>8</number>
+        <number>12</number>
        </property>
        <property name="rightMargin">
-        <number>8</number>
+        <number>12</number>
        </property>
        <property name="bottomMargin">
-        <number>8</number>
+        <number>12</number>
        </property>
        <property name="spacing">
-        <number>16</number>
+        <number>18</number>
        </property>
       </layout>
      </widget>
