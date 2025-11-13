@@ -43,6 +43,9 @@ private slots:
     void handleProcessError(QProcess::ProcessError error);
 
 private:
+    struct MetalModelInfo;
+    struct MetalSectionControls;
+
     // ===== JSON & UI =====
     bool loadJson(const QString& path, QJsonArray& outSections);
     bool saveJson(const QString& path);
