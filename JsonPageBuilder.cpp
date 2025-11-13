@@ -41,42 +41,42 @@ QFileInfo latestResultInfo(const QDir& dir)
 
 QString modelKeyForField(const QString& fieldKey)
 {
-    if (fieldKey.compare(QStringLiteral("D"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("density");
-    if (fieldKey.compare(QStringLiteral("E"), Qt::CaseInsensitive) == 0 ||
-        fieldKey.compare(QStringLiteral("u"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("elastic");
-    if (fieldKey.compare(QStringLiteral("YS"), Qt::CaseInsensitive) == 0 ||
-        fieldKey.compare(QStringLiteral("UTS"), Qt::CaseInsensitive) == 0 ||
-        fieldKey.compare(QStringLiteral("e"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("plastic");
-    if (fieldKey.compare(QStringLiteral("C10"), Qt::CaseInsensitive) == 0 ||
-        fieldKey.compare(QStringLiteral("C01"), Qt::CaseInsensitive) == 0 ||
-        fieldKey.compare(QStringLiteral("D1"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("hyperelastic");
+    if (fieldKey.compare(QString("D"), Qt::CaseInsensitive) == 0)
+        return QString("density");
+    if (fieldKey.compare(QString("E")) == 0 ||
+        fieldKey.compare(QString("u"), Qt::CaseInsensitive) == 0)
+        return QString("elastic");
+    if (fieldKey.compare(QString("YS"), Qt::CaseInsensitive) == 0 ||
+        fieldKey.compare(QString("UTS"), Qt::CaseInsensitive) == 0 ||
+        fieldKey.compare(QString("e")) == 0)
+        return QString("plastic");
+    if (fieldKey.compare(QString("C10"), Qt::CaseInsensitive) == 0 ||
+        fieldKey.compare(QString("C01"), Qt::CaseInsensitive) == 0 ||
+        fieldKey.compare(QString("D1"), Qt::CaseInsensitive) == 0)
+        return QString("hyperelastic");
     return QString();
 }
 
 QString labelForFieldKey(const QString& fieldKey)
 {
-    if (fieldKey.compare(QStringLiteral("D"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("密度ρ");
-    if (fieldKey.compare(QStringLiteral("E"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("弹性模量E");
-    if (fieldKey.compare(QStringLiteral("u"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("泊松比v");
-    if (fieldKey.compare(QStringLiteral("YS"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("屈服强度YS");
-    if (fieldKey.compare(QStringLiteral("UTS"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("抗拉强度UTS");
-    if (fieldKey.compare(QStringLiteral("e"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("断后延伸率A");
-    if (fieldKey.compare(QStringLiteral("C10"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("C10");
-    if (fieldKey.compare(QStringLiteral("C01"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("C01");
-    if (fieldKey.compare(QStringLiteral("D1"), Qt::CaseInsensitive) == 0)
-        return QStringLiteral("D1");
+    if (fieldKey.compare(QString("D"), Qt::CaseInsensitive) == 0)
+        return QString("密度ρ");
+    if (fieldKey.compare(QString("E")) == 0)
+        return QString("弹性模量E");
+    if (fieldKey.compare(QString("u"), Qt::CaseInsensitive) == 0)
+        return QString("泊松比v");
+    if (fieldKey.compare(QString("YS"), Qt::CaseInsensitive) == 0)
+        return QString("屈服强度YS");
+    if (fieldKey.compare(QString("UTS"), Qt::CaseInsensitive) == 0)
+        return QString("抗拉强度UTS");
+    if (fieldKey.compare(QString("e")) == 0)
+        return QString("断后延伸率A");
+    if (fieldKey.compare(QString("C10"), Qt::CaseInsensitive) == 0)
+        return QString("C10");
+    if (fieldKey.compare(QString("C01"), Qt::CaseInsensitive) == 0)
+        return QString("C01");
+    if (fieldKey.compare(QString("D1"), Qt::CaseInsensitive) == 0)
+        return QString("D1");
     return QString();
 }
 
@@ -90,30 +90,37 @@ QString fieldKeyForLabel(const QString& label)
         return a.compare(b, Qt::CaseInsensitive) == 0;
     };
 
-    if (equalsIgnoreCase(trimmed, QStringLiteral("密度ρ")) ||
-        equalsIgnoreCase(trimmed, QStringLiteral("密度")))
-        return QStringLiteral("D");
-    if (equalsIgnoreCase(trimmed, QStringLiteral("弹性模量E")) ||
-        equalsIgnoreCase(trimmed, QStringLiteral("弹性模量")))
-        return QStringLiteral("E");
-    if (equalsIgnoreCase(trimmed, QStringLiteral("泊松比v")) ||
-        equalsIgnoreCase(trimmed, QStringLiteral("泊松比")))
-        return QStringLiteral("u");
-    if (equalsIgnoreCase(trimmed, QStringLiteral("屈服强度YS")) ||
-        equalsIgnoreCase(trimmed, QStringLiteral("屈服强度")))
-        return QStringLiteral("YS");
-    if (equalsIgnoreCase(trimmed, QStringLiteral("断后延伸率A")) ||
-        equalsIgnoreCase(trimmed, QStringLiteral("断后延伸率")))
+    if (equalsIgnoreCase(trimmed, QString("密度ρ")) ||
+        equalsIgnoreCase(trimmed, QString("密度")))
+        return QString("D");
+    if (equalsIgnoreCase(trimmed, QString("弹性模量E")) ||
+        equalsIgnoreCase(trimmed, QString("弹性模量")))
+        return QString("E");
+    if (equalsIgnoreCase(trimmed, QString("泊松比v")) ||
+        equalsIgnoreCase(trimmed, QString("泊松比")))
+        return QString("u");
+    if (equalsIgnoreCase(trimmed, QString("屈服强度YS")) ||
+        equalsIgnoreCase(trimmed, QString("屈服强度")))
+        return QString("YS");
+
+    // === 断后延伸率 / 伸长率 → 全部映射为 "e" ===
+    if (trimmed.contains(QStringLiteral("断后")) &&
+        (trimmed.contains(QStringLiteral("延伸率")) ||
+         trimmed.contains(QStringLiteral("伸长率"))))
+    {
+        // 支持：断后延伸率A、断后延伸率、断后伸长率A、断后伸长率%、断后伸长率
         return QStringLiteral("e");
-    if (equalsIgnoreCase(trimmed, QStringLiteral("抗拉强度UTS")) ||
-        equalsIgnoreCase(trimmed, QStringLiteral("抗拉强度")))
-        return QStringLiteral("UTS");
-    if (equalsIgnoreCase(trimmed, QStringLiteral("C10")))
-        return QStringLiteral("C10");
-    if (equalsIgnoreCase(trimmed, QStringLiteral("C01")))
-        return QStringLiteral("C01");
-    if (equalsIgnoreCase(trimmed, QStringLiteral("D1")))
-        return QStringLiteral("D1");
+    }
+
+    if (equalsIgnoreCase(trimmed, QString("抗拉强度UTS")) ||
+        equalsIgnoreCase(trimmed, QString("抗拉强度")))
+        return QString("UTS");
+    if (equalsIgnoreCase(trimmed, QString("C10")))
+        return QString("C10");
+    if (equalsIgnoreCase(trimmed, QString("C01")))
+        return QString("C01");
+    if (equalsIgnoreCase(trimmed, QString("D1")))
+        return QString("D1");
     return QString();
 }
 }
@@ -524,15 +531,15 @@ void JsonPageBuilder::addMetalModel(int sectionIndex, const QString& modelKey)
     // 标题行：模型名 + 删除按钮
     QString headerText;
     if (modelKey == QString("density"))
-        headerText = tr("模型：密度 density");
+        headerText = tr("密度 density");
     else if (modelKey == QString("elastic"))
-        headerText = tr("模型：弹性 elastic");
+        headerText = tr("弹性 elastic");
     else if (modelKey == QString("plastic"))
-        headerText = tr("模型：塑性 plastic");
+        headerText = tr("塑性 plastic");
     else if (modelKey == QString("hyperelastic"))
-        headerText = tr("模型：超弹性 hyperelastic");
+        headerText = tr("超弹性 hyperelastic");
     else
-        headerText = tr("模型：%1").arg(modelKey);
+        headerText = tr("%1").arg(modelKey);
 
     int row = mc.gridNextRow;
 
@@ -604,7 +611,7 @@ void JsonPageBuilder::addMetalModel(int sectionIndex, const QString& modelKey)
     }
     else
     {
-        // 未知模型：不做参数行
+        // 未知不做参数行
     }
 
     info.present = true;
@@ -758,7 +765,10 @@ void JsonPageBuilder::applyPresetToSection(int sectionIndex, const MaterialPrese
          it != preset.valuesByFieldKey.constEnd(); ++it)
     {
         const QString fieldKey = it.key();
+
+
         const QString value = it.value();
+
         if (fieldKey.isEmpty())
             continue;
 
@@ -774,6 +784,7 @@ void JsonPageBuilder::applyPresetToSection(int sectionIndex, const MaterialPrese
 
         MetalModelInfo& info = controls.models[modelKey];
         const QString label = labelForFieldKey(fieldKey);
+
         if (!label.isEmpty())
             handledLabels.insert(label);
 
@@ -795,6 +806,7 @@ void JsonPageBuilder::applyPresetToSection(int sectionIndex, const MaterialPrese
         const QString label = it.key().trimmed();
         if (label.isEmpty() || handledLabels.contains(label))
             continue;
+
 
         const QString fieldKey = fieldKeyForLabel(label);
         if (fieldKey.isEmpty())

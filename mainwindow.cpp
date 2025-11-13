@@ -93,11 +93,11 @@
 
 namespace
 {
-const QString kMaterialsTenantId = QStringLiteral("517397886036606977");
-const QString kMaterialsUserId = QStringLiteral("517397886036606977");
-const QUrl kMaterialsTokenUrl(QStringLiteral("https://api7.gacrnd.com:9443/gmds/material-gygc-material-ds/custom/basics/token"));
-const QUrl kMaterialsPageUrl(QStringLiteral("https://api7.gacrnd.com:9443/gmds/material-gygc-material-ds/custom/api/material-base-info/pageQuery"));
-const QUrl kMaterialsDetailUrl(QStringLiteral("https://api7.gacrnd.com:9443/gmds/material-gygc-material-ds/custom/api/material-base-info/queryMaterialProperties"));
+const QString kMaterialsTenantId = QString("517397886036606977");
+const QString kMaterialsUserId = QString("517397886036606977");
+const QUrl kMaterialsTokenUrl(QString("https://api7.gacrnd.com:9443/gmds/material-gygc-material-ds/custom/basics/token"));
+const QUrl kMaterialsPageUrl(QString("https://api7.gacrnd.com:9443/gmds/material-gygc-material-ds/custom/api/material-base-info/pageQuery"));
+const QUrl kMaterialsDetailUrl(QString("https://api7.gacrnd.com:9443/gmds/material-gygc-material-ds/custom/api/material-base-info/queryMaterialProperties"));
 const int kMaterialsPageSize = 50;
 const char kMaterialsConnectionName[] = "materials_connection";
 
@@ -133,7 +133,7 @@ QString canonicalPathForDir(const QDir& dir)
 bool ensureDirectoryExists(const QString& path)
 {
     QDir dir(path);
-    return dir.exists() || dir.mkpath(QStringLiteral("."));
+    return dir.exists() || dir.mkpath(QString("."));
 }
 
 bool copyDirectoryRecursively(const QString& sourcePath, const QString& targetPath)
@@ -143,7 +143,7 @@ bool copyDirectoryRecursively(const QString& sourcePath, const QString& targetPa
         return false;
 
     QDir target(targetPath);
-    if (!target.exists() && !target.mkpath(QStringLiteral(".")))
+    if (!target.exists() && !target.mkpath(QString(".")))
         return false;
 
     const QFileInfoList entries = source.entryInfoList(QDir::NoDotAndDotDot | QDir::AllEntries);
@@ -169,14 +169,14 @@ QString uniqueChildPath(const QDir& parent, const QString& baseName)
 {
     QString sanitized = baseName.trimmed();
     if (sanitized.isEmpty())
-        sanitized = QStringLiteral("Model");
+        sanitized = QString("Model");
 
     QString candidateName = sanitized;
     QString candidatePath = parent.filePath(candidateName);
     int index = 1;
     while (QDir(candidatePath).exists())
     {
-        candidateName = QStringLiteral("%1_%2").arg(sanitized).arg(index++);
+        candidateName = QString("%1_%2").arg(sanitized).arg(index++);
         candidatePath = parent.filePath(candidateName);
     }
     return candidatePath;
@@ -185,7 +185,7 @@ QString uniqueChildPath(const QDir& parent, const QString& baseName)
 QString latestResultFile(const QString& directory)
 {
     QDir dir(directory);
-    const QStringList objPatterns{ QStringLiteral("*.obj"), QStringLiteral("*.OBJ") };
+    const QStringList objPatterns{ QString("*.obj"), QString("*.OBJ") };
     QFileInfoList files = dir.entryInfoList(objPatterns, QDir::Files,
                                             QDir::Time | QDir::IgnoreCase);
     if (!files.isEmpty())
@@ -205,9 +205,9 @@ MainWindow::MainWindow(QWidget *parent)
     QString dataRoot = QCoreApplication::applicationDirPath();
     QDir dataDir(dataRoot);
     if (!dataDir.exists())
-        dataDir.mkpath(QStringLiteral("."));
-    m_appStateFilePath = dataDir.filePath(QStringLiteral("app_state.json"));
-    m_materialsDbPath = dataDir.filePath(QStringLiteral("materials.db"));
+        dataDir.mkpath(QString("."));
+    m_appStateFilePath = dataDir.filePath(QString("app_state.json"));
+    m_materialsDbPath = dataDir.filePath(QString("materials.db"));
 
     initializeMaterialsDatabase();
 
@@ -241,7 +241,7 @@ void MainWindow::setupUiHelpers()
     if (auto* central = ui->centralwidget)
     {
         central->setAttribute(Qt::WA_StyledBackground, true);
-        central->setStyleSheet(QStringLiteral("QWidget#centralwidget{background:#f1f5f9;}"));
+        central->setStyleSheet(QString("QWidget#centralwidget{background:#f1f5f9;}"));
     }
 
     m_galleryWidget = new SchemeGalleryWidget(this);
@@ -257,12 +257,12 @@ void MainWindow::setupUiHelpers()
 
         panel->setAttribute(Qt::WA_StyledBackground, true);
         const QString panelSelector = panel->objectName().isEmpty()
-                                          ? QStringLiteral("%1").arg(QString::fromLatin1(panel->metaObject()->className()))
-                                          : QStringLiteral("%1#%2").arg(QString::fromLatin1(panel->metaObject()->className()), panel->objectName());
+                                          ? QString("%1").arg(QString::fromLatin1(panel->metaObject()->className()))
+                                          : QString("%1#%2").arg(QString::fromLatin1(panel->metaObject()->className()), panel->objectName());
         const QString titleSelector = title->objectName().isEmpty()
-                                          ? QStringLiteral("QLabel")
-                                          : QStringLiteral("QLabel#%1").arg(title->objectName());
-        QString style = QStringLiteral(
+                                          ? QString("QLabel")
+                                          : QString("QLabel#%1").arg(title->objectName());
+        QString style = QString(
             "%1{background:#ffffff;border:1px solid #d6e1f2;border-radius:14px;}"
             "%2{font-size:15px;font-weight:600;color:#0f172a;padding:12px 16px;"
             "background:#f8fafc;border-top-left-radius:14px;border-top-right-radius:14px;"
@@ -273,7 +273,7 @@ void MainWindow::setupUiHelpers()
     };
 
     applyPanelCard(ui->navigationFrame, ui->navigationTitle,
-                   QStringLiteral(
+                   QString(
                        "QTreeWidget{border:none;background:transparent;padding:8px 12px;}"
                        "QTreeWidget::item{padding:6px 4px;}"
                        "QTreeWidget::item:hover{background:#f1f5f9;}"
@@ -282,13 +282,13 @@ void MainWindow::setupUiHelpers()
                    ));
 
     applyPanelCard(ui->detailPanel, ui->detailTitle,
-                   QStringLiteral(
+                   QString(
                        "QScrollArea{border:none;background:transparent;}"
                        "QWidget#scrollAreaWidgetContents{background:transparent;}"
                    ));
 
     applyPanelCard(ui->vtkPanel, ui->vtkTitle,
-                   QStringLiteral(
+                   QString(
                        "QFrame#vtkFrame{border:none;background:transparent;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
                        "QVTKOpenGLNativeWidget{border:none;border-bottom-left-radius:14px;border-bottom-right-radius:14px;}"
                    ));
@@ -301,7 +301,7 @@ void MainWindow::setupUiHelpers()
         ui->modelImageLabel->installEventFilter(watcher);
     }
 
-    const QString splitterStyle = QStringLiteral(
+    const QString splitterStyle = QString(
         "QSplitter::handle{background:#cbd5f5;}"
         "QSplitter::handle:horizontal{width:8px;margin:0 4px;border-radius:4px;}"
         "QSplitter::handle:vertical{height:8px;margin:4px 0;border-radius:4px;}"
@@ -405,7 +405,7 @@ void MainWindow::initializeMaterialsDatabase()
     if (QSqlDatabase::contains(QString::fromLatin1(kMaterialsConnectionName)))
         m_materialsDb = QSqlDatabase::database(QString::fromLatin1(kMaterialsConnectionName));
     else
-        m_materialsDb = QSqlDatabase::addDatabase(QStringLiteral("QSQLITE"),
+        m_materialsDb = QSqlDatabase::addDatabase(QString("QSQLITE"),
                                                   QString::fromLatin1(kMaterialsConnectionName));
 
     if (!m_materialsDb.isValid())
@@ -422,10 +422,10 @@ void MainWindow::initializeMaterialsDatabase()
     }
 
     QSqlQuery query(m_materialsDb);
-    if (!query.exec(QStringLiteral("PRAGMA foreign_keys = ON;")))
+    if (!query.exec(QString("PRAGMA foreign_keys = ON;")))
         appendLogMessage(tr("无法启用材料数据库外键支持：%1").arg(query.lastError().text()));
 
-    const QString createMaterials = QStringLiteral(
+    const QString createMaterials = QString(
         "CREATE TABLE IF NOT EXISTS materials ("
         "material_key TEXT PRIMARY KEY,"
         "base_id TEXT,"
@@ -452,7 +452,7 @@ void MainWindow::initializeMaterialsDatabase()
     if (!query.exec(createMaterials))
         appendLogMessage(tr("无法创建材料表：%1").arg(query.lastError().text()));
 
-    const QString createProperties = QStringLiteral(
+    const QString createProperties = QString(
         "CREATE TABLE IF NOT EXISTS material_properties ("
         "property_id TEXT PRIMARY KEY,"
         "material_key TEXT,"
@@ -464,7 +464,7 @@ void MainWindow::initializeMaterialsDatabase()
     if (!query.exec(createProperties))
         appendLogMessage(tr("无法创建材料属性表：%1").arg(query.lastError().text()));
 
-    const QString createSpecs = QStringLiteral(
+    const QString createSpecs = QString(
         "CREATE TABLE IF NOT EXISTS material_specs ("
         "id INTEGER PRIMARY KEY AUTOINCREMENT,"
         "material_key TEXT,"
@@ -493,7 +493,7 @@ void MainWindow::loadMaterialsFromDatabase()
     }
 
     QSqlQuery query(m_materialsDb);
-    const QString selectMaterials = QStringLiteral(
+    const QString selectMaterials = QString(
         "SELECT material_key, base_id, material_id, material_name, material_type, material_type_code,"
         " material_type_value, material_status, supplier_option_value, supplier_option_code,"
         " supplier_code, supplier_produce_code, material_trademark, gac_material_trademark,"
@@ -536,12 +536,12 @@ void MainWindow::loadMaterialsFromDatabase()
     }
 
     QSqlQuery propertyQuery(m_materialsDb);
-    propertyQuery.prepare(QStringLiteral(
+    propertyQuery.prepare(QString(
         "SELECT property_id, property_name, property_value, property_unit FROM material_properties"
         " WHERE material_key = ? ORDER BY property_name COLLATE NOCASE;"));
 
     QSqlQuery specQuery(m_materialsDb);
-    specQuery.prepare(QStringLiteral(
+    specQuery.prepare(QString(
         "SELECT spec_value FROM material_specs WHERE material_key = ? ORDER BY id;"));
 
     for (MaterialRecord& record : m_materials)
@@ -600,32 +600,32 @@ void MainWindow::saveMaterialsToDatabase(const QVector<MaterialRecord>& material
     }
 
     QSqlQuery query(m_materialsDb);
-    if (!query.exec(QStringLiteral("BEGIN IMMEDIATE TRANSACTION;")))
+    if (!query.exec(QString("BEGIN IMMEDIATE TRANSACTION;")))
     {
         appendLogMessage(tr("无法开始材料数据事务：%1").arg(query.lastError().text()));
         return;
     }
 
     const auto rollback = [this, &query]() {
-        if (!query.exec(QStringLiteral("ROLLBACK;")))
+        if (!query.exec(QString("ROLLBACK;")))
             appendLogMessage(tr("材料数据回滚失败：%1").arg(query.lastError().text()));
     };
 
-    if (!query.exec(QStringLiteral("DELETE FROM material_properties;")))
+    if (!query.exec(QString("DELETE FROM material_properties;")))
     {
         appendLogMessage(tr("清空材料属性失败：%1").arg(query.lastError().text()));
         rollback();
         return;
     }
 
-    if (!query.exec(QStringLiteral("DELETE FROM material_specs;")))
+    if (!query.exec(QString("DELETE FROM material_specs;")))
     {
         appendLogMessage(tr("清空材料规格失败：%1").arg(query.lastError().text()));
         rollback();
         return;
     }
 
-    if (!query.exec(QStringLiteral("DELETE FROM materials;")))
+    if (!query.exec(QString("DELETE FROM materials;")))
     {
         appendLogMessage(tr("清空材料基础信息失败：%1").arg(query.lastError().text()));
         rollback();
@@ -633,7 +633,7 @@ void MainWindow::saveMaterialsToDatabase(const QVector<MaterialRecord>& material
     }
 
     QSqlQuery insertMaterial(m_materialsDb);
-    insertMaterial.prepare(QStringLiteral(
+    insertMaterial.prepare(QString(
         "INSERT OR REPLACE INTO materials(material_key, base_id, material_id, material_name, material_type,"
         " material_type_code, material_type_value, material_status, supplier_option_value,"
         " supplier_option_code, supplier_code, supplier_produce_code, material_trademark,"
@@ -642,12 +642,12 @@ void MainWindow::saveMaterialsToDatabase(const QVector<MaterialRecord>& material
         " VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?);"));
 
     QSqlQuery insertProperty(m_materialsDb);
-    insertProperty.prepare(QStringLiteral(
+    insertProperty.prepare(QString(
         "INSERT OR REPLACE INTO material_properties(property_id, material_key, property_name, property_value, property_unit)"
         " VALUES(?,?,?,?,?);"));
 
     QSqlQuery insertSpec(m_materialsDb);
-    insertSpec.prepare(QStringLiteral(
+    insertSpec.prepare(QString(
         "INSERT INTO material_specs(material_key, spec_value) VALUES(?,?);"));
 
     for (const MaterialRecord& record : materials)
@@ -734,7 +734,7 @@ void MainWindow::saveMaterialsToDatabase(const QVector<MaterialRecord>& material
         }
     }
 
-    if (!query.exec(QStringLiteral("COMMIT;")))
+    if (!query.exec(QString("COMMIT;")))
         appendLogMessage(tr("提交材料数据失败：%1").arg(query.lastError().text()));
 }
 
@@ -919,15 +919,15 @@ QString MainWindow::materialDisplayName(const MaterialRecord& material) const
                                   ? material.gacMaterialTrademark
                                   : material.materialTrademark;
     if (!trademark.isEmpty())
-        parts << QStringLiteral("(%1)").arg(trademark);
+        parts << QString("(%1)").arg(trademark);
 
     if (!material.materialTypeValue.isEmpty())
-        parts << QStringLiteral("- %1").arg(material.materialTypeValue);
+        parts << QString("- %1").arg(material.materialTypeValue);
 
     if (parts.isEmpty())
         return material.materialKey.isEmpty() ? tr("未命名材料") : material.materialKey;
 
-    return parts.join(QStringLiteral(" "));
+    return parts.join(QString(" "));
 }
 
 bool MainWindow::parseMaterialsPage(const QJsonObject& root,
@@ -941,8 +941,8 @@ bool MainWindow::parseMaterialsPage(const QJsonObject& root,
     if (errorMessage)
         errorMessage->clear();
 
-    const QString code = root.value(QStringLiteral("code")).toString();
-    if (code.compare(QStringLiteral("ok"), Qt::CaseInsensitive) != 0)
+    const QString code = root.value(QString("code")).toString();
+    if (code.compare(QString("ok"), Qt::CaseInsensitive) != 0)
     {
         if (errorMessage)
             *errorMessage = tr("材料列表接口返回错误：%1").arg(code);
@@ -950,38 +950,38 @@ bool MainWindow::parseMaterialsPage(const QJsonObject& root,
     }
 
     int totalValue = -1;
-    const QJsonValue totalJson = root.value(QStringLiteral("total"));
+    const QJsonValue totalJson = root.value(QString("total"));
     if (!totalJson.isUndefined())
         totalValue = totalJson.toVariant().toInt();
     if (totalOut)
         *totalOut = totalValue;
 
-    const QJsonArray table = root.value(QStringLiteral("table")).toArray();
+    const QJsonArray table = root.value(QString("table")).toArray();
     for (const QJsonValue& value : table)
     {
         const QJsonObject obj = value.toObject();
         MaterialRecord record;
-        record.baseId = obj.value(QStringLiteral("id")).toString();
-        record.materialId = obj.value(QStringLiteral("materialId")).toString();
-        record.materialName = obj.value(QStringLiteral("materialName")).toString();
-        record.materialType = obj.value(QStringLiteral("materialType")).toString();
-        record.materialTypeCode = obj.value(QStringLiteral("materialTypeCode")).toString();
-        record.materialTypeValue = obj.value(QStringLiteral("materialTypeValue")).toString();
-        record.materialStatus = obj.value(QStringLiteral("materialStatus")).toString();
-        record.supplierOptionValue = obj.value(QStringLiteral("supplierOptionValue")).toString();
-        record.supplierOptionCode = obj.value(QStringLiteral("supplierOptionCode")).toString();
-        record.supplierCode = obj.value(QStringLiteral("supplierCode")).toString();
-        record.supplierProduceCode = obj.value(QStringLiteral("supplierProduceCode")).toString();
-        record.materialTrademark = obj.value(QStringLiteral("materialTrademark")).toString();
-        record.gacMaterialTrademark = obj.value(QStringLiteral("gacMaterialTrademark")).toString();
-        record.authenticationStatusValue = obj.value(QStringLiteral("authenticationStatusValue")).toString(
-            obj.value(QStringLiteral("authenticationStatus")).toString());
-        record.standardType = obj.value(QStringLiteral("standardType")).toString();
-        record.standardCode = obj.value(QStringLiteral("standardCode")).toString();
-        record.creationDate = obj.value(QStringLiteral("creationDate")).toString();
-        record.lastUpdateDate = obj.value(QStringLiteral("lastUpdateDate")).toString();
-        record.status = obj.value(QStringLiteral("status")).toString();
-        record.formId = obj.value(QStringLiteral("formId")).toString();
+        record.baseId = obj.value(QString("id")).toString();
+        record.materialId = obj.value(QString("materialId")).toString();
+        record.materialName = obj.value(QString("materialName")).toString();
+        record.materialType = obj.value(QString("materialType")).toString();
+        record.materialTypeCode = obj.value(QString("materialTypeCode")).toString();
+        record.materialTypeValue = obj.value(QString("materialTypeValue")).toString();
+        record.materialStatus = obj.value(QString("materialStatus")).toString();
+        record.supplierOptionValue = obj.value(QString("supplierOptionValue")).toString();
+        record.supplierOptionCode = obj.value(QString("supplierOptionCode")).toString();
+        record.supplierCode = obj.value(QString("supplierCode")).toString();
+        record.supplierProduceCode = obj.value(QString("supplierProduceCode")).toString();
+        record.materialTrademark = obj.value(QString("materialTrademark")).toString();
+        record.gacMaterialTrademark = obj.value(QString("gacMaterialTrademark")).toString();
+        record.authenticationStatusValue = obj.value(QString("authenticationStatusValue")).toString(
+            obj.value(QString("authenticationStatus")).toString());
+        record.standardType = obj.value(QString("standardType")).toString();
+        record.standardCode = obj.value(QString("standardCode")).toString();
+        record.creationDate = obj.value(QString("creationDate")).toString();
+        record.lastUpdateDate = obj.value(QString("lastUpdateDate")).toString();
+        record.status = obj.value(QString("status")).toString();
+        record.formId = obj.value(QString("formId")).toString();
 
         const QString trademarkKey = record.gacMaterialTrademark.trimmed();
         if (!trademarkKey.isEmpty())
@@ -1004,8 +1004,8 @@ bool MainWindow::applyMaterialDetail(MaterialRecord& record,
     if (errorMessage)
         errorMessage->clear();
 
-    const QString detailCode = detailRoot.value(QStringLiteral("code")).toString();
-    if (detailCode.compare(QStringLiteral("ok"), Qt::CaseInsensitive) != 0)
+    const QString detailCode = detailRoot.value(QString("code")).toString();
+    if (detailCode.compare(QString("ok"), Qt::CaseInsensitive) != 0)
     {
         if (errorMessage)
             *errorMessage = tr("材料 %1 详细信息返回错误：%2")
@@ -1013,40 +1013,40 @@ bool MainWindow::applyMaterialDetail(MaterialRecord& record,
         return false;
     }
 
-    const QJsonObject dataObj = detailRoot.value(QStringLiteral("data")).toObject();
-    const QJsonArray baseList = dataObj.value(QStringLiteral("materialBaseDataList")).toArray();
+    const QJsonObject dataObj = detailRoot.value(QString("data")).toObject();
+    const QJsonArray baseList = dataObj.value(QString("materialBaseDataList")).toArray();
     if (!baseList.isEmpty())
     {
         const QJsonObject entry = baseList.first().toObject();
-        const QJsonObject info = entry.value(QStringLiteral("materialBaseInfo")).toObject();
+        const QJsonObject info = entry.value(QString("materialBaseInfo")).toObject();
         if (!info.isEmpty())
         {
-            record.baseId = info.value(QStringLiteral("id")).toString(record.baseId);
-            const QString materialId = info.value(QStringLiteral("materialId")).toString();
+            record.baseId = info.value(QString("id")).toString(record.baseId);
+            const QString materialId = info.value(QString("materialId")).toString();
             if (!materialId.trimmed().isEmpty())
             {
                 record.materialId = materialId.trimmed();
                 record.materialKey = record.materialId;
             }
-            record.materialName = info.value(QStringLiteral("materialName")).toString(record.materialName);
-            record.materialType = info.value(QStringLiteral("materialType")).toString(record.materialType);
-            record.materialTypeValue = info.value(QStringLiteral("materialTypeValue")).toString(record.materialTypeValue);
-            record.materialTypeCode = info.value(QStringLiteral("materialTypeCode")).toString(record.materialTypeCode);
-            record.materialStatus = info.value(QStringLiteral("materialStatus")).toString(record.materialStatus);
-            record.supplierOptionValue = info.value(QStringLiteral("supplierOptionValue")).toString(record.supplierOptionValue);
-            record.supplierOptionCode = info.value(QStringLiteral("supplierOptionCode")).toString(record.supplierOptionCode);
-            record.supplierCode = info.value(QStringLiteral("supplierCode")).toString(record.supplierCode);
-            record.supplierProduceCode = info.value(QStringLiteral("supplierProduceCode")).toString(record.supplierProduceCode);
-            record.materialTrademark = info.value(QStringLiteral("materialTrademark")).toString(record.materialTrademark);
-            record.gacMaterialTrademark = info.value(QStringLiteral("gacMaterialTrademark")).toString(record.gacMaterialTrademark);
-            record.authenticationStatusValue = info.value(QStringLiteral("authenticationStatusValue")).toString(
+            record.materialName = info.value(QString("materialName")).toString(record.materialName);
+            record.materialType = info.value(QString("materialType")).toString(record.materialType);
+            record.materialTypeValue = info.value(QString("materialTypeValue")).toString(record.materialTypeValue);
+            record.materialTypeCode = info.value(QString("materialTypeCode")).toString(record.materialTypeCode);
+            record.materialStatus = info.value(QString("materialStatus")).toString(record.materialStatus);
+            record.supplierOptionValue = info.value(QString("supplierOptionValue")).toString(record.supplierOptionValue);
+            record.supplierOptionCode = info.value(QString("supplierOptionCode")).toString(record.supplierOptionCode);
+            record.supplierCode = info.value(QString("supplierCode")).toString(record.supplierCode);
+            record.supplierProduceCode = info.value(QString("supplierProduceCode")).toString(record.supplierProduceCode);
+            record.materialTrademark = info.value(QString("materialTrademark")).toString(record.materialTrademark);
+            record.gacMaterialTrademark = info.value(QString("gacMaterialTrademark")).toString(record.gacMaterialTrademark);
+            record.authenticationStatusValue = info.value(QString("authenticationStatusValue")).toString(
                 record.authenticationStatusValue);
-            record.standardType = info.value(QStringLiteral("standardType")).toString(record.standardType);
-            record.standardCode = info.value(QStringLiteral("standardCode")).toString(record.standardCode);
-            record.creationDate = info.value(QStringLiteral("creationDate")).toString(record.creationDate);
-            record.lastUpdateDate = info.value(QStringLiteral("lastUpdateDate")).toString(record.lastUpdateDate);
-            record.status = info.value(QStringLiteral("status")).toString(record.status);
-            record.formId = info.value(QStringLiteral("formId")).toString(record.formId);
+            record.standardType = info.value(QString("standardType")).toString(record.standardType);
+            record.standardCode = info.value(QString("standardCode")).toString(record.standardCode);
+            record.creationDate = info.value(QString("creationDate")).toString(record.creationDate);
+            record.lastUpdateDate = info.value(QString("lastUpdateDate")).toString(record.lastUpdateDate);
+            record.status = info.value(QString("status")).toString(record.status);
+            record.formId = info.value(QString("formId")).toString(record.formId);
 
             const QString trademarkKey = record.gacMaterialTrademark.trimmed();
             if (!trademarkKey.isEmpty())
@@ -1054,19 +1054,19 @@ bool MainWindow::applyMaterialDetail(MaterialRecord& record,
         }
 
         record.properties.clear();
-        const QJsonArray propertiesArray = entry.value(QStringLiteral("materialPropertiesEntityList")).toArray();
+        const QJsonArray propertiesArray = entry.value(QString("materialPropertiesEntityList")).toArray();
         for (const QJsonValue& propValue : propertiesArray)
         {
             const QJsonObject propObj = propValue.toObject();
             MaterialProperty property;
-            property.id = propObj.value(QStringLiteral("id")).toString();
-            property.name = propObj.value(QStringLiteral("propertyName")).toString();
-            const QJsonValue numberValue = propObj.value(QStringLiteral("propertyNumericalValue"));
+            property.id = propObj.value(QString("id")).toString();
+            property.name = propObj.value(QString("propertyName")).toString();
+            const QJsonValue numberValue = propObj.value(QString("propertyNumericalValue"));
             if (numberValue.isDouble())
                 property.value = QString::number(numberValue.toDouble());
             else
                 property.value = numberValue.toVariant().toString();
-            property.unit = propObj.value(QStringLiteral("propertyUnit")).toString();
+            property.unit = propObj.value(QString("propertyUnit")).toString();
             record.properties.append(property);
         }
     }
@@ -1076,7 +1076,7 @@ bool MainWindow::applyMaterialDetail(MaterialRecord& record,
     }
 
     record.specs.clear();
-    const QJsonArray specArray = dataObj.value(QStringLiteral("specList")).toArray();
+    const QJsonArray specArray = dataObj.value(QString("specList")).toArray();
     for (const QJsonValue& specValue : specArray)
     {
         QString spec = specValue.toVariant().toString().trimmed();
@@ -1096,7 +1096,7 @@ QVector<MainWindow::MaterialRecord> MainWindow::fetchMaterialsFromRemote(QString
 
     QUrl tokenUrl(kMaterialsTokenUrl);
     QUrlQuery tokenQuery(tokenUrl);
-    tokenQuery.addQueryItem(QStringLiteral("userId"), kMaterialsUserId);
+    tokenQuery.addQueryItem(QString("userId"), kMaterialsUserId);
     tokenUrl.setQuery(tokenQuery);
 
     QString networkError;
@@ -1123,24 +1123,24 @@ QVector<MainWindow::MaterialRecord> MainWindow::fetchMaterialsFromRemote(QString
 
     const auto makeHeaders = [&token](const QString& timestamp) {
         QMap<QString, QString> headers;
-        headers.insert(QStringLiteral("Xdaptenantid"), kMaterialsTenantId);
-        headers.insert(QStringLiteral("Xdaptimestamp"), timestamp);
-        headers.insert(QStringLiteral("Xdaptoken"), token);
-        headers.insert(QStringLiteral("Content-Type"), QStringLiteral("application/json"));
-        headers.insert(QStringLiteral("Accept"), QStringLiteral("application/json"));
+        headers.insert(QString("Xdaptenantid"), kMaterialsTenantId);
+        headers.insert(QString("Xdaptimestamp"), timestamp);
+        headers.insert(QString("Xdaptoken"), token);
+        headers.insert(QString("Content-Type"), QString("application/json"));
+        headers.insert(QString("Accept"), QString("application/json"));
         return headers;
     };
 
     QJsonObject pageBody;
-    pageBody.insert(QStringLiteral("searchContent"), QString());
-    pageBody.insert(QStringLiteral("materialType"), QJsonValue::Null);
+    pageBody.insert(QString("searchContent"), QString());
+    pageBody.insert(QString("materialType"), QJsonValue::Null);
 
     while (true)
     {
         QUrl pageUrl(kMaterialsPageUrl);
         QUrlQuery pageQuery(pageUrl);
-        pageQuery.addQueryItem(QStringLiteral("page"), QString::number(page));
-        pageQuery.addQueryItem(QStringLiteral("pageSize"), QString::number(kMaterialsPageSize));
+        pageQuery.addQueryItem(QString("page"), QString::number(page));
+        pageQuery.addQueryItem(QString("pageSize"), QString::number(kMaterialsPageSize));
         pageUrl.setQuery(pageQuery);
 
         const QByteArray payload = QJsonDocument(pageBody).toJson(QJsonDocument::Compact);
@@ -1214,7 +1214,7 @@ QVector<MainWindow::MaterialRecord> MainWindow::fetchMaterialsFromRemote(QString
         }
 
         QJsonObject detailBody;
-        detailBody.insert(QStringLiteral("materialTrademark"), trademark);
+        detailBody.insert(QString("materialTrademark"), trademark);
         const QByteArray detailPayload = QJsonDocument(detailBody).toJson(QJsonDocument::Compact);
         const QString timestamp = QString::number(QDateTime::currentMSecsSinceEpoch());
         networkError.clear();
@@ -1292,7 +1292,7 @@ QByteArray MainWindow::performPostRequest(const QUrl& url,
     bool hasContentType = false;
     for (auto it = headers.cbegin(); it != headers.cend(); ++it)
     {
-        if (it.key().compare(QStringLiteral("Content-Type"), Qt::CaseInsensitive) == 0)
+        if (it.key().compare(QString("Content-Type"), Qt::CaseInsensitive) == 0)
         {
             request.setHeader(QNetworkRequest::ContentTypeHeader, it.value());
             hasContentType = true;
@@ -1304,7 +1304,7 @@ QByteArray MainWindow::performPostRequest(const QUrl& url,
     }
 
     if (!hasContentType)
-        request.setHeader(QNetworkRequest::ContentTypeHeader, QStringLiteral("application/json"));
+        request.setHeader(QNetworkRequest::ContentTypeHeader, QString("application/json"));
 
     QNetworkAccessManager manager;
     QNetworkReply* reply = manager.post(request, body);
@@ -1357,7 +1357,7 @@ void MainWindow::on_syncMaterialsButton_clicked()
     loadMaterialsFromDatabase();
 
     const int storedCount = m_materials.size();
-    const QString timestamp = QDateTime::currentDateTime().toString(QStringLiteral("yyyy-MM-dd HH:mm:ss"));
+    const QString timestamp = QDateTime::currentDateTime().toString(QString("yyyy-MM-dd HH:mm:ss"));
     updateStatusText(tr("已于 %1 同步 %2 条材料数据").arg(timestamp).arg(storedCount));
 
     for (QPushButton* button : buttons)
@@ -1392,10 +1392,10 @@ void MainWindow::loadSchemeLibrary()
 
     const QString appDir = QCoreApplication::applicationDirPath();
     QDir baseDir(appDir);
-    const QString defaultRoot = baseDir.filePath(QStringLiteral("scheme_library"));
+    const QString defaultRoot = baseDir.filePath(QString("scheme_library"));
     QDir root(defaultRoot);
     if (!root.exists())
-        root.mkpath(QStringLiteral("."));
+        root.mkpath(QString("."));
 
     m_schemeLibraryRoot = canonicalPathForDir(root);
     if (m_schemeLibraryRoot.isEmpty())
@@ -1425,7 +1425,7 @@ void MainWindow::loadSchemeLibrary()
     };
     QDir libraryRoot(m_schemeLibraryRoot);
 
-    const QString indexFile = libraryRoot.filePath(QStringLiteral("library.json"));
+    const QString indexFile = libraryRoot.filePath(QString("library.json"));
     QFile file(indexFile);
     if (file.exists() && file.open(QIODevice::ReadOnly | QIODevice::Text))
     {
@@ -1435,13 +1435,13 @@ void MainWindow::loadSchemeLibrary()
         const QJsonDocument doc = QJsonDocument::fromJson(data, &err);
         if (err.error == QJsonParseError::NoError && doc.isObject())
         {
-            const QJsonArray arr = doc.object().value(QStringLiteral("schemes")).toArray();
+            const QJsonArray arr = doc.object().value(QString("schemes")).toArray();
             for (const QJsonValue& value : arr)
             {
                 const QJsonObject obj = value.toObject();
-                const QString id = obj.value(QStringLiteral("id")).toString();
-                QString name = obj.value(QStringLiteral("name")).toString();
-                const QString relDir = obj.value(QStringLiteral("directory")).toString();
+                const QString id = obj.value(QString("id")).toString();
+                QString name = obj.value(QString("name")).toString();
+                const QString relDir = obj.value(QString("directory")).toString();
                 if (relDir.trimmed().isEmpty())
                     continue;
                 const QString absoluteDir = libraryRoot.filePath(relDir);
@@ -1457,7 +1457,7 @@ void MainWindow::loadSchemeLibrary()
                 entry.directory = canonical;
                 entry.deletable = true;
 
-                const QString thumbRel = obj.value(QStringLiteral("thumbnail")).toString().trimmed();
+                const QString thumbRel = obj.value(QString("thumbnail")).toString().trimmed();
                 if (!thumbRel.isEmpty())
                 {
                     const QString thumbPath = QDir(canonical).filePath(thumbRel);
@@ -1467,7 +1467,7 @@ void MainWindow::loadSchemeLibrary()
                 if (entry.thumbnailPath.isEmpty())
                 {
                     QDir dir(canonical);
-                    const QStringList covers = dir.entryList(QStringList() << QStringLiteral("scheme_cover.*"),
+                    const QStringList covers = dir.entryList(QStringList() << QString("scheme_cover.*"),
                                                              QDir::Files | QDir::NoDotAndDotDot);
                     if (!covers.isEmpty())
                         entry.thumbnailPath = QDir::cleanPath(dir.filePath(covers.first()));
@@ -1478,9 +1478,9 @@ void MainWindow::loadSchemeLibrary()
     }
 
     const QStringList builtinRoots = {
-        QDir::current().absoluteFilePath(QStringLiteral("sample_data")),
-        QCoreApplication::applicationDirPath() + QStringLiteral("/sample_data"),
-        QCoreApplication::applicationDirPath() + QStringLiteral("/../sample_data")
+        QDir::current().absoluteFilePath(QString("sample_data")),
+        QCoreApplication::applicationDirPath() + QString("/sample_data"),
+        QCoreApplication::applicationDirPath() + QString("/../sample_data")
     };
     for (const QString& rootPath : builtinRoots)
     {
@@ -1502,7 +1502,7 @@ void MainWindow::loadSchemeLibrary()
             entry.deletable = false;
 
             QDir dir(canonical);
-            const QStringList covers = dir.entryList(QStringList() << QStringLiteral("scheme_cover.*"),
+            const QStringList covers = dir.entryList(QStringList() << QString("scheme_cover.*"),
                                                      QDir::Files | QDir::NoDotAndDotDot);
             if (!covers.isEmpty())
                 entry.thumbnailPath = QDir::cleanPath(dir.filePath(covers.first()));
@@ -1524,7 +1524,7 @@ void MainWindow::saveSchemeLibrary() const
 
     QDir root(m_schemeLibraryRoot);
     if (!root.exists())
-        root.mkpath(QStringLiteral("."));
+        root.mkpath(QString("."));
 
     QJsonArray array;
     for (const SchemeLibraryEntry& entry : m_librarySchemes)
@@ -1535,29 +1535,29 @@ void MainWindow::saveSchemeLibrary() const
             continue;
 
         const QString relativeDir = root.relativeFilePath(entry.directory);
-        if (relativeDir.startsWith(QStringLiteral("..")))
+        if (relativeDir.startsWith(QString("..")))
             continue;
 
         QJsonObject obj;
-        obj.insert(QStringLiteral("id"), entry.id);
-        obj.insert(QStringLiteral("name"), entry.name);
-        obj.insert(QStringLiteral("directory"), relativeDir);
+        obj.insert(QString("id"), entry.id);
+        obj.insert(QString("name"), entry.name);
+        obj.insert(QString("directory"), relativeDir);
 
         if (!entry.thumbnailPath.isEmpty())
         {
             QDir entryDir(entry.directory);
             const QString relThumb = entryDir.relativeFilePath(entry.thumbnailPath);
-            if (!relThumb.startsWith(QStringLiteral("..")))
-                obj.insert(QStringLiteral("thumbnail"), relThumb);
+            if (!relThumb.startsWith(QString("..")))
+                obj.insert(QString("thumbnail"), relThumb);
         }
 
         array.append(obj);
     }
 
     QJsonObject rootObj;
-    rootObj.insert(QStringLiteral("schemes"), array);
+    rootObj.insert(QString("schemes"), array);
 
-    QFile file(root.filePath(QStringLiteral("library.json")));
+    QFile file(root.filePath(QString("library.json")));
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
         return;
 
@@ -1586,8 +1586,8 @@ void MainWindow::loadApplicationState()
         if (err.error == QJsonParseError::NoError && doc.isObject())
         {
             const QJsonObject obj = doc.object();
-            lastProject = obj.value(QStringLiteral("lastProject")).toString().trimmed();
-            const QJsonArray recentArray = obj.value(QStringLiteral("recentProjects")).toArray();
+            lastProject = obj.value(QString("lastProject")).toString().trimmed();
+            const QJsonArray recentArray = obj.value(QString("recentProjects")).toArray();
             for (const QJsonValue& value : recentArray)
             {
                 const QString path = value.toString().trimmed();
@@ -1619,14 +1619,14 @@ void MainWindow::saveApplicationState() const
     QFileInfo info(m_appStateFilePath);
     QDir dir = info.dir();
     if (!dir.exists())
-        dir.mkpath(QStringLiteral("."));
+        dir.mkpath(QString("."));
 
     QJsonObject root;
-    root.insert(QStringLiteral("lastProject"), m_projectRoot);
+    root.insert(QString("lastProject"), m_projectRoot);
     QJsonArray recentArray;
     for (const QString& path : m_recentProjects)
         recentArray.append(path);
-    root.insert(QStringLiteral("recentProjects"), recentArray);
+    root.insert(QString("recentProjects"), recentArray);
 
     QFile file(m_appStateFilePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
@@ -1826,13 +1826,13 @@ bool MainWindow::openProjectAt(const QString& path, bool silent)
     m_projectRoot = canonicalProject;
 
     QDir canonicalDir(m_projectRoot);
-    const QString workspacePath = canonicalDir.filePath(QStringLiteral("workspaces"));
+    const QString workspacePath = canonicalDir.filePath(QString("workspaces"));
     ensureDirectoryExists(workspacePath);
     m_workspaceRoot = canonicalPathForDir(QDir(workspacePath));
     if (m_workspaceRoot.isEmpty())
         m_workspaceRoot = QDir::cleanPath(workspacePath);
 
-    m_storageFilePath = canonicalDir.filePath(QStringLiteral("schemes.json"));
+    m_storageFilePath = canonicalDir.filePath(QString("schemes.json"));
 
     m_projectRemarks.clear();
     m_projectCreatedAt = QDateTime();
@@ -1876,7 +1876,7 @@ bool MainWindow::ensureProjectStructure(const QString& rootPath)
     }
 
     QDir absoluteDir(absolute);
-    if (!ensureDirectoryExists(absoluteDir.filePath(QStringLiteral("workspaces"))))
+    if (!ensureDirectoryExists(absoluteDir.filePath(QString("workspaces"))))
         return false;
 
     return true;
@@ -2046,7 +2046,7 @@ void MainWindow::onAddLibraryScheme()
     if (entry.thumbnailPath.isEmpty())
     {
         QDir dir(canonical);
-        const QStringList covers = dir.entryList(QStringList() << QStringLiteral("scheme_cover.*"),
+        const QStringList covers = dir.entryList(QStringList() << QString("scheme_cover.*"),
                                                  QDir::Files | QDir::NoDotAndDotDot);
         if (!covers.isEmpty())
             entry.thumbnailPath = QDir::cleanPath(dir.filePath(covers.first()));
@@ -2725,11 +2725,11 @@ void MainWindow::rebuildTree()
     m_libraryRootItem = nullptr;
     m_materialsRootItem = nullptr;
 
-    const QIcon projectIcon(QStringLiteral(":/icons/icons/project_logo.svg"));
-    const QIcon libraryIcon(QStringLiteral(":/icons/icons/gallery.svg"));
-    const QIcon schemeIcon(QStringLiteral(":/icons/icons/plan.svg"));
-    const QIcon modelIcon(QStringLiteral(":/icons/icons/model.svg"));
-    const QIcon materialsIcon(QStringLiteral(":/icons/icons/materials.svg"));
+    const QIcon projectIcon(QString(":/icons/icons/project_logo.svg"));
+    const QIcon libraryIcon(QString(":/icons/icons/gallery.svg"));
+    const QIcon schemeIcon(QString(":/icons/icons/plan.svg"));
+    const QIcon modelIcon(QString(":/icons/icons/model.svg"));
+    const QIcon materialsIcon(QString(":/icons/icons/materials.svg"));
 
     const QBrush inactiveBrush(QColor(148, 163, 184));
 
@@ -3075,7 +3075,7 @@ QWidget* MainWindow::buildSchemeSettingsWidget(const SchemeRecord& scheme)
         for (const ModelRecord& model : scheme.models)
         {
             auto* item = new QListWidgetItem(
-                QIcon(QStringLiteral(":/icons/icons/model.svg")),
+                QIcon(QString(":/icons/icons/model.svg")),
                 tr("%1\n%2").arg(model.name,
                                QDir::toNativeSeparators(model.directory)));
             item->setToolTip(QDir::toNativeSeparators(model.jsonPath));
@@ -3165,31 +3165,33 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
     QVector<JsonPageBuilder::MaterialPreset> materialPresets;
     materialPresets.reserve(m_materials.size());
 
+
     const auto propertyNameToFieldKey = [](const QString& propertyName) -> QString {
         const QString trimmed = propertyName.trimmed();
+
         if (trimmed.isEmpty())
             return QString();
 
         const auto equalsIgnoreCase = [&](const QString& candidate) -> bool {
-            return trimmed.compare(candidate, Qt::CaseInsensitive) == 0;
+            return trimmed.contains(candidate, Qt::CaseInsensitive);
         };
 
-        if (equalsIgnoreCase(QStringLiteral("密度ρ")) || equalsIgnoreCase(QStringLiteral("密度")))
-            return QStringLiteral("D");
-        if (equalsIgnoreCase(QStringLiteral("弹性模量E")) || equalsIgnoreCase(QStringLiteral("弹性模量")))
-            return QStringLiteral("E");
-        if (equalsIgnoreCase(QStringLiteral("泊松比v")) || equalsIgnoreCase(QStringLiteral("泊松比")))
-            return QStringLiteral("u");
-        if (equalsIgnoreCase(QStringLiteral("屈服强度YS")) || equalsIgnoreCase(QStringLiteral("屈服强度")))
-            return QStringLiteral("YS");
-        if (equalsIgnoreCase(QStringLiteral("断后延伸率A")) || equalsIgnoreCase(QStringLiteral("断后延伸率")))
-            return QStringLiteral("e");
-        if (equalsIgnoreCase(QStringLiteral("抗拉强度UTS")) || equalsIgnoreCase(QStringLiteral("抗拉强度")))
-            return QStringLiteral("UTS");
+        if (equalsIgnoreCase(QString("密度ρ")) || equalsIgnoreCase(QString("密度")))
+            return QString("D");
+        if (equalsIgnoreCase(QString("弹性模量E")) || equalsIgnoreCase(QString("弹性模量")))
+            return QString("E");
+        if (equalsIgnoreCase(QString("泊松比v")) || equalsIgnoreCase(QString("泊松比")))
+            return QString("u");
+        if (equalsIgnoreCase(QString("屈服强度YS")) || equalsIgnoreCase(QString("屈服强度")))
+            return QString("YS");
+        if (equalsIgnoreCase(QString("断后延伸率A")) || equalsIgnoreCase(QString("断后延伸率")) || equalsIgnoreCase(QString("断后")))
+            return QString("e");
+        if (equalsIgnoreCase(QString("抗拉强度UTS")) || equalsIgnoreCase(QString("抗拉强度")))
+            return QString("UTS");
 
         const QString lowered = trimmed.toLower();
         QString normalized = lowered;
-        normalized.remove(QRegularExpression(QStringLiteral("[^\\p{L}\\p{Nd}]")));
+        normalized.remove(QRegularExpression(QString("[^\\p{L}\\p{Nd}]")));
 
         const auto containsToken = [&](const QString& token) -> bool {
             if (token.isEmpty())
@@ -3216,55 +3218,55 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
             return true;
         };
 
-        if (containsAny({ QStringLiteral("密度"), QStringLiteral("density"), QStringLiteral("ρ"), QStringLiteral("rho") }))
-            return QStringLiteral("D");
+        if (containsAny({ QString("密度"), QString("density"), QString("ρ"), QString("rho") }))
+            return QString("D");
 
-        if (containsAny({ QStringLiteral("弹性模量"), QStringLiteral("杨氏"), QStringLiteral("elasticmodulus") }) ||
-            containsAll({ QStringLiteral("young"), QStringLiteral("modulus") }) ||
-            containsAll({ QStringLiteral("elastic"), QStringLiteral("modulus") }))
-            return QStringLiteral("E");
+        if (containsAny({ QString("弹性模量"), QString("杨氏"), QString("elasticmodulus") }) ||
+            containsAll({ QString("young"), QString("modulus") }) ||
+            containsAll({ QString("elastic"), QString("modulus") }))
+            return QString("E");
 
-        if (containsAny({ QStringLiteral("泊松比"), QStringLiteral("poisson") }))
-            return QStringLiteral("u");
+        if (containsAny({ QString("泊松比"), QString("poisson") }))
+            return QString("u");
 
-        if (containsAny({ QStringLiteral("屈服强度"), QStringLiteral("屈服") }) ||
-            containsAll({ QStringLiteral("yield"), QStringLiteral("strength") }) ||
-            containsToken(QStringLiteral("ys")))
-            return QStringLiteral("YS");
+        if (containsAny({ QString("屈服强度"), QString("屈服") }) ||
+            containsAll({ QString("yield"), QString("strength") }) ||
+            containsToken(QString("ys")))
+            return QString("YS");
 
-        if (containsAny({ QStringLiteral("断后延伸率"),
-                          QStringLiteral("延伸率"),
-                          QStringLiteral("elongation"),
-                          QStringLiteral("elongate") }))
-            return QStringLiteral("e");
+        if (containsAny({ QString("断后延伸率"),
+                          QString("延伸率"),
+                          QString("elongation"),
+                          QString("elongate") }))
+            return QString("e");
 
-        if (containsAny({ QStringLiteral("抗拉强度"), QStringLiteral("抗拉") }) ||
-            containsAll({ QStringLiteral("tensile"), QStringLiteral("strength") }) ||
-            containsToken(QStringLiteral("uts")))
-            return QStringLiteral("UTS");
+        if (containsAny({ QString("抗拉强度"), QString("抗拉") }) ||
+            containsAll({ QString("tensile"), QString("strength") }) ||
+            containsToken(QString("uts")))
+            return QString("UTS");
 
         return QString();
     };
 
     const auto labelForFieldKey = [](const QString& fieldKey) -> QString {
-        if (fieldKey.compare(QStringLiteral("D"), Qt::CaseInsensitive) == 0)
-            return QStringLiteral("密度ρ");
-        if (fieldKey.compare(QStringLiteral("E"), Qt::CaseInsensitive) == 0)
-            return QStringLiteral("弹性模量E");
-        if (fieldKey.compare(QStringLiteral("u"), Qt::CaseInsensitive) == 0)
-            return QStringLiteral("泊松比v");
-        if (fieldKey.compare(QStringLiteral("YS"), Qt::CaseInsensitive) == 0)
-            return QStringLiteral("屈服强度YS");
-        if (fieldKey.compare(QStringLiteral("e"), Qt::CaseInsensitive) == 0)
-            return QStringLiteral("断后延伸率A");
-        if (fieldKey.compare(QStringLiteral("UTS"), Qt::CaseInsensitive) == 0)
-            return QStringLiteral("抗拉强度UTS");
-        if (fieldKey.compare(QStringLiteral("C10"), Qt::CaseInsensitive) == 0)
-            return QStringLiteral("C10");
-        if (fieldKey.compare(QStringLiteral("C01"), Qt::CaseInsensitive) == 0)
-            return QStringLiteral("C01");
-        if (fieldKey.compare(QStringLiteral("D1"), Qt::CaseInsensitive) == 0)
-            return QStringLiteral("D1");
+        if (fieldKey.compare(QString("D"), Qt::CaseInsensitive) == 0)
+            return QString("密度ρ");
+        if (fieldKey.compare(QString("E")) == 0)
+            return QString("弹性模量E");
+        if (fieldKey.compare(QString("u"), Qt::CaseInsensitive) == 0)
+            return QString("泊松比v");
+        if (fieldKey.compare(QString("YS"), Qt::CaseInsensitive) == 0)
+            return QString("屈服强度YS");
+        if (fieldKey.compare(QString("e")) == 0)
+            return QString("断后延伸率A");
+        if (fieldKey.compare(QString("UTS"), Qt::CaseInsensitive) == 0)
+            return QString("抗拉强度UTS");
+        if (fieldKey.compare(QString("C10"), Qt::CaseInsensitive) == 0)
+            return QString("C10");
+        if (fieldKey.compare(QString("C01"), Qt::CaseInsensitive) == 0)
+            return QString("C01");
+        if (fieldKey.compare(QString("D1"), Qt::CaseInsensitive) == 0)
+            return QString("D1");
         return QString();
     };
 
@@ -3281,9 +3283,9 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
             return false;
         };
 
-        const QStringList metalTokens{ QStringLiteral("metal"), QStringLiteral("金属") };
+        const QStringList metalTokens{ QString("metal"), QString("金属") };
 
-        if (material.materialTypeCode.compare(QStringLiteral("metal"), Qt::CaseInsensitive) == 0)
+        if (material.materialTypeCode.compare(QString("metal"), Qt::CaseInsensitive) == 0)
             return true;
         if (containsToken(material.materialTypeCode, metalTokens))
             return true;
@@ -3307,7 +3309,6 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
         {
             const QString trimmedName = property.name.trimmed();
             const QString fieldKey = propertyNameToFieldKey(trimmedName);
-
             const QString valueText = property.value.trimmed();
             if (valueText.isEmpty())
                 continue;
@@ -3352,19 +3353,19 @@ QWidget* MainWindow::buildModelSettingsWidget(const ModelRecord& model)
 QWidget* MainWindow::buildMaterialsSettingsWidget()
 {
     auto* container = new QWidget(ui->settingWidget);
-    container->setObjectName(QStringLiteral("materialsSettingsWidget"));
+    container->setObjectName(QString("materialsSettingsWidget"));
     auto* layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(12);
 
     auto* title = new QLabel(tr("材料列表"), container);
-    title->setStyleSheet(QStringLiteral("font-size:18px;font-weight:600;color:#0f172a;"));
+    title->setStyleSheet(QString("font-size:18px;font-weight:600;color:#0f172a;"));
     layout->addWidget(title);
 
     auto* frame = new QFrame(container);
-    frame->setObjectName(QStringLiteral("materialsSettingsFrame"));
+    frame->setObjectName(QString("materialsSettingsFrame"));
     frame->setStyleSheet(
-        QStringLiteral(
+        QString(
             "QFrame#materialsSettingsFrame{background:#ffffff;border:1px solid #d0d5dd;border-radius:10px;}"
             "QListWidget#materialsSettingsList{border:none;background:transparent;}"
             "QListWidget#materialsSettingsList::item{padding:8px 6px;border-radius:6px;}"
@@ -3386,14 +3387,14 @@ QWidget* MainWindow::buildMaterialsSettingsWidget()
     headerLayout->setSpacing(8);
 
     auto* syncButton = new QPushButton(tr("同步材料数据"), frame);
-    syncButton->setObjectName(QStringLiteral("materialsSettingsSyncButton"));
+    syncButton->setObjectName(QString("materialsSettingsSyncButton"));
     syncButton->setCursor(Qt::PointingHandCursor);
     headerLayout->addWidget(syncButton);
 
     headerLayout->addStretch();
 
     auto* statusLabel = new QLabel(frame);
-    statusLabel->setObjectName(QStringLiteral("materialsSettingsStatusLabel"));
+    statusLabel->setObjectName(QString("materialsSettingsStatusLabel"));
     statusLabel->setText(m_materialsStatusMessage.isEmpty()
                              ? tr("尚未同步材料数据")
                              : m_materialsStatusMessage);
@@ -3402,7 +3403,7 @@ QWidget* MainWindow::buildMaterialsSettingsWidget()
     frameLayout->addLayout(headerLayout);
 
     auto* list = new QListWidget(frame);
-    list->setObjectName(QStringLiteral("materialsSettingsList"));
+    list->setObjectName(QString("materialsSettingsList"));
     list->setAlternatingRowColors(true);
     list->setSelectionMode(QAbstractItemView::SingleSelection);
     list->setFrameShape(QFrame::NoFrame);
@@ -3443,7 +3444,7 @@ QWidget* MainWindow::buildProjectInfoWidget()
     layout->addWidget(pathLabel);
 
     auto* frame = new QFrame(container);
-    frame->setObjectName(QStringLiteral("projectInfoFrame"));
+    frame->setObjectName(QString("projectInfoFrame"));
     frame->setStyleSheet(
         "QFrame#projectInfoFrame{background:#ffffff;border:1px solid #d0d5dd;"
         "border-radius:10px;}");
@@ -3492,7 +3493,7 @@ QWidget* MainWindow::buildProjectInfoWidget()
     frameLayout->addLayout(buttonRow);
 
     auto* timeFrame = new QFrame(frame);
-    timeFrame->setObjectName(QStringLiteral("projectTimeFrame"));
+    timeFrame->setObjectName(QString("projectTimeFrame"));
     timeFrame->setStyleSheet(
         "QFrame#projectTimeFrame{background:#f8fafc;border:1px dashed #cbd5f5;"
         "border-radius:10px;}");
@@ -3639,7 +3640,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     m_activeModelId.clear();
 
     auto* container = new QWidget(ui->settingWidget);
-    container->setObjectName(QStringLiteral("librarySchemeDetail"));
+    container->setObjectName(QString("librarySchemeDetail"));
     auto* layout = new QVBoxLayout(container);
     layout->setContentsMargins(0, 0, 0, 0);
     layout->setSpacing(12);
@@ -3754,7 +3755,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
     buttonLayout->setContentsMargins(0, 0, 0, 0);
 
     const QString actionButtonStyle =
-        QStringLiteral("QPushButton{padding:8px 18px;border-radius:18px;border:none;"
+        QString("QPushButton{padding:8px 18px;border-radius:18px;border:none;"
                        "background-color:#2563eb;color:#ffffff;font-weight:600;}"
                        "QPushButton:hover{background-color:#1d4ed8;}"
                        "QPushButton:pressed{background-color:#1e3a8a;}");
@@ -3828,7 +3829,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
         for (int i = 0; i < libraryModels->size(); ++i)
         {
             const ModelRecord& model = libraryModels->at(i);
-            QIcon icon(QStringLiteral(":/icons/icons/model.svg"));
+            QIcon icon(QString(":/icons/icons/model.svg"));
             const QPixmap thumb = loadModelThumbnail(model);
             if (!thumb.isNull())
             {
@@ -3957,7 +3958,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                     m_lastModelImageDir = QFileInfo(file).absolutePath();
 
                     QPixmap thumb = loadModelThumbnail(model);
-                    QIcon icon(QStringLiteral(":/icons/icons/model.svg"));
+                    QIcon icon(QString(":/icons/icons/model.svg"));
                     if (!thumb.isNull())
                     {
                         QPixmap scaled = thumb.scaled(listWidget->iconSize(), Qt::KeepAspectRatio,
@@ -3982,7 +3983,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                         return;
 
                     applyModelThumbnail(model, QString());
-                    item->setIcon(QIcon(QStringLiteral(":/icons/icons/model.svg")));
+                    item->setIcon(QIcon(QString(":/icons/icons/model.svg")));
                     item->setData(Qt::UserRole + 2, model.thumbnailPath);
 
                     if (item->isSelected())
@@ -4029,7 +4030,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                     QString sanitized = trimmed;
                     sanitized.replace(QRegularExpression("\\s+"), "_");
                     if (sanitized.isEmpty())
-                        sanitized = QStringLiteral("Assembly");
+                        sanitized = QString("Assembly");
 
                     QString desiredName = sanitized;
                     QString candidatePath = parentDir.filePath(desiredName);
@@ -4037,7 +4038,7 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                     while (candidatePath.compare(oldDirectory, Qt::CaseInsensitive) != 0 &&
                            QDir(candidatePath).exists())
                     {
-                        desiredName = QStringLiteral("%1_%2").arg(sanitized).arg(index++);
+                        desiredName = QString("%1_%2").arg(sanitized).arg(index++);
                         candidatePath = parentDir.filePath(desiredName);
                     }
 
@@ -4667,7 +4668,7 @@ QString MainWindow::importSchemeFromDirectory(const QString& dirPath, bool showE
     scheme.workingDirectory = canonical;
     scheme.models = scanSchemeFolder(canonical);
     ensureUniqueModelNames(scheme);
-    const QStringList covers = dir.entryList(QStringList() << QStringLiteral("scheme_cover.*"),
+    const QStringList covers = dir.entryList(QStringList() << QString("scheme_cover.*"),
                                              QDir::Files | QDir::NoDotAndDotDot);
     if (!covers.isEmpty())
         scheme.thumbnailPath = QDir::cleanPath(dir.filePath(covers.first()));
@@ -4759,7 +4760,7 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             model.jsonPath = destDir.filePath(jsonName);
             const QString batName = QFileInfo(batPath).fileName();
             model.batPath = batName.isEmpty() ? QString() : destDir.filePath(batName);
-            const QStringList covers = destDir.entryList(QStringList() << QStringLiteral("model_cover.*"),
+            const QStringList covers = destDir.entryList(QStringList() << QString("model_cover.*"),
                                                          QDir::Files | QDir::NoDotAndDotDot);
             if (!covers.isEmpty())
                 model.thumbnailPath = QDir::cleanPath(destDir.filePath(covers.first()));
@@ -4821,7 +4822,7 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             model.jsonPath = destDir.filePath(jsonName);
             const QString batName = QFileInfo(model.batPath).fileName();
             model.batPath = batName.isEmpty() ? QString() : destDir.filePath(batName);
-            const QStringList covers = destDir.entryList(QStringList() << QStringLiteral("model_cover.*"),
+            const QStringList covers = destDir.entryList(QStringList() << QString("model_cover.*"),
                                                          QDir::Files | QDir::NoDotAndDotDot);
             if (!covers.isEmpty())
                 model.thumbnailPath = QDir::cleanPath(destDir.filePath(covers.first()));
@@ -4987,7 +4988,7 @@ bool MainWindow::isModelFolder(const QDir& dir, QString* jsonPath, QString* batP
     QString paraFile;
     for (const QString& file : jsons)
     {
-        if (file.compare(QStringLiteral("para.json"), Qt::CaseInsensitive) == 0)
+        if (file.compare(QString("para.json"), Qt::CaseInsensitive) == 0)
         {
             paraFile = file;
             break;
@@ -5001,7 +5002,7 @@ bool MainWindow::isModelFolder(const QDir& dir, QString* jsonPath, QString* batP
     QString calcFile;
     for (const QString& file : bats)
     {
-        if (file.compare(QStringLiteral("calculate.bat"), Qt::CaseInsensitive) == 0)
+        if (file.compare(QString("calculate.bat"), Qt::CaseInsensitive) == 0)
         {
             calcFile = file;
             break;
@@ -5036,7 +5037,7 @@ QVector<MainWindow::ModelRecord> MainWindow::scanSchemeFolder(const QString& sch
         model.jsonPath = jsonPath;
         model.batPath = batPath;
         model.fingerprint = computeModelFingerprint(model.jsonPath);
-        const QStringList covers = child.entryList(QStringList() << QStringLiteral("model_cover.*"),
+        const QStringList covers = child.entryList(QStringList() << QString("model_cover.*"),
                                                    QDir::Files | QDir::NoDotAndDotDot);
         if (!covers.isEmpty())
             model.thumbnailPath = QDir::cleanPath(child.filePath(covers.first()));
@@ -5109,9 +5110,9 @@ QString MainWindow::storeSchemeThumbnail(const QString& schemeDir,
 
     QDir dir(schemeDir);
     const QString suffix = srcInfo.suffix().isEmpty()
-                               ? QStringLiteral("png")
+                               ? QString("png")
                                : srcInfo.suffix().toLower();
-    const QString targetName = QStringLiteral("scheme_cover.%1").arg(suffix);
+    const QString targetName = QString("scheme_cover.%1").arg(suffix);
     const QString targetPath = dir.filePath(targetName);
 
     if (!QFileInfo(sourcePath).absoluteFilePath().compare(targetPath, Qt::CaseInsensitive))
@@ -5123,7 +5124,7 @@ QString MainWindow::storeSchemeThumbnail(const QString& schemeDir,
     if (!QFile::copy(srcInfo.absoluteFilePath(), targetPath))
         return QString();
 
-    const QStringList duplicates = dir.entryList(QStringList() << QStringLiteral("scheme_cover.*"),
+    const QStringList duplicates = dir.entryList(QStringList() << QString("scheme_cover.*"),
                                                  QDir::Files | QDir::NoDotAndDotDot);
     for (const QString& dup : duplicates)
     {
@@ -5147,7 +5148,7 @@ bool MainWindow::isPathWithinDirectory(const QString& filePath,
     const QString relative = dir.relativeFilePath(fileAbsolute);
     if (relative.isEmpty())
         return true;
-    if (relative.startsWith(QStringLiteral("..")))
+    if (relative.startsWith(QString("..")))
         return false;
     if (QDir::isAbsolutePath(relative))
         return false;
@@ -5171,13 +5172,13 @@ QString MainWindow::makeUniqueLibrarySubdir(const QString& baseName) const
 
     QString sanitized = baseName.trimmed();
     if (sanitized.isEmpty())
-        sanitized = QStringLiteral("Assembly");
+        sanitized = QString("Assembly");
     sanitized.replace(QRegularExpression("\\s+"), "_");
 
     QString candidate = dir.filePath(sanitized);
     int index = 1;
     while (QDir(candidate).exists())
-        candidate = dir.filePath(QStringLiteral("%1_%2").arg(sanitized).arg(index++));
+        candidate = dir.filePath(QString("%1_%2").arg(sanitized).arg(index++));
     return candidate;
 }
 
@@ -5242,9 +5243,9 @@ QString MainWindow::storeModelThumbnail(const QString& modelDir,
 
     QDir dir(modelDir);
     const QString suffix = srcInfo.suffix().isEmpty()
-                               ? QStringLiteral("png")
+                               ? QString("png")
                                : srcInfo.suffix().toLower();
-    const QString targetName = QStringLiteral("model_cover.%1").arg(suffix);
+    const QString targetName = QString("model_cover.%1").arg(suffix);
     const QString targetPath = dir.filePath(targetName);
 
     if (!QFileInfo(sourcePath).absoluteFilePath().compare(targetPath, Qt::CaseInsensitive))
@@ -5256,7 +5257,7 @@ QString MainWindow::storeModelThumbnail(const QString& modelDir,
     if (!QFile::copy(srcInfo.absoluteFilePath(), targetPath))
         return QString();
 
-    const QStringList duplicates = dir.entryList(QStringList() << QStringLiteral("model_cover.*"),
+    const QStringList duplicates = dir.entryList(QStringList() << QString("model_cover.*"),
                                                  QDir::Files | QDir::NoDotAndDotDot);
     for (const QString& dup : duplicates)
     {
@@ -5763,7 +5764,7 @@ QString MainWindow::makeUniqueName(const QString& desired, QSet<QString>& taken,
     int index = 2;
     while (taken.contains(key))
     {
-        candidate = QStringLiteral("%1 (%2)").arg(base).arg(index++);
+        candidate = QString("%1 (%2)").arg(base).arg(index++);
         key = candidate.trimmed().toLower();
     }
     taken.insert(key);
@@ -5907,7 +5908,7 @@ void MainWindow::appendLogMessage(const QString& message)
         return;
 
     const QString timeStamp = QDateTime::currentDateTime().toString("hh:mm:ss");
-    ui->logTextEdit->appendPlainText(QStringLiteral("[%1] %2").arg(timeStamp, message));
+    ui->logTextEdit->appendPlainText(QString("[%1] %2").arg(timeStamp, message));
     if (auto* bar = ui->logTextEdit->verticalScrollBar())
         bar->setValue(bar->maximum());
 }
@@ -5993,7 +5994,7 @@ void MainWindow::displayResultFile(const QString& filePath)
     vtkSmartPointer<vtkActor> actor;
     const QString suffix = info.suffix().toLower();
 
-    if (suffix == QStringLiteral("obj"))
+    if (suffix == QString("obj"))
     {
         auto reader = vtkSmartPointer<vtkOBJReader>::New();
         reader->SetFileName(info.absoluteFilePath().toUtf8().constData());
@@ -6006,7 +6007,7 @@ void MainWindow::displayResultFile(const QString& filePath)
         actor->SetMapper(mapper);
         actor->GetProperty()->SetColor(0.9, 0.9, 0.9); // 浅灰色
     }
-    else if (suffix == QStringLiteral("stl"))
+    else if (suffix == QString("stl"))
     {
         auto reader = vtkSmartPointer<vtkSTLReader>::New();
         reader->SetFileName(info.absoluteFilePath().toUtf8().constData());
@@ -6067,7 +6068,7 @@ bool MainWindow::loadSchemesFromStorage()
     if (m_workspaceRoot.isEmpty() && !m_projectRoot.isEmpty())
     {
         QDir projectDir(m_projectRoot);
-        const QString fallback = projectDir.filePath(QStringLiteral("workspaces"));
+        const QString fallback = projectDir.filePath(QString("workspaces"));
         ensureDirectoryExists(fallback);
         m_workspaceRoot = canonicalPathForDir(QDir(fallback));
         if (m_workspaceRoot.isEmpty())
@@ -6108,10 +6109,10 @@ bool MainWindow::readProjectStorage(const QString& projectRoot,
         return false;
 
     const QJsonObject root = doc.object();
-    const QJsonObject projectObj = root.value(QStringLiteral("project")).toObject();
+    const QJsonObject projectObj = root.value(QString("project")).toObject();
 
     if (remarks)
-        *remarks = projectObj.value(QStringLiteral("remarks")).toString();
+        *remarks = projectObj.value(QString("remarks")).toString();
 
     const auto parseIsoDate = [](const QString& value) -> QDateTime {
         const QString trimmed = value.trimmed();
@@ -6124,9 +6125,9 @@ bool MainWindow::readProjectStorage(const QString& projectRoot,
     };
 
     QDateTime created =
-        parseIsoDate(projectObj.value(QStringLiteral("createdAt")).toString());
+        parseIsoDate(projectObj.value(QString("createdAt")).toString());
     QDateTime updated =
-        parseIsoDate(projectObj.value(QStringLiteral("updatedAt")).toString());
+        parseIsoDate(projectObj.value(QString("updatedAt")).toString());
 
     QFileInfo storageInfo(storageFile);
     if (!created.isValid())
@@ -6147,7 +6148,7 @@ bool MainWindow::readProjectStorage(const QString& projectRoot,
         *updatedAt = updated;
 
     QString workspace;
-    const QString storedRoot = root.value(QStringLiteral("workspaceRoot")).toString().trimmed();
+    const QString storedRoot = root.value(QString("workspaceRoot")).toString().trimmed();
     if (!storedRoot.isEmpty())
     {
         QDir rootDir(storedRoot);
@@ -6177,44 +6178,44 @@ bool MainWindow::readProjectStorage(const QString& projectRoot,
         *workspaceRoot = workspace;
 
     QVector<SchemeRecord> parsedSchemes;
-    const QJsonArray schemeArray = root.value(QStringLiteral("schemes")).toArray();
+    const QJsonArray schemeArray = root.value(QString("schemes")).toArray();
     for (const QJsonValue& value : schemeArray)
     {
         const QJsonObject obj = value.toObject();
         SchemeRecord scheme;
-        scheme.id = obj.value(QStringLiteral("id")).toString();
+        scheme.id = obj.value(QString("id")).toString();
         if (scheme.id.isEmpty())
             scheme.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-        scheme.name = obj.value(QStringLiteral("name")).toString();
-        scheme.libraryId = obj.value(QStringLiteral("libraryId")).toString().trimmed();
+        scheme.name = obj.value(QString("name")).toString();
+        scheme.libraryId = obj.value(QString("libraryId")).toString().trimmed();
         scheme.workingDirectory = canonicalPathForDir(
-            QDir(obj.value(QStringLiteral("workingDirectory")).toString()));
+            QDir(obj.value(QString("workingDirectory")).toString()));
         if (scheme.workingDirectory.isEmpty())
             continue;
 
-        const QString storedThumb = obj.value(QStringLiteral("thumbnailPath")).toString().trimmed();
+        const QString storedThumb = obj.value(QString("thumbnailPath")).toString().trimmed();
         if (!storedThumb.isEmpty())
             scheme.thumbnailPath = QDir::cleanPath(QFileInfo(storedThumb).absoluteFilePath());
-        scheme.remarks = obj.value(QStringLiteral("remarks")).toString();
+        scheme.remarks = obj.value(QString("remarks")).toString();
 
-        const QJsonArray modelArray = obj.value(QStringLiteral("models")).toArray();
+        const QJsonArray modelArray = obj.value(QString("models")).toArray();
         for (const QJsonValue& mv : modelArray)
         {
             const QJsonObject mo = mv.toObject();
             ModelRecord model;
-            model.id = mo.value(QStringLiteral("id")).toString();
+            model.id = mo.value(QString("id")).toString();
             if (model.id.isEmpty())
                 model.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
-            model.name = mo.value(QStringLiteral("name")).toString();
+            model.name = mo.value(QString("name")).toString();
             model.directory = canonicalPathForDir(
-                QDir(mo.value(QStringLiteral("directory")).toString()));
-            model.jsonPath = QDir::cleanPath(mo.value(QStringLiteral("jsonPath")).toString());
-            model.batPath = QDir::cleanPath(mo.value(QStringLiteral("batPath")).toString());
-            model.remarks = mo.value(QStringLiteral("remarks")).toString();
-            const QString storedModelThumb = mo.value(QStringLiteral("thumbnailPath")).toString().trimmed();
+                QDir(mo.value(QString("directory")).toString()));
+            model.jsonPath = QDir::cleanPath(mo.value(QString("jsonPath")).toString());
+            model.batPath = QDir::cleanPath(mo.value(QString("batPath")).toString());
+            model.remarks = mo.value(QString("remarks")).toString();
+            const QString storedModelThumb = mo.value(QString("thumbnailPath")).toString().trimmed();
             if (!storedModelThumb.isEmpty())
                 model.thumbnailPath = QDir::cleanPath(QFileInfo(storedModelThumb).absoluteFilePath());
-            model.fingerprint = mo.value(QStringLiteral("fingerprint")).toString();
+            model.fingerprint = mo.value(QString("fingerprint")).toString();
             if (model.fingerprint.isEmpty())
                 model.fingerprint = computeModelFingerprint(model.jsonPath);
             if (model.directory.isEmpty() || model.jsonPath.isEmpty())
@@ -6239,7 +6240,7 @@ QVector<MainWindow::SchemeRecord> MainWindow::loadProjectPreviewSchemes(const QS
         return result;
 
     QDir projectDir(trimmed);
-    const QString storageFile = projectDir.filePath(QStringLiteral("schemes.json"));
+    const QString storageFile = projectDir.filePath(QString("schemes.json"));
     if (!readProjectStorage(trimmed, storageFile, &result, nullptr, nullptr, nullptr, nullptr))
         result.clear();
     return result;
@@ -6253,37 +6254,37 @@ void MainWindow::saveSchemesToStorage() const
     QFileInfo info(m_storageFilePath);
     QDir dir = info.dir();
     if (!dir.exists())
-        dir.mkpath(QStringLiteral("."));
+        dir.mkpath(QString("."));
 
     QJsonArray schemeArray;
     for (const SchemeRecord& scheme : m_schemes)
     {
         QJsonObject obj;
-        obj.insert(QStringLiteral("id"), scheme.id);
-        obj.insert(QStringLiteral("name"), scheme.name);
-        obj.insert(QStringLiteral("libraryId"), scheme.libraryId);
-        obj.insert(QStringLiteral("workingDirectory"), scheme.workingDirectory);
-        obj.insert(QStringLiteral("thumbnailPath"), scheme.thumbnailPath);
-        obj.insert(QStringLiteral("remarks"), scheme.remarks);
+        obj.insert(QString("id"), scheme.id);
+        obj.insert(QString("name"), scheme.name);
+        obj.insert(QString("libraryId"), scheme.libraryId);
+        obj.insert(QString("workingDirectory"), scheme.workingDirectory);
+        obj.insert(QString("thumbnailPath"), scheme.thumbnailPath);
+        obj.insert(QString("remarks"), scheme.remarks);
 
         QJsonArray modelArray;
         for (const ModelRecord& model : scheme.models)
         {
             QJsonObject mo;
-            mo.insert(QStringLiteral("id"), model.id);
-            mo.insert(QStringLiteral("name"), model.name);
-            mo.insert(QStringLiteral("directory"), model.directory);
-            mo.insert(QStringLiteral("jsonPath"), model.jsonPath);
-            mo.insert(QStringLiteral("batPath"), model.batPath);
+            mo.insert(QString("id"), model.id);
+            mo.insert(QString("name"), model.name);
+            mo.insert(QString("directory"), model.directory);
+            mo.insert(QString("jsonPath"), model.jsonPath);
+            mo.insert(QString("batPath"), model.batPath);
             QString fingerprint = model.fingerprint.isEmpty()
                                      ? computeModelFingerprint(model.jsonPath)
                                      : model.fingerprint;
-            mo.insert(QStringLiteral("fingerprint"), fingerprint);
-            mo.insert(QStringLiteral("remarks"), model.remarks);
-            mo.insert(QStringLiteral("thumbnailPath"), model.thumbnailPath);
+            mo.insert(QString("fingerprint"), fingerprint);
+            mo.insert(QString("remarks"), model.remarks);
+            mo.insert(QString("thumbnailPath"), model.thumbnailPath);
             modelArray.append(mo);
         }
-        obj.insert(QStringLiteral("models"), modelArray);
+        obj.insert(QString("models"), modelArray);
         schemeArray.append(obj);
     }
 
@@ -6293,20 +6294,20 @@ void MainWindow::saveSchemesToStorage() const
     {
         QDir projectDir(m_projectRoot);
         const QString relative = projectDir.relativeFilePath(m_workspaceRoot);
-        if (!relative.startsWith(QStringLiteral("..")) && !relative.startsWith(QLatin1Char('/')))
+        if (!relative.startsWith(QString("..")) && !relative.startsWith(QLatin1Char('/')))
             workspaceToStore = relative;
     }
     QJsonObject projectObj;
-    projectObj.insert(QStringLiteral("remarks"), m_projectRemarks);
+    projectObj.insert(QString("remarks"), m_projectRemarks);
     if (m_projectCreatedAt.isValid())
-        projectObj.insert(QStringLiteral("createdAt"),
+        projectObj.insert(QString("createdAt"),
                           m_projectCreatedAt.toUTC().toString(Qt::ISODateWithMs));
     if (m_projectUpdatedAt.isValid())
-        projectObj.insert(QStringLiteral("updatedAt"),
+        projectObj.insert(QString("updatedAt"),
                           m_projectUpdatedAt.toUTC().toString(Qt::ISODateWithMs));
-    root.insert(QStringLiteral("workspaceRoot"), workspaceToStore);
-    root.insert(QStringLiteral("project"), projectObj);
-    root.insert(QStringLiteral("schemes"), schemeArray);
+    root.insert(QString("workspaceRoot"), workspaceToStore);
+    root.insert(QString("project"), projectObj);
+    root.insert(QString("schemes"), schemeArray);
 
     QFile file(m_storageFilePath);
     if (!file.open(QIODevice::WriteOnly | QIODevice::Text))
@@ -6360,7 +6361,7 @@ bool MainWindow::renameLibrarySchemesInProjects(const QString& libraryId,
         if (!projectDir.exists())
             continue;
 
-        const QString storageFile = projectDir.filePath(QStringLiteral("schemes.json"));
+        const QString storageFile = projectDir.filePath(QString("schemes.json"));
         QFile file(storageFile);
         if (!file.exists())
             continue;
@@ -6376,20 +6377,20 @@ bool MainWindow::renameLibrarySchemesInProjects(const QString& libraryId,
             continue;
 
         QJsonObject root = doc.object();
-        QJsonArray schemeArray = root.value(QStringLiteral("schemes")).toArray();
+        QJsonArray schemeArray = root.value(QString("schemes")).toArray();
         bool modified = false;
         for (int i = 0; i < schemeArray.size(); ++i)
         {
             QJsonObject schemeObj = schemeArray.at(i).toObject();
             const QString storedId =
-                schemeObj.value(QStringLiteral("libraryId")).toString().trimmed();
+                schemeObj.value(QString("libraryId")).toString().trimmed();
             if (storedId.compare(trimmedId, Qt::CaseInsensitive) != 0)
                 continue;
 
-            if (schemeObj.value(QStringLiteral("name")).toString() == trimmedName)
+            if (schemeObj.value(QString("name")).toString() == trimmedName)
                 continue;
 
-            schemeObj.insert(QStringLiteral("name"), trimmedName);
+            schemeObj.insert(QString("name"), trimmedName);
             schemeArray.replace(i, schemeObj);
             modified = true;
         }
@@ -6397,12 +6398,12 @@ bool MainWindow::renameLibrarySchemesInProjects(const QString& libraryId,
         if (!modified)
             continue;
 
-        root.insert(QStringLiteral("schemes"), schemeArray);
+        root.insert(QString("schemes"), schemeArray);
 
-        QJsonObject projectObj = root.value(QStringLiteral("project")).toObject();
-        projectObj.insert(QStringLiteral("updatedAt"),
+        QJsonObject projectObj = root.value(QString("project")).toObject();
+        projectObj.insert(QString("updatedAt"),
                           QDateTime::currentDateTimeUtc().toString(Qt::ISODateWithMs));
-        root.insert(QStringLiteral("project"), projectObj);
+        root.insert(QString("project"), projectObj);
 
         if (!file.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
             continue;
@@ -6429,13 +6430,13 @@ QString MainWindow::makeUniqueWorkspaceSubdir(const QString& baseName) const
     QString sanitized = baseName;
     sanitized.replace(QRegularExpression("\\s+"), "_");
     if (sanitized.isEmpty())
-        sanitized = QStringLiteral("Workspace");
+        sanitized = QString("Workspace");
 
     QString candidate = base.filePath(sanitized);
     int index = 1;
     while (QDir(candidate).exists())
     {
-        candidate = base.filePath(QStringLiteral("%1_%2").arg(sanitized).arg(index++));
+        candidate = base.filePath(QString("%1_%2").arg(sanitized).arg(index++));
     }
     return candidate;
 }
