@@ -675,6 +675,12 @@ void MainWindow::saveMaterialsToDatabase(const QVector<MaterialRecord>& material
         QString key = record.materialKey.trimmed();
         if (key.isEmpty())
         {
+            const QString trademarkKey = record.gacMaterialTrademark.trimmed();
+            if (!trademarkKey.isEmpty())
+                key = trademarkKey;
+        }
+        if (key.isEmpty())
+        {
             if (!record.materialId.trimmed().isEmpty())
                 key = record.materialId.trimmed();
             else if (!record.baseId.trimmed().isEmpty())
@@ -987,7 +993,6 @@ bool MainWindow::parseMaterialsPage(const QJsonObject& root,
         MaterialRecord record;
         record.baseId = obj.value(QStringLiteral("id")).toString();
         record.materialId = obj.value(QStringLiteral("materialId")).toString();
-        record.materialKey = record.materialId.trimmed().isEmpty() ? record.baseId : record.materialId;
         record.materialName = obj.value(QStringLiteral("materialName")).toString();
         record.materialType = obj.value(QStringLiteral("materialType")).toString();
         record.materialTypeCode = obj.value(QStringLiteral("materialTypeCode")).toString();
@@ -1008,13 +1013,13 @@ bool MainWindow::parseMaterialsPage(const QJsonObject& root,
         record.status = obj.value(QStringLiteral("status")).toString();
         record.formId = obj.value(QStringLiteral("formId")).toString();
 
-        if (record.materialKey.trimmed().isEmpty())
-        {
-            if (!record.materialId.trimmed().isEmpty())
-                record.materialKey = record.materialId.trimmed();
-            else if (!record.baseId.trimmed().isEmpty())
-                record.materialKey = record.baseId.trimmed();
-        }
+        const QString trademarkKey = record.gacMaterialTrademark.trimmed();
+        if (!trademarkKey.isEmpty())
+            record.materialKey = trademarkKey;
+        else if (!record.materialId.trimmed().isEmpty())
+            record.materialKey = record.materialId.trimmed();
+        else if (!record.baseId.trimmed().isEmpty())
+            record.materialKey = record.baseId.trimmed();
 
         outRecords->append(record);
     }
@@ -1072,6 +1077,10 @@ bool MainWindow::applyMaterialDetail(MaterialRecord& record,
             record.lastUpdateDate = info.value(QStringLiteral("lastUpdateDate")).toString(record.lastUpdateDate);
             record.status = info.value(QStringLiteral("status")).toString(record.status);
             record.formId = info.value(QStringLiteral("formId")).toString(record.formId);
+
+            const QString trademarkKey = record.gacMaterialTrademark.trimmed();
+            if (!trademarkKey.isEmpty())
+                record.materialKey = trademarkKey;
         }
 
         record.properties.clear();
