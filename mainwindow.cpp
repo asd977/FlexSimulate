@@ -1147,7 +1147,7 @@ QVector<MainWindow::MaterialRecord> MainWindow::fetchMaterialsFromRemote(QString
     }
 
     QVector<MaterialRecord> materials;
-    QSet<QString> seenKeys;
+    QSet<QString> seenKeys; // use each record's materialKey (preferably gacMaterialTrademark) to filter duplicates
     int page = 1;
     int total = -1;
 
@@ -1211,7 +1211,7 @@ QVector<MainWindow::MaterialRecord> MainWindow::fetchMaterialsFromRemote(QString
 
         for (MaterialRecord& record : pageRecords)
         {
-            const QString key = record.materialKey.trimmed();
+            const QString key = record.materialKey.trimmed(); // materialKey comes from gacMaterialTrademark when available
             if (!key.isEmpty())
             {
                 if (seenKeys.contains(key))
