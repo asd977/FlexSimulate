@@ -123,6 +123,8 @@ private:
     QVector<MetalSectionControls>  m_metalSections;
     QVector<MaterialPreset>        m_materialPresets;
 
+    QJsonArray                     m_loadedSections;
+
     QPushButton*                   m_calculateButton = nullptr;
 
     // 进程相关
