@@ -6,6 +6,7 @@
         <file>icons/model_add.svg</file>
         <file>icons/folder.svg</file>
         <file>icons/gallery.svg</file>
+        <file>icons/materials.svg</file>
         <file>icons/plan.svg</file>
         <file>icons/model.svg</file>
     </qresource>
