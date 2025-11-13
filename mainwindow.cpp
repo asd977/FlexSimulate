@@ -1349,8 +1349,6 @@ void MainWindow::on_syncMaterialsButton_clicked()
     if (auto* clickedButton = qobject_cast<QPushButton*>(sender()))
         buttons << clickedButton;
 
-    if (ui->syncMaterialsButton && !buttons.contains(ui->syncMaterialsButton))
-        buttons << ui->syncMaterialsButton;
     if (m_materialsSettingsSyncButton && !buttons.contains(m_materialsSettingsSyncButton))
         buttons << m_materialsSettingsSyncButton;
 
@@ -2752,7 +2750,7 @@ void MainWindow::rebuildTree()
     ui->treeModels->insertTopLevelItem(0, m_libraryRootItem);
 
     m_materialsRootItem = new QTreeWidgetItem();
-    m_materialsRootItem->setText(0, tr("材料库"));
+    m_materialsRootItem->setText(0, tr("材料资源"));
     m_materialsRootItem->setIcon(0, materialsIcon);
     m_materialsRootItem->setData(0, TypeRole, MaterialLibraryItem);
     m_materialsRootItem->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable);
