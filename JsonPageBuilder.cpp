@@ -200,7 +200,7 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
 {
     auto* mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(12);
-    mainLayout->setContentsMargins(10, 10, 10, 10);
+    mainLayout->setContentsMargins(4, 4, 4, 4);
 
     m_titleButtons.clear();
     m_labelNameWidgets.clear();

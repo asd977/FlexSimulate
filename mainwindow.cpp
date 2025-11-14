@@ -38,6 +38,7 @@
 #include <QPlainTextEdit>
 #include <QProcess>
 #include <QPushButton>
+#include <QSize>
 #include <QRegularExpression>
 #include <QLocale>
 #include <QScopedValueRollback>
@@ -320,7 +321,7 @@ void MainWindow::setupUiHelpers()
     ui->mainSplitter->setStretchFactor(1, 1);
 
     QList<int> sizes;
-    sizes << 50 << 50;
+    sizes << 360 << 840;
     ui->contentSplitter->setSizes(sizes);
     if (ui->visualizationSplitter)
     {
@@ -751,6 +752,7 @@ void MainWindow::refreshMaterialsUi()
         {
             auto* item = new QListWidgetItem(materialDisplayName(material));
             item->setData(Qt::UserRole, material.materialKey);
+            item->setSizeHint(QSize(item->sizeHint().width(), 44));
 
             QStringList tooltipLines;
             const QString typeText = material.materialTypeValue.isEmpty()
@@ -3408,6 +3410,9 @@ QWidget* MainWindow::buildMaterialsSettingsWidget()
     list->setSelectionMode(QAbstractItemView::SingleSelection);
     list->setFrameShape(QFrame::NoFrame);
     list->setFocusPolicy(Qt::NoFocus);
+    list->setUniformItemSizes(true);
+    list->setWordWrap(false);
+    list->setSpacing(4);
     list->setSizePolicy(QSizePolicy::Preferred, QSizePolicy::Expanding);
     frameLayout->addWidget(list);
 
