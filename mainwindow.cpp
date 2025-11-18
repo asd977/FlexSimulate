@@ -137,6 +137,15 @@ bool ensureDirectoryExists(const QString& path)
     return dir.exists() || dir.mkpath(QString("."));
 }
 
+bool ensureReportDirectory(const QString& schemeDir)
+{
+    if (schemeDir.trimmed().isEmpty())
+        return false;
+    const QDir dir(schemeDir);
+    const QString reportPath = dir.filePath(QStringLiteral("REPORT"));
+    return ensureDirectoryExists(reportPath);
+}
+
 bool copyDirectoryRecursively(const QString& sourcePath, const QString& targetPath)
 {
     QDir source(sourcePath);
@@ -4659,6 +4668,15 @@ QString MainWindow::importSchemeFromDirectory(const QString& dirPath, bool showE
         return QString();
     }
 
+    if (!ensureReportDirectory(dir.absolutePath()))
+    {
+        if (showError)
+            QMessageBox::warning(this, tr("导入失败"),
+                                 tr("无法创建报告目录：%1")
+                                     .arg(QDir::toNativeSeparators(dir.filePath(QStringLiteral("REPORT")))));
+        return QString();
+    }
+
     const QString canonical = canonicalPathForDir(dir);
 
     if (SchemeRecord* existing = schemeByWorkingDirectory(canonical))
@@ -5404,6 +5422,15 @@ void MainWindow::promptAddScheme()
         QMessageBox::warning(this, tr("创建总成"),
                              tr("无法创建工作目录：%1")
                                  .arg(QDir::toNativeSeparators(directory)));
+        return;
+    }
+
+    if (!ensureReportDirectory(directory))
+    {
+        QMessageBox::warning(this, tr("创建总成"),
+                             tr("无法创建报告目录：%1")
+                                 .arg(QDir::toNativeSeparators(QDir(directory).filePath(QStringLiteral("REPORT")))));
+        QDir(directory).removeRecursively();
         return;
     }
 

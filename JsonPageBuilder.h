@@ -7,6 +7,7 @@
 #include <QMap>
 #include <QString>
 #include <QProcess>
+#include <QFileInfo>
 
 class QPushButton;
 class QLabel;
@@ -40,6 +41,7 @@ signals:
 
 private slots:
     void onCalculateButtonClicked();
+    void onGenerateReportButtonClicked();
     void handleProcessOutput();
     void handleProcessFinished(int exitCode, QProcess::ExitStatus status);
     void handleProcessError(QProcess::ProcessError error);
@@ -79,6 +81,10 @@ private:
                              const QString& failureReason);
     void resetCalculationState();
     void ensureProgressDialog();
+    QString reportDirectoryPath() const;
+    bool generateReportPptx(const QString& targetPath,
+                            const QFileInfoList& images,
+                            QString* errorMessage) const;
 
 private:
     // metal section 中每个模型的控件集合
@@ -124,6 +130,7 @@ private:
     QVector<MaterialPreset>        m_materialPresets;
 
     QPushButton*                   m_calculateButton = nullptr;
+    QPushButton*                   m_generateReportButton = nullptr;
 
     // 进程相关
     QProcess*        m_process = nullptr;
