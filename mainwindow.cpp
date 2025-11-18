@@ -4789,6 +4789,16 @@ QVector<QString> MainWindow::importModelsIntoScheme(const QString& schemeId,
             }
 
             QDir destDir(destPath);
+            const QString reportPath = destDir.filePath(QStringLiteral("REPORT"));
+            if (!ensureDirectoryExists(reportPath))
+            {
+                QDir(destPath).removeRecursively();
+                if (showError)
+                    QMessageBox::warning(this, tr("导入失败"),
+                                         tr("无法创建模型报告目录：%1")
+                                             .arg(QDir::toNativeSeparators(reportPath)));
+                continue;
+            }
             ModelRecord model;
             model.id = QUuid::createUuid().toString(QUuid::WithoutBraces);
             model.name = makeUniqueModelName(*scheme, destDir.dirName());
@@ -5435,14 +5445,6 @@ void MainWindow::promptAddScheme()
         return;
     }
 
-    if (!ensureReportDirectory(directory))
-    {
-        QMessageBox::warning(this, tr("创建总成"),
-                             tr("无法创建报告目录：%1")
-                                 .arg(QDir::toNativeSeparators(QDir(directory).filePath(QStringLiteral("REPORT")))));
-        QDir(directory).removeRecursively();
-        return;
-    }
 
     const QString id = importSchemeFromDirectory(directory, false);
     if (!id.isEmpty())
