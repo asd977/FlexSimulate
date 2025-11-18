@@ -80,13 +80,16 @@
 
 #include <QVTKOpenGLNativeWidget.h>
 #include <vtkActor.h>
+#include <vtkAxesActor.h>
 #include <vtkCamera.h>
 #include <vtkGenericOpenGLRenderWindow.h>
 #include <vtkNamedColors.h>
+#include <vtkOrientationMarkerWidget.h>
 #include <vtkPolyDataMapper.h>
 #include <vtkProperty.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
+#include <vtkRenderWindowInteractor.h>
 #include <vtkOBJReader.h>
 #include <vtkSTLReader.h>
 #include <QSettings>
@@ -358,6 +361,22 @@ void MainWindow::setupUiHelpers()
     m_renderer->SetBackground(colors->GetColor3d("AliceBlue").GetData());
     m_renderWindow->AddRenderer(m_renderer);
     ui->vtkWidget->setRenderWindow(m_renderWindow);
+
+    if (!m_axesActor)
+        m_axesActor = vtkSmartPointer<vtkAxesActor>::New();
+    if (!m_orientationWidget)
+        m_orientationWidget = vtkSmartPointer<vtkOrientationMarkerWidget>::New();
+    auto* interactor = ui->vtkWidget->interactor();
+    if (!interactor && ui->vtkWidget->renderWindow())
+        interactor = ui->vtkWidget->renderWindow()->GetInteractor();
+    if (interactor)
+    {
+        m_orientationWidget->SetOrientationMarker(m_axesActor);
+        m_orientationWidget->SetInteractor(interactor);
+        m_orientationWidget->SetViewport(0.0, 0.0, 0.2, 0.2);
+        m_orientationWidget->SetEnabled(1);
+        m_orientationWidget->InteractiveOff();
+    }
 
     if (ui->materialPropertiesTable)
     {

@@ -32,6 +32,8 @@ class QPushButton;
 class vtkGenericOpenGLRenderWindow;
 class vtkRenderer;
 class vtkActor;
+class vtkAxesActor;
+class vtkOrientationMarkerWidget;
 class QListWidgetItem;
 
 class MainWindow : public QMainWindow
@@ -320,6 +322,8 @@ private:
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
     vtkSmartPointer<vtkRenderer> m_renderer;
     vtkSmartPointer<vtkActor> m_currentActor;
+    vtkSmartPointer<vtkAxesActor> m_axesActor;
+    vtkSmartPointer<vtkOrientationMarkerWidget> m_orientationWidget;
     QList<int> m_lastSplitterSizes;
     bool m_visualizationVisible = false;
     QString m_materialsDbPath;
