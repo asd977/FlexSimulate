@@ -568,6 +568,8 @@ void JsonPageBuilder::setAvailableMaterials(const QVector<MaterialPreset>& mater
 }
 void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
 {
+    m_loadedSections = sections;
+
     auto* mainLayout = new QVBoxLayout(this);
     mainLayout->setSpacing(12);
     mainLayout->setContentsMargins(10, 10, 10, 10);
@@ -1306,7 +1308,12 @@ bool JsonPageBuilder::saveJson(const QString& path)
 {
     QJsonArray sections;
     if (!loadJson(path, sections))
-        return false;
+    {
+        sections = m_loadedSections;
+    }
+
+    if (sections.isEmpty() && !m_loadedSections.isEmpty())
+        sections = m_loadedSections;
 
     const int secCount = qMin(sections.size(), m_titleButtons.size());
 
@@ -1408,14 +1415,20 @@ bool JsonPageBuilder::saveJson(const QString& path)
         }
     }
 
-    QFile f(path);
-    if (!f.open(QIODevice::WriteOnly | QIODevice::Text))
+    QFileInfo info(path);
+    QDir dir = info.dir();
+    if (!dir.exists() && !dir.mkpath(QString(".")))
+        return false;
+
+    QFile f(info.absoluteFilePath());
+    if (!f.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate))
         return false;
 
     QJsonDocument doc(sections);
     f.write(doc.toJson(QJsonDocument::Indented));
     f.close();
     qInfo("成功修改 json 内容");
+    m_loadedSections = sections;
     return true;
 }
 

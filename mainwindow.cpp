@@ -328,8 +328,14 @@ void MainWindow::setupUiHelpers()
     ui->mainSplitter->setStretchFactor(0, 0);
     ui->mainSplitter->setStretchFactor(1, 1);
 
+    ui->contentSplitter->setStretchFactor(0, 3);
+    ui->contentSplitter->setStretchFactor(1, 1);
+
     QList<int> sizes;
-    sizes << 50 << 50;
+    const int baseWidth = ui->detailPanel ? ui->detailPanel->minimumWidth() : 0;
+    const int primaryWidth = baseWidth > 0 ? baseWidth * 3 : 900;
+    const int secondaryWidth = baseWidth > 0 ? baseWidth : 300;
+    sizes << primaryWidth << secondaryWidth;
     ui->contentSplitter->setSizes(sizes);
     if (ui->visualizationSplitter)
     {
