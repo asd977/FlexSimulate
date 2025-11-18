@@ -344,7 +344,7 @@
                  <item>
                   <widget class="QTabWidget" name="previewTabs">
                    <property name="currentIndex">
-                    <number>2</number>
+                    <number>0</number>
                    </property>
                    <widget class="QWidget" name="modelPreviewTab">
                     <attribute name="title">
@@ -416,21 +416,21 @@
                           <property name="toolTip">
                            <string>XY 俯视图</string>
                           </property>
+                          <property name="icon">
+                           <iconset resource="resources.qrc">
+                            <normaloff>:/icons/icons/view_xy.svg</normaloff>:/icons/icons/view_xy.svg</iconset>
+                          </property>
                           <property name="iconSize">
                            <size>
                             <width>24</width>
                             <height>24</height>
                            </size>
                           </property>
-                          <property name="autoRaise">
-                           <bool>true</bool>
-                          </property>
-                          <property name="icon">
-                           <iconset resource="resources.qrc">
-                            <normaloff>:/icons/icons/view_xy.svg</normaloff>:/icons/icons/view_xy.svg</iconset>
-                          </property>
                           <property name="toolButtonStyle">
                            <enum>Qt::ToolButtonIconOnly</enum>
+                          </property>
+                          <property name="autoRaise">
+                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -439,21 +439,21 @@
                           <property name="toolTip">
                            <string>YZ 侧视图</string>
                           </property>
+                          <property name="icon">
+                           <iconset resource="resources.qrc">
+                            <normaloff>:/icons/icons/view_yz.svg</normaloff>:/icons/icons/view_yz.svg</iconset>
+                          </property>
                           <property name="iconSize">
                            <size>
                             <width>24</width>
                             <height>24</height>
                            </size>
                           </property>
-                          <property name="autoRaise">
-                           <bool>true</bool>
-                          </property>
-                          <property name="icon">
-                           <iconset resource="resources.qrc">
-                            <normaloff>:/icons/icons/view_yz.svg</normaloff>:/icons/icons/view_yz.svg</iconset>
-                          </property>
                           <property name="toolButtonStyle">
                            <enum>Qt::ToolButtonIconOnly</enum>
+                          </property>
+                          <property name="autoRaise">
+                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -462,21 +462,21 @@
                           <property name="toolTip">
                            <string>XZ 正视图</string>
                           </property>
+                          <property name="icon">
+                           <iconset resource="resources.qrc">
+                            <normaloff>:/icons/icons/view_xz.svg</normaloff>:/icons/icons/view_xz.svg</iconset>
+                          </property>
                           <property name="iconSize">
                            <size>
                             <width>24</width>
                             <height>24</height>
                            </size>
                           </property>
-                          <property name="autoRaise">
-                           <bool>true</bool>
-                          </property>
-                          <property name="icon">
-                           <iconset resource="resources.qrc">
-                            <normaloff>:/icons/icons/view_xz.svg</normaloff>:/icons/icons/view_xz.svg</iconset>
-                          </property>
                           <property name="toolButtonStyle">
                            <enum>Qt::ToolButtonIconOnly</enum>
+                          </property>
+                          <property name="autoRaise">
+                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -485,21 +485,21 @@
                           <property name="toolTip">
                            <string>等轴测视图</string>
                           </property>
+                          <property name="icon">
+                           <iconset resource="resources.qrc">
+                            <normaloff>:/icons/icons/view_iso.svg</normaloff>:/icons/icons/view_iso.svg</iconset>
+                          </property>
                           <property name="iconSize">
                            <size>
                             <width>24</width>
                             <height>24</height>
                            </size>
                           </property>
-                          <property name="autoRaise">
-                           <bool>true</bool>
-                          </property>
-                          <property name="icon">
-                           <iconset resource="resources.qrc">
-                            <normaloff>:/icons/icons/view_iso.svg</normaloff>:/icons/icons/view_iso.svg</iconset>
-                          </property>
                           <property name="toolButtonStyle">
                            <enum>Qt::ToolButtonIconOnly</enum>
+                          </property>
+                          <property name="autoRaise">
+                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -508,21 +508,21 @@
                           <property name="toolTip">
                            <string>逆时针旋转</string>
                           </property>
+                          <property name="icon">
+                           <iconset resource="resources.qrc">
+                            <normaloff>:/icons/icons/rotate_left.svg</normaloff>:/icons/icons/rotate_left.svg</iconset>
+                          </property>
                           <property name="iconSize">
                            <size>
                             <width>24</width>
                             <height>24</height>
                            </size>
                           </property>
-                          <property name="autoRaise">
-                           <bool>true</bool>
-                          </property>
-                          <property name="icon">
-                           <iconset resource="resources.qrc">
-                            <normaloff>:/icons/icons/rotate_left.svg</normaloff>:/icons/icons/rotate_left.svg</iconset>
-                          </property>
                           <property name="toolButtonStyle">
                            <enum>Qt::ToolButtonIconOnly</enum>
+                          </property>
+                          <property name="autoRaise">
+                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>
@@ -531,21 +531,21 @@
                           <property name="toolTip">
                            <string>顺时针旋转</string>
                           </property>
+                          <property name="icon">
+                           <iconset resource="resources.qrc">
+                            <normaloff>:/icons/icons/rotate_right.svg</normaloff>:/icons/icons/rotate_right.svg</iconset>
+                          </property>
                           <property name="iconSize">
                            <size>
                             <width>24</width>
                             <height>24</height>
                            </size>
                           </property>
-                          <property name="autoRaise">
-                           <bool>true</bool>
-                          </property>
-                          <property name="icon">
-                           <iconset resource="resources.qrc">
-                            <normaloff>:/icons/icons/rotate_right.svg</normaloff>:/icons/icons/rotate_right.svg</iconset>
-                          </property>
                           <property name="toolButtonStyle">
                            <enum>Qt::ToolButtonIconOnly</enum>
+                          </property>
+                          <property name="autoRaise">
+                           <bool>true</bool>
                           </property>
                          </widget>
                         </item>

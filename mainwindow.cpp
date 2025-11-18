@@ -366,9 +366,9 @@ void MainWindow::setupUiHelpers()
         m_axesActor = vtkSmartPointer<vtkAxesActor>::New();
     if (!m_orientationWidget)
         m_orientationWidget = vtkSmartPointer<vtkOrientationMarkerWidget>::New();
-    auto* interactor = ui->vtkWidget->interactor();
-    if (!interactor && ui->vtkWidget->renderWindow())
-        interactor = ui->vtkWidget->renderWindow()->GetInteractor();
+    QVTKInteractor * interactor = ui->vtkWidget->interactor();
+//    if (!interactor && ui->vtkWidget->renderWindow())
+//        interactor = ui->vtkWidget->renderWindow()->GetInteractor();
     if (interactor)
     {
         m_orientationWidget->SetOrientationMarker(m_axesActor);
