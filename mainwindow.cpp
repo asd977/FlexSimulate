@@ -80,13 +80,16 @@
 
 #include <QVTKOpenGLNativeWidget.h>
 #include <vtkActor.h>
+#include <vtkAxesActor.h>
 #include <vtkCamera.h>
 #include <vtkGenericOpenGLRenderWindow.h>
 #include <vtkNamedColors.h>
+#include <vtkOrientationMarkerWidget.h>
 #include <vtkPolyDataMapper.h>
 #include <vtkProperty.h>
 #include <vtkRenderer.h>
 #include <vtkRenderWindow.h>
+#include <vtkRenderWindowInteractor.h>
 #include <vtkOBJReader.h>
 #include <vtkSTLReader.h>
 #include <QSettings>
@@ -358,6 +361,22 @@ void MainWindow::setupUiHelpers()
     m_renderer->SetBackground(colors->GetColor3d("AliceBlue").GetData());
     m_renderWindow->AddRenderer(m_renderer);
     ui->vtkWidget->setRenderWindow(m_renderWindow);
+
+    if (!m_axesActor)
+        m_axesActor = vtkSmartPointer<vtkAxesActor>::New();
+    if (!m_orientationWidget)
+        m_orientationWidget = vtkSmartPointer<vtkOrientationMarkerWidget>::New();
+    QVTKInteractor * interactor = ui->vtkWidget->interactor();
+//    if (!interactor && ui->vtkWidget->renderWindow())
+//        interactor = ui->vtkWidget->renderWindow()->GetInteractor();
+    if (interactor)
+    {
+        m_orientationWidget->SetOrientationMarker(m_axesActor);
+        m_orientationWidget->SetInteractor(interactor);
+        m_orientationWidget->SetViewport(0.0, 0.0, 0.2, 0.2);
+        m_orientationWidget->SetEnabled(1);
+        m_orientationWidget->InteractiveOff();
+    }
 
     if (ui->materialPropertiesTable)
     {
@@ -1337,7 +1356,7 @@ QByteArray MainWindow::performPostRequest(const QUrl& url,
     return data;
 }
 
-void MainWindow::on_syncMaterialsButton_clicked()
+void MainWindow::handleSyncMaterialsRequest()
 {
     QList<QPushButton*> buttons;
     if (auto* clickedButton = qobject_cast<QPushButton*>(sender()))
@@ -1393,8 +1412,8 @@ void MainWindow::on_syncMaterialsButton_clicked()
     }
 }
 
-void MainWindow::on_materialsListWidget_currentItemChanged(QListWidgetItem* current,
-                                                           QListWidgetItem* previous)
+void MainWindow::handleMaterialsSelectionChanged(QListWidgetItem* current,
+                                                 QListWidgetItem* previous)
 {
     Q_UNUSED(previous);
     const QString key = current ? current->data(Qt::UserRole).toString() : QString();
@@ -2099,6 +2118,36 @@ void MainWindow::on_loadModelButton_clicked()
     displayResultFile(modelPath);
 }
 
+void MainWindow::on_viewXYButton_clicked()
+{
+    applyCameraView(QVector3D(0.0f, 0.0f, 1.0f), QVector3D(0.0f, 1.0f, 0.0f));
+}
+
+void MainWindow::on_viewYZButton_clicked()
+{
+    applyCameraView(QVector3D(1.0f, 0.0f, 0.0f), QVector3D(0.0f, 0.0f, 1.0f));
+}
+
+void MainWindow::on_viewXZButton_clicked()
+{
+    applyCameraView(QVector3D(0.0f, 1.0f, 0.0f), QVector3D(0.0f, 0.0f, 1.0f));
+}
+
+void MainWindow::on_viewIsoButton_clicked()
+{
+    applyCameraView(QVector3D(1.0f, 1.0f, 1.0f), QVector3D(0.0f, 0.0f, 1.0f));
+}
+
+void MainWindow::on_rotateLeftButton_clicked()
+{
+    rotateCameraAroundFocal(-30.0);
+}
+
+void MainWindow::on_rotateRightButton_clicked()
+{
+    rotateCameraAroundFocal(30.0);
+}
+
 void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidgetItem*)
 {
     if (!current)
@@ -2552,7 +2601,7 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
         }
         else if (type == MaterialLibraryItem)
         {
-            menu.addAction(tr("同步材料数据"), this, &MainWindow::on_syncMaterialsButton_clicked);
+            menu.addAction(tr("同步材料数据"), this, &MainWindow::handleSyncMaterialsRequest);
         }
     }
 
@@ -3433,9 +3482,9 @@ QWidget* MainWindow::buildMaterialsSettingsWidget()
     layout->addWidget(frame, 1);
 
     connect(syncButton, &QPushButton::clicked,
-            this, &MainWindow::on_syncMaterialsButton_clicked);
+            this, &MainWindow::handleSyncMaterialsRequest);
     connect(list, &QListWidget::currentItemChanged,
-            this, &MainWindow::on_materialsListWidget_currentItemChanged);
+            this, &MainWindow::handleMaterialsSelectionChanged);
 
     m_materialsSettingsList = list;
     m_materialsSettingsStatusLabel = statusLabel;
@@ -6084,6 +6133,64 @@ void MainWindow::displayResultFile(const QString& filePath)
     m_renderer->ResetCamera();
     if (ui->vtkWidget && ui->vtkWidget->renderWindow())
         ui->vtkWidget->renderWindow()->Render();
+}
+
+void MainWindow::applyCameraView(const QVector3D& viewDirection, const QVector3D& viewUp)
+{
+    if (!m_renderer || !m_currentActor)
+        return;
+
+    vtkCamera* camera = m_renderer->GetActiveCamera();
+    if (!camera)
+        return;
+
+    double bounds[6];
+    m_currentActor->GetBounds(bounds);
+    const QVector3D center(float((bounds[0] + bounds[1]) * 0.5),
+                           float((bounds[2] + bounds[3]) * 0.5),
+                           float((bounds[4] + bounds[5]) * 0.5));
+    const double extentX = bounds[1] - bounds[0];
+    const double extentY = bounds[3] - bounds[2];
+    const double extentZ = bounds[5] - bounds[4];
+    const double radius = std::max({ extentX, extentY, extentZ, 1.0 });
+
+    QVector3D normalizedDir = viewDirection;
+    if (normalizedDir.lengthSquared() < 1e-6f)
+        normalizedDir = QVector3D(0.0f, 0.0f, 1.0f);
+    else
+        normalizedDir.normalize();
+
+    QVector3D normalizedUp = viewUp;
+    if (normalizedUp.lengthSquared() < 1e-6f)
+        normalizedUp = QVector3D(0.0f, 0.0f, 1.0f);
+    else
+        normalizedUp.normalize();
+
+    const QVector3D position = center + normalizedDir * float(radius * 2.5);
+
+    camera->SetFocalPoint(center.x(), center.y(), center.z());
+    camera->SetPosition(position.x(), position.y(), position.z());
+    camera->SetViewUp(normalizedUp.x(), normalizedUp.y(), normalizedUp.z());
+    camera->OrthogonalizeViewUp();
+    m_renderer->ResetCameraClippingRange();
+
+    if (ui->vtkWidget && ui->vtkWidget->renderWindow())
+        ui->vtkWidget->renderWindow()->Render();
+}
+
+void MainWindow::rotateCameraAroundFocal(double angleDegrees)
+{
+    if (!m_renderer || !m_currentActor)
+        return;
+
+    if (vtkCamera* camera = m_renderer->GetActiveCamera())
+    {
+        camera->Azimuth(angleDegrees);
+        camera->OrthogonalizeViewUp();
+        m_renderer->ResetCameraClippingRange();
+        if (ui->vtkWidget && ui->vtkWidget->renderWindow())
+            ui->vtkWidget->renderWindow()->Render();
+    }
 }
 
 void MainWindow::clearVtkScene()

@@ -32,6 +32,8 @@ class QPushButton;
 class vtkGenericOpenGLRenderWindow;
 class vtkRenderer;
 class vtkActor;
+class vtkAxesActor;
+class vtkOrientationMarkerWidget;
 class QListWidgetItem;
 
 class MainWindow : public QMainWindow
@@ -60,9 +62,15 @@ private slots:
     void on_selectModelButton_clicked();
 
     void on_loadModelButton_clicked();
-    void on_syncMaterialsButton_clicked();
-    void on_materialsListWidget_currentItemChanged(QListWidgetItem* current,
-                                                   QListWidgetItem* previous);
+    void handleSyncMaterialsRequest();
+    void handleMaterialsSelectionChanged(QListWidgetItem* current,
+                                         QListWidgetItem* previous);
+    void on_viewXYButton_clicked();
+    void on_viewYZButton_clicked();
+    void on_viewXZButton_clicked();
+    void on_viewIsoButton_clicked();
+    void on_rotateLeftButton_clicked();
+    void on_rotateRightButton_clicked();
 
 private:
     struct ModelRecord {
@@ -176,6 +184,8 @@ private:
     void appendLogMessage(const QString& message);
     void displayResultFile(const QString& filePath);
     void clearVtkScene();
+    void applyCameraView(const QVector3D& viewDirection, const QVector3D& viewUp);
+    void rotateCameraAroundFocal(double angleDegrees);
     void updateModelImagePreview(const ModelRecord* model);
     void refreshModelImagePreview();
     QString projectDisplayName() const;
@@ -312,6 +322,8 @@ private:
     vtkSmartPointer<vtkGenericOpenGLRenderWindow> m_renderWindow;
     vtkSmartPointer<vtkRenderer> m_renderer;
     vtkSmartPointer<vtkActor> m_currentActor;
+    vtkSmartPointer<vtkAxesActor> m_axesActor;
+    vtkSmartPointer<vtkOrientationMarkerWidget> m_orientationWidget;
     QList<int> m_lastSplitterSizes;
     bool m_visualizationVisible = false;
     QString m_materialsDbPath;

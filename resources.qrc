@@ -9,5 +9,11 @@
         <file>icons/materials.svg</file>
         <file>icons/plan.svg</file>
         <file>icons/model.svg</file>
+        <file>icons/view_xy.svg</file>
+        <file>icons/view_yz.svg</file>
+        <file>icons/view_xz.svg</file>
+        <file>icons/view_iso.svg</file>
+        <file>icons/rotate_left.svg</file>
+        <file>icons/rotate_right.svg</file>
     </qresource>
 </RCC>
