@@ -4338,6 +4338,16 @@ void MainWindow::showLibrarySchemeDetail(const QString& entryId,
                 return;
             }
 
+            if (!ensureReportDirectory(workingDir))
+            {
+                QMessageBox::warning(this, tr("添加到工程"),
+                                     tr("无法创建报告目录：%1")
+                                         .arg(QDir::toNativeSeparators(QDir(workingDir)
+                                                                            .filePath(QStringLiteral("REPORT")))));
+                QDir(workingDir).removeRecursively();
+                return;
+            }
+
             const QString createdId = createScheme(schemeName, workingDir);
             if (createdId.isEmpty())
             {
