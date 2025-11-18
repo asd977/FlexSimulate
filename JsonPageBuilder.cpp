@@ -154,6 +154,87 @@ QString rootRelsXml()
     return QString::fromUtf8(kXml);
 }
 
+QString defaultTextStyleXml()
+{
+    static const char kXml[] = R"(
+  <p:defaultTextStyle>
+    <a:defPPr><a:defRPr/></a:defPPr>
+    <a:lvl1pPr marL="0" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
+      <a:defRPr sz="1800" kern="1200">
+        <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
+        <a:latin typeface="+mn-lt"/>
+        <a:ea typeface="+mn-ea"/>
+        <a:cs typeface="+mn-cs"/>
+      </a:defRPr>
+    </a:lvl1pPr>
+    <a:lvl2pPr marL="457200" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
+      <a:defRPr sz="1800" kern="1200">
+        <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
+        <a:latin typeface="+mn-lt"/>
+        <a:ea typeface="+mn-ea"/>
+        <a:cs typeface="+mn-cs"/>
+      </a:defRPr>
+    </a:lvl2pPr>
+    <a:lvl3pPr marL="914400" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
+      <a:defRPr sz="1800" kern="1200">
+        <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
+        <a:latin typeface="+mn-lt"/>
+        <a:ea typeface="+mn-ea"/>
+        <a:cs typeface="+mn-cs"/>
+      </a:defRPr>
+    </a:lvl3pPr>
+    <a:lvl4pPr marL="1371600" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
+      <a:defRPr sz="1800" kern="1200">
+        <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
+        <a:latin typeface="+mn-lt"/>
+        <a:ea typeface="+mn-ea"/>
+        <a:cs typeface="+mn-cs"/>
+      </a:defRPr>
+    </a:lvl4pPr>
+    <a:lvl5pPr marL="1828800" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
+      <a:defRPr sz="1800" kern="1200">
+        <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
+        <a:latin typeface="+mn-lt"/>
+        <a:ea typeface="+mn-ea"/>
+        <a:cs typeface="+mn-cs"/>
+      </a:defRPr>
+    </a:lvl5pPr>
+    <a:lvl6pPr marL="2286000" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
+      <a:defRPr sz="1800" kern="1200">
+        <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
+        <a:latin typeface="+mn-lt"/>
+        <a:ea typeface="+mn-ea"/>
+        <a:cs typeface="+mn-cs"/>
+      </a:defRPr>
+    </a:lvl6pPr>
+    <a:lvl7pPr marL="2743200" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
+      <a:defRPr sz="1800" kern="1200">
+        <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
+        <a:latin typeface="+mn-lt"/>
+        <a:ea typeface="+mn-ea"/>
+        <a:cs typeface="+mn-cs"/>
+      </a:defRPr>
+    </a:lvl7pPr>
+    <a:lvl8pPr marL="3200400" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
+      <a:defRPr sz="1800" kern="1200">
+        <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
+        <a:latin typeface="+mn-lt"/>
+        <a:ea typeface="+mn-ea"/>
+        <a:cs typeface="+mn-cs"/>
+      </a:defRPr>
+    </a:lvl8pPr>
+    <a:lvl9pPr marL="3657600" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
+      <a:defRPr sz="1800" kern="1200">
+        <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
+        <a:latin typeface="+mn-lt"/>
+        <a:ea typeface="+mn-ea"/>
+        <a:cs typeface="+mn-cs"/>
+      </a:defRPr>
+    </a:lvl9pPr>
+  </p:defaultTextStyle>)";
+    return QString::fromUtf8(kXml);
+}
+
 QString presentationXml(int slideCount)
 {
     QString slideIds;
@@ -178,8 +259,9 @@ QString presentationXml(int slideCount)
   %1
   <p:sldSz cx="9144000" cy="6858000" type="screen4x3"/>
   <p:notesSz cx="6858000" cy="9144000"/>
+%2
 </p:presentation>)")
-        .arg(slideList);
+        .arg(slideList, defaultTextStyleXml());
 }
 
 QString presentationRelsXml(int slideCount)
@@ -195,12 +277,52 @@ QString presentationRelsXml(int slideCount)
                     .arg(i + 1);
     }
 
+    int nextRid = slideCount + 2;
+    const auto appendRelation = [&](const QString& type, const QString& target) {
+        rels += QStringLiteral(
+            R"(<Relationship Id="rId%1" Type="%2" Target="%3"/>)")
+                    .arg(nextRid++)
+                    .arg(type, target);
+    };
+
+    appendRelation(QStringLiteral("http://schemas.openxmlformats.org/officeDocument/2006/relationships/presProps"),
+                   QStringLiteral("presProps.xml"));
+    appendRelation(QStringLiteral("http://schemas.openxmlformats.org/officeDocument/2006/relationships/viewProps"),
+                   QStringLiteral("viewProps.xml"));
+    appendRelation(QStringLiteral("http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme"),
+                   QStringLiteral("theme/theme1.xml"));
+    appendRelation(QStringLiteral("http://schemas.openxmlformats.org/officeDocument/2006/relationships/tableStyles"),
+                   QStringLiteral("tableStyles.xml"));
+
     return QStringLiteral(
         R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
 %1
 </Relationships>)")
         .arg(rels);
+}
+
+QString presPropsXml()
+{
+    static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:presentationPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>)";
+    return QString::fromUtf8(kXml);
+}
+
+QString viewPropsXml()
+{
+    static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:viewPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:normalViewPr/>
+</p:viewPr>)";
+    return QString::fromUtf8(kXml);
+}
+
+QString tableStylesXml()
+{
+    static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/>)";
+    return QString::fromUtf8(kXml);
 }
 
 QString appXml(int slideCount)
@@ -488,6 +610,9 @@ QString contentTypesXml(int slideCount, const QSet<QString>& imageExtensions)
   <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
   <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
   <Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+  <Override PartName="/ppt/presProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presProps+xml"/>
+  <Override PartName="/ppt/viewProps.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.viewProps+xml"/>
+  <Override PartName="/ppt/tableStyles.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.tableStyles+xml"/>
   <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
   <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
   %1
@@ -1934,6 +2059,9 @@ bool JsonPageBuilder::generateReportPptx(const QString& targetPath,
     writer.addFile(QStringLiteral("ppt/slideLayouts/_rels/slideLayout1.xml.rels"),
                    slideLayoutRelsXml().toUtf8());
     writer.addFile(QStringLiteral("ppt/theme/theme1.xml"), themeXml().toUtf8());
+    writer.addFile(QStringLiteral("ppt/presProps.xml"), presPropsXml().toUtf8());
+    writer.addFile(QStringLiteral("ppt/viewProps.xml"), viewPropsXml().toUtf8());
+    writer.addFile(QStringLiteral("ppt/tableStyles.xml"), tableStylesXml().toUtf8());
 
     QSet<QString> usedExtensions;
     for (int i = 0; i < images.size(); ++i)
