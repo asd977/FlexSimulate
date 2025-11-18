@@ -2099,6 +2099,36 @@ void MainWindow::on_loadModelButton_clicked()
     displayResultFile(modelPath);
 }
 
+void MainWindow::on_viewXYButton_clicked()
+{
+    applyCameraView(QVector3D(0.0f, 0.0f, 1.0f), QVector3D(0.0f, 1.0f, 0.0f));
+}
+
+void MainWindow::on_viewYZButton_clicked()
+{
+    applyCameraView(QVector3D(1.0f, 0.0f, 0.0f), QVector3D(0.0f, 0.0f, 1.0f));
+}
+
+void MainWindow::on_viewXZButton_clicked()
+{
+    applyCameraView(QVector3D(0.0f, 1.0f, 0.0f), QVector3D(0.0f, 0.0f, 1.0f));
+}
+
+void MainWindow::on_viewIsoButton_clicked()
+{
+    applyCameraView(QVector3D(1.0f, 1.0f, 1.0f), QVector3D(0.0f, 0.0f, 1.0f));
+}
+
+void MainWindow::on_rotateLeftButton_clicked()
+{
+    rotateCameraAroundFocal(-30.0);
+}
+
+void MainWindow::on_rotateRightButton_clicked()
+{
+    rotateCameraAroundFocal(30.0);
+}
+
 void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidgetItem*)
 {
     if (!current)
@@ -6072,6 +6102,64 @@ void MainWindow::displayResultFile(const QString& filePath)
     m_renderer->ResetCamera();
     if (ui->vtkWidget && ui->vtkWidget->renderWindow())
         ui->vtkWidget->renderWindow()->Render();
+}
+
+void MainWindow::applyCameraView(const QVector3D& viewDirection, const QVector3D& viewUp)
+{
+    if (!m_renderer || !m_currentActor)
+        return;
+
+    vtkCamera* camera = m_renderer->GetActiveCamera();
+    if (!camera)
+        return;
+
+    double bounds[6];
+    m_currentActor->GetBounds(bounds);
+    const QVector3D center(float((bounds[0] + bounds[1]) * 0.5),
+                           float((bounds[2] + bounds[3]) * 0.5),
+                           float((bounds[4] + bounds[5]) * 0.5));
+    const double extentX = bounds[1] - bounds[0];
+    const double extentY = bounds[3] - bounds[2];
+    const double extentZ = bounds[5] - bounds[4];
+    const double radius = std::max({ extentX, extentY, extentZ, 1.0 });
+
+    QVector3D normalizedDir = viewDirection;
+    if (normalizedDir.lengthSquared() < 1e-6f)
+        normalizedDir = QVector3D(0.0f, 0.0f, 1.0f);
+    else
+        normalizedDir.normalize();
+
+    QVector3D normalizedUp = viewUp;
+    if (normalizedUp.lengthSquared() < 1e-6f)
+        normalizedUp = QVector3D(0.0f, 0.0f, 1.0f);
+    else
+        normalizedUp.normalize();
+
+    const QVector3D position = center + normalizedDir * float(radius * 2.5);
+
+    camera->SetFocalPoint(center.x(), center.y(), center.z());
+    camera->SetPosition(position.x(), position.y(), position.z());
+    camera->SetViewUp(normalizedUp.x(), normalizedUp.y(), normalizedUp.z());
+    camera->OrthogonalizeViewUp();
+    m_renderer->ResetCameraClippingRange();
+
+    if (ui->vtkWidget && ui->vtkWidget->renderWindow())
+        ui->vtkWidget->renderWindow()->Render();
+}
+
+void MainWindow::rotateCameraAroundFocal(double angleDegrees)
+{
+    if (!m_renderer || !m_currentActor)
+        return;
+
+    if (vtkCamera* camera = m_renderer->GetActiveCamera())
+    {
+        camera->Azimuth(angleDegrees);
+        camera->OrthogonalizeViewUp();
+        m_renderer->ResetCameraClippingRange();
+        if (ui->vtkWidget && ui->vtkWidget->renderWindow())
+            ui->vtkWidget->renderWindow()->Render();
+    }
 }
 
 void MainWindow::clearVtkScene()

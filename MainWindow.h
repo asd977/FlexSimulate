@@ -63,6 +63,12 @@ private slots:
     void on_syncMaterialsButton_clicked();
     void on_materialsListWidget_currentItemChanged(QListWidgetItem* current,
                                                    QListWidgetItem* previous);
+    void on_viewXYButton_clicked();
+    void on_viewYZButton_clicked();
+    void on_viewXZButton_clicked();
+    void on_viewIsoButton_clicked();
+    void on_rotateLeftButton_clicked();
+    void on_rotateRightButton_clicked();
 
 private:
     struct ModelRecord {
@@ -176,6 +182,8 @@ private:
     void appendLogMessage(const QString& message);
     void displayResultFile(const QString& filePath);
     void clearVtkScene();
+    void applyCameraView(const QVector3D& viewDirection, const QVector3D& viewUp);
+    void rotateCameraAroundFocal(double angleDegrees);
     void updateModelImagePreview(const ModelRecord* model);
     void refreshModelImagePreview();
     QString projectDisplayName() const;
