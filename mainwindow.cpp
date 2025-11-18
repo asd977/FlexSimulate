@@ -257,8 +257,8 @@ void MainWindow::setupUiHelpers()
     ui->planPageLayout->addWidget(m_galleryWidget);
 
     auto* detailLayout = new QVBoxLayout(ui->settingWidget);
-    detailLayout->setContentsMargins(20, 20, 20, 20);
-    detailLayout->setSpacing(16);
+    detailLayout->setContentsMargins(3, 3, 3, 3);
+    detailLayout->setSpacing(8);
 
     const auto applyPanelCard = [](QWidget* panel, QLabel* title, const QString& extraStyles = QString()) {
         if (!panel || !title)
@@ -329,8 +329,14 @@ void MainWindow::setupUiHelpers()
     ui->mainSplitter->setStretchFactor(1, 1);
 
     QList<int> sizes;
-    sizes << 50 << 50;
+    sizes << 300 << 100;                         // 或者 600, 200
+    ui->contentSplitter->setCollapsible(1, false);
     ui->contentSplitter->setSizes(sizes);
+
+    // 可选：再配合伸缩因子，窗口整体缩放时保持大致比例
+//    ui->contentSplitter->setStretchFactor(0, 3);
+//    ui->contentSplitter->setStretchFactor(1, 1);
+
     if (ui->visualizationSplitter)
     {
         ui->visualizationSplitter->setStretchFactor(0, 3);
