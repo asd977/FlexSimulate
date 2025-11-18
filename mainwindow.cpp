@@ -1356,7 +1356,7 @@ QByteArray MainWindow::performPostRequest(const QUrl& url,
     return data;
 }
 
-void MainWindow::on_syncMaterialsButton_clicked()
+void MainWindow::handleSyncMaterialsRequest()
 {
     QList<QPushButton*> buttons;
     if (auto* clickedButton = qobject_cast<QPushButton*>(sender()))
@@ -1412,8 +1412,8 @@ void MainWindow::on_syncMaterialsButton_clicked()
     }
 }
 
-void MainWindow::on_materialsListWidget_currentItemChanged(QListWidgetItem* current,
-                                                           QListWidgetItem* previous)
+void MainWindow::handleMaterialsSelectionChanged(QListWidgetItem* current,
+                                                 QListWidgetItem* previous)
 {
     Q_UNUSED(previous);
     const QString key = current ? current->data(Qt::UserRole).toString() : QString();
@@ -2601,7 +2601,7 @@ void MainWindow::onTreeContextMenuRequested(const QPoint& pos)
         }
         else if (type == MaterialLibraryItem)
         {
-            menu.addAction(tr("同步材料数据"), this, &MainWindow::on_syncMaterialsButton_clicked);
+            menu.addAction(tr("同步材料数据"), this, &MainWindow::handleSyncMaterialsRequest);
         }
     }
 
@@ -3482,9 +3482,9 @@ QWidget* MainWindow::buildMaterialsSettingsWidget()
     layout->addWidget(frame, 1);
 
     connect(syncButton, &QPushButton::clicked,
-            this, &MainWindow::on_syncMaterialsButton_clicked);
+            this, &MainWindow::handleSyncMaterialsRequest);
     connect(list, &QListWidget::currentItemChanged,
-            this, &MainWindow::on_materialsListWidget_currentItemChanged);
+            this, &MainWindow::handleMaterialsSelectionChanged);
 
     m_materialsSettingsList = list;
     m_materialsSettingsStatusLabel = statusLabel;

@@ -62,9 +62,9 @@ private slots:
     void on_selectModelButton_clicked();
 
     void on_loadModelButton_clicked();
-    void on_syncMaterialsButton_clicked();
-    void on_materialsListWidget_currentItemChanged(QListWidgetItem* current,
-                                                   QListWidgetItem* previous);
+    void handleSyncMaterialsRequest();
+    void handleMaterialsSelectionChanged(QListWidgetItem* current,
+                                         QListWidgetItem* previous);
     void on_viewXYButton_clicked();
     void on_viewYZButton_clicked();
     void on_viewXZButton_clicked();
