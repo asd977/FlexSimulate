@@ -249,8 +249,7 @@ void MainWindow::setupUiHelpers()
     ui->planPageLayout->addWidget(m_galleryWidget);
 
     auto* detailLayout = new QVBoxLayout(ui->settingWidget);
-    detailLayout->setContentsMargins(20, 20, 20, 20);
-    detailLayout->setSpacing(16);
+    detailLayout->setContentsMargins(2, 2, 2, 2);
 
     const auto applyPanelCard = [](QWidget* panel, QLabel* title, const QString& extraStyles = QString()) {
         if (!panel || !title)
@@ -320,9 +319,14 @@ void MainWindow::setupUiHelpers()
     ui->mainSplitter->setStretchFactor(0, 0);
     ui->mainSplitter->setStretchFactor(1, 1);
 
+    ui->contentSplitter->setStretchFactor(0, 6);
+    ui->contentSplitter->setStretchFactor(1, 5);
+
     QList<int> sizes;
-    sizes << 360 << 840;
+    sizes << 720 << 600;
     ui->contentSplitter->setSizes(sizes);
+    m_lastSplitterSizes = sizes;
+
     if (ui->visualizationSplitter)
     {
         ui->visualizationSplitter->setStretchFactor(0, 3);

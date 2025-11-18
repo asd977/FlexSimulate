@@ -199,8 +199,8 @@ void JsonPageBuilder::setAvailableMaterials(const QVector<MaterialPreset>& mater
 void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
 {
     auto* mainLayout = new QVBoxLayout(this);
-    mainLayout->setSpacing(12);
-    mainLayout->setContentsMargins(4, 4, 4, 4);
+    mainLayout->setSpacing(6);
+    mainLayout->setContentsMargins(1, 1, 1,1);
 
     m_titleButtons.clear();
     m_labelNameWidgets.clear();
@@ -341,7 +341,7 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
             auto* addLayout = new QHBoxLayout();
             addLayout->setContentsMargins(0, 0, 0, 2);
 
-            auto* addLabel = new QLabel(tr("添加材料性质："), sectionFrame);
+            auto* addLabel = new QLabel(tr("属性："), sectionFrame);
             if (!introduction.isEmpty())
                 addLabel->setToolTip(introduction);
 
@@ -371,7 +371,7 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
             auto* presetLayout = new QHBoxLayout();
             presetLayout->setContentsMargins(0, 0, 0, 2);
 
-            auto* presetLabel = new QLabel(tr("材料库数据："), sectionFrame);
+            auto* presetLabel = new QLabel(tr("材料库："), sectionFrame);
             if (!introduction.isEmpty())
                 presetLabel->setToolTip(introduction);
 
