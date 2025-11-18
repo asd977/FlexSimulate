@@ -26,6 +26,9 @@
 #include <QDebug>
 #include <QSet>
 #include <QSignalBlocker>
+#include <QFileDialog>
+
+#include <QtGui/private/qzipwriter_p.h>
 
 namespace
 {
@@ -122,6 +125,373 @@ QString fieldKeyForLabel(const QString& label)
     if (equalsIgnoreCase(trimmed, QString("D1")))
         return QString("D1");
     return QString();
+}
+
+QString contentTypeForExtension(const QString& extension)
+{
+    const QString lower = extension.trimmed().toLower();
+    if (lower == QStringLiteral("png"))
+        return QStringLiteral("image/png");
+    if (lower == QStringLiteral("jpg") || lower == QStringLiteral("jpeg"))
+        return QStringLiteral("image/jpeg");
+    if (lower == QStringLiteral("bmp"))
+        return QStringLiteral("image/bmp");
+    if (lower == QStringLiteral("gif"))
+        return QStringLiteral("image/gif");
+    if (lower == QStringLiteral("tif") || lower == QStringLiteral("tiff"))
+        return QStringLiteral("image/tiff");
+    return QString();
+}
+
+QString rootRelsXml()
+{
+    static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="ppt/presentation.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/package/2006/relationships/metadata/core-properties" Target="docProps/core.xml"/>
+  <Relationship Id="rId3" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/extended-properties" Target="docProps/app.xml"/>
+</Relationships>)";
+    return QString::fromUtf8(kXml);
+}
+
+QString presentationXml(int slideCount)
+{
+    QString slideIds;
+    slideIds.reserve(slideCount * 40);
+    for (int i = 0; i < slideCount; ++i)
+    {
+        slideIds += QStringLiteral("<p:sldId id=\"%1\" r:id=\"rId%2\"/>")
+                        .arg(256 + i)
+                        .arg(i + 2);
+    }
+
+    QString slideList;
+    if (slideCount > 0)
+        slideList = QStringLiteral("<p:sldIdLst>%1</p:sldIdLst>").arg(slideIds);
+    else
+        slideList = QStringLiteral("<p:sldIdLst/>");
+
+    return QStringLiteral(
+        R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>
+  %1
+  <p:sldSz cx="9144000" cy="6858000" type="screen4x3"/>
+  <p:notesSz cx="6858000" cy="9144000"/>
+</p:presentation>)")
+        .arg(slideList);
+}
+
+QString presentationRelsXml(int slideCount)
+{
+    QString rels = QStringLiteral(
+        R"(<Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="slideMasters/slideMaster1.xml"/>)");
+
+    for (int i = 0; i < slideCount; ++i)
+    {
+        rels += QStringLiteral(
+            R"(<Relationship Id="rId%1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slide" Target="slides/slide%2.xml"/>)")
+                    .arg(i + 2)
+                    .arg(i + 1);
+    }
+
+    return QStringLiteral(
+        R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+%1
+</Relationships>)")
+        .arg(rels);
+}
+
+QString appXml(int slideCount)
+{
+    return QStringLiteral(
+        R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Properties xmlns="http://schemas.openxmlformats.org/officeDocument/2006/extended-properties" xmlns:vt="http://schemas.openxmlformats.org/officeDocument/2006/docPropsVTypes">
+  <Application>FlexSimulate</Application>
+  <Slides>%1</Slides>
+  <PresentationFormat>On-screen Show (4:3)</PresentationFormat>
+  <Notes>0</Notes>
+  <HiddenSlides>0</HiddenSlides>
+  <MMClips>0</MMClips>
+  <HyperlinksChanged>false</HyperlinksChanged>
+  <AppVersion>16.0000</AppVersion>
+</Properties>)")
+        .arg(slideCount);
+}
+
+QString coreXml(const QDateTime& timestamp)
+{
+    const QString iso = timestamp.toString(Qt::ISODate);
+    return QStringLiteral(
+        R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<cp:coreProperties xmlns:cp="http://schemas.openxmlformats.org/package/2006/metadata/core-properties" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:dcterms="http://purl.org/dc/terms/" xmlns:dcmitype="http://purl.org/dc/dcmitype/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance">
+  <dc:title>FlexSimulate Report</dc:title>
+  <dc:subject/>
+  <dc:creator>FlexSimulate</dc:creator>
+  <cp:keywords/>
+  <dc:description/>
+  <cp:lastModifiedBy>FlexSimulate</cp:lastModifiedBy>
+  <cp:revision>1</cp:revision>
+  <dcterms:created xsi:type="dcterms:W3CDTF">%1</dcterms:created>
+  <dcterms:modified xsi:type="dcterms:W3CDTF">%1</dcterms:modified>
+</cp:coreProperties>)")
+        .arg(iso);
+}
+
+QString themeXml()
+{
+    static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<a:theme xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" name="FlexSimulate Theme">
+  <a:themeElements>
+    <a:clrScheme name="FlexSimulate">
+      <a:dk1><a:srgbClr val="000000"/></a:dk1>
+      <a:lt1><a:srgbClr val="FFFFFF"/></a:lt1>
+      <a:dk2><a:srgbClr val="1F497D"/></a:dk2>
+      <a:lt2><a:srgbClr val="EEECE1"/></a:lt2>
+      <a:accent1><a:srgbClr val="4F81BD"/></a:accent1>
+      <a:accent2><a:srgbClr val="C0504D"/></a:accent2>
+      <a:accent3><a:srgbClr val="9BBB59"/></a:accent3>
+      <a:accent4><a:srgbClr val="8064A2"/></a:accent4>
+      <a:accent5><a:srgbClr val="4BACC6"/></a:accent5>
+      <a:accent6><a:srgbClr val="F79646"/></a:accent6>
+      <a:hlink><a:srgbClr val="0000FF"/></a:hlink>
+      <a:folHlink><a:srgbClr val="800080"/></a:folHlink>
+    </a:clrScheme>
+    <a:fontScheme name="FlexSimulate">
+      <a:majorFont>
+        <a:latin typeface="Calibri"/>
+        <a:ea typeface=""/>
+        <a:cs typeface=""/>
+      </a:majorFont>
+      <a:minorFont>
+        <a:latin typeface="Calibri"/>
+        <a:ea typeface=""/>
+        <a:cs typeface=""/>
+      </a:minorFont>
+    </a:fontScheme>
+    <a:fmtScheme name="FlexSimulate">
+      <a:fillStyleLst>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0"><a:schemeClr val="phClr"/></a:gs>
+            <a:gs pos="100000"><a:schemeClr val="phClr"/></a:gs>
+          </a:gsLst>
+          <a:lin ang="16200000" scaled="1"/>
+        </a:gradFill>
+        <a:gradFill rotWithShape="1">
+          <a:gsLst>
+            <a:gs pos="0"><a:schemeClr val="phClr"/></a:gs>
+            <a:gs pos="100000"><a:schemeClr val="phClr"/></a:gs>
+          </a:gsLst>
+          <a:lin ang="5400000" scaled="1"/>
+        </a:gradFill>
+      </a:fillStyleLst>
+      <a:lnStyleLst>
+        <a:ln w="19050"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+        <a:ln w="12700"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+        <a:ln w="6350"><a:solidFill><a:schemeClr val="phClr"/></a:solidFill></a:ln>
+      </a:lnStyleLst>
+      <a:effectStyleLst>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+        <a:effectStyle><a:effectLst/></a:effectStyle>
+      </a:effectStyleLst>
+      <a:bgFillStyleLst>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+        <a:solidFill><a:schemeClr val="phClr"/></a:solidFill>
+      </a:bgFillStyleLst>
+    </a:fmtScheme>
+  </a:themeElements>
+  <a:objectDefaults/>
+  <a:extraClrSchemeLst/>
+</a:theme>)";
+    return QString::fromUtf8(kXml);
+}
+
+QString slideMasterXml()
+{
+    static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldMaster xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:cSld>
+    <p:bg>
+      <p:bgPr>
+        <a:solidFill><a:schemeClr val="bg1"/></a:solidFill>
+      </p:bgPr>
+    </p:bg>
+    <p:spTree>
+      <p:nvGrpSpPr>
+        <p:cNvPr id="1" name=""/>
+        <p:cNvGrpSpPr/>
+        <p:nvPr/>
+      </p:nvGrpSpPr>
+      <p:grpSpPr>
+        <a:xfrm>
+          <a:off x="0" y="0"/>
+          <a:ext cx="0" cy="0"/>
+          <a:chOff x="0" y="0"/>
+          <a:chExt cx="0" cy="0"/>
+        </a:xfrm>
+      </p:grpSpPr>
+    </p:spTree>
+  </p:cSld>
+  <p:clrMap accent1="accent1" accent2="accent2" accent3="accent3" accent4="accent4" accent5="accent5" accent6="accent6" bg1="bg1" bg2="bg2" folHlink="folHlink" hlink="hlink" tx1="tx1" tx2="tx2"/>
+  <p:sldLayoutIdLst>
+    <p:sldLayoutId id="1" r:id="rId1"/>
+  </p:sldLayoutIdLst>
+  <p:txStyles>
+    <p:titleStyle><a:lvl1pPr><a:defRPr/></a:lvl1pPr></p:titleStyle>
+    <p:bodyStyle><a:lvl1pPr><a:defRPr/></a:lvl1pPr></p:bodyStyle>
+    <p:otherStyle><a:defPPr><a:defRPr/></a:defPPr></p:otherStyle>
+  </p:txStyles>
+</p:sldMaster>)";
+    return QString::fromUtf8(kXml);
+}
+
+QString slideMasterRelsXml()
+{
+    static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/theme" Target="../theme/theme1.xml"/>
+</Relationships>)";
+    return QString::fromUtf8(kXml);
+}
+
+QString slideLayoutXml()
+{
+    static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sldLayout xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" type="blank" preserve="1">
+  <p:cSld name="Blank">
+    <p:spTree>
+      <p:nvGrpSpPr>
+        <p:cNvPr id="1" name=""/>
+        <p:cNvGrpSpPr/>
+        <p:nvPr/>
+      </p:nvGrpSpPr>
+      <p:grpSpPr>
+        <a:xfrm>
+          <a:off x="0" y="0"/>
+          <a:ext cx="0" cy="0"/>
+          <a:chOff x="0" y="0"/>
+          <a:chExt cx="0" cy="0"/>
+        </a:xfrm>
+      </p:grpSpPr>
+    </p:spTree>
+  </p:cSld>
+  <p:clrMapOvr>
+    <a:masterClrMapping/>
+  </p:clrMapOvr>
+</p:sldLayout>)";
+    return QString::fromUtf8(kXml);
+}
+
+QString slideLayoutRelsXml()
+{
+    static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideMaster" Target="../slideMasters/slideMaster1.xml"/>
+</Relationships>)";
+    return QString::fromUtf8(kXml);
+}
+
+QString slideXml(int slideIndex)
+{
+    const QString pictureName = QStringLiteral("Picture %1").arg(slideIndex);
+    return QStringLiteral(
+        R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<p:sld xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships">
+  <p:cSld>
+    <p:spTree>
+      <p:nvGrpSpPr>
+        <p:cNvPr id="1" name=""/>
+        <p:cNvGrpSpPr/>
+        <p:nvPr/>
+      </p:nvGrpSpPr>
+      <p:grpSpPr>
+        <a:xfrm>
+          <a:off x="0" y="0"/>
+          <a:ext cx="0" cy="0"/>
+          <a:chOff x="0" y="0"/>
+          <a:chExt cx="0" cy="0"/>
+        </a:xfrm>
+      </p:grpSpPr>
+      <p:pic>
+        <p:nvPicPr>
+          <p:cNvPr id="2" name="%1"/>
+          <p:cNvPicPr>
+            <a:picLocks noChangeAspect="1"/>
+          </p:cNvPicPr>
+          <p:nvPr/>
+        </p:nvPicPr>
+        <p:blipFill>
+          <a:blip r:embed="rId2"/>
+          <a:stretch><a:fillRect/></a:stretch>
+        </p:blipFill>
+        <p:spPr>
+          <a:xfrm>
+            <a:off x="0" y="0"/>
+            <a:ext cx="9144000" cy="6858000"/>
+          </a:xfrm>
+          <a:prstGeom prst="rect"><a:avLst/></a:prstGeom>
+        </p:spPr>
+      </p:pic>
+    </p:spTree>
+  </p:cSld>
+  <p:clrMapOvr><a:masterClrMapping/></p:clrMapOvr>
+</p:sld>)")
+        .arg(pictureName);
+}
+
+QString slideRelsXml(const QString& mediaFileName)
+{
+    return QStringLiteral(
+        R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">
+  <Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/slideLayout" Target="../slideLayouts/slideLayout1.xml"/>
+  <Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/image" Target="../media/%1"/>
+</Relationships>)")
+        .arg(mediaFileName);
+}
+
+QString contentTypesXml(int slideCount, const QSet<QString>& imageExtensions)
+{
+    QString slideOverrides;
+    for (int i = 0; i < slideCount; ++i)
+    {
+        slideOverrides += QStringLiteral(
+            R"(<Override PartName="/ppt/slides/slide%1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slide+xml"/>)")
+                            .arg(i + 1);
+    }
+
+    QString imageDefaults;
+    const QStringList sortedExt = imageExtensions.values();
+    for (const QString& ext : sortedExt)
+    {
+        const QString contentType = contentTypeForExtension(ext);
+        if (contentType.isEmpty())
+            continue;
+        imageDefaults += QStringLiteral(
+            R"(<Default Extension="%1" ContentType="%2"/>)")
+                              .arg(ext, contentType);
+    }
+
+    return QStringLiteral(
+        R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">
+  <Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>
+  <Default Extension="xml" ContentType="application/xml"/>
+  %2
+  <Override PartName="/ppt/presentation.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.presentation.main+xml"/>
+  <Override PartName="/ppt/slideMasters/slideMaster1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideMaster+xml"/>
+  <Override PartName="/ppt/slideLayouts/slideLayout1.xml" ContentType="application/vnd.openxmlformats-officedocument.presentationml.slideLayout+xml"/>
+  <Override PartName="/ppt/theme/theme1.xml" ContentType="application/vnd.openxmlformats-officedocument.theme+xml"/>
+  <Override PartName="/docProps/core.xml" ContentType="application/vnd.openxmlformats-package.core-properties+xml"/>
+  <Override PartName="/docProps/app.xml" ContentType="application/vnd.openxmlformats-officedocument.extended-properties+xml"/>
+  %1
+</Types>)")
+        .arg(slideOverrides, imageDefaults);
 }
 }
 
@@ -486,13 +856,25 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
         mainLayout->addWidget(sectionFrame);
     }
 
-    // 计算按钮
+    // 操作按钮
+    auto* actionRow = new QHBoxLayout();
+    actionRow->setSpacing(12);
+    actionRow->setContentsMargins(0, 0, 0, 0);
+    actionRow->addStretch(1);
+
+    m_generateReportButton = new QPushButton(tr("生成报告"), this);
+    m_generateReportButton->setMinimumHeight(40);
+    connect(m_generateReportButton, &QPushButton::clicked,
+            this, &JsonPageBuilder::onGenerateReportButtonClicked);
+    actionRow->addWidget(m_generateReportButton);
+
     m_calculateButton = new QPushButton(tr("计算"), this);
     m_calculateButton->setMinimumHeight(40);
     connect(m_calculateButton, &QPushButton::clicked,
             this, &JsonPageBuilder::onCalculateButtonClicked);
+    actionRow->addWidget(m_calculateButton);
 
-    mainLayout->addWidget(m_calculateButton);
+    mainLayout->addLayout(actionRow);
     mainLayout->addStretch(1);
     setLayout(mainLayout);
 }
@@ -1126,6 +1508,76 @@ QString JsonPageBuilder::extractErrorMsgFromDat(const QString& content)
 
 // ===== 计算相关 =====
 
+void JsonPageBuilder::onGenerateReportButtonClicked()
+{
+    const QString reportDirPath = reportDirectoryPath();
+    if (reportDirPath.isEmpty())
+    {
+        const QString warn = tr("未找到 REPORT 目录，请先完成总成配置。");
+        emit logMessage(warn);
+        QMessageBox::warning(this, tr("警告"), warn);
+        return;
+    }
+
+    QDir reportDir(reportDirPath);
+    if (!reportDir.exists())
+    {
+        const QString warn = tr("REPORT 目录不存在：%1")
+                                 .arg(QDir::toNativeSeparators(reportDirPath));
+        emit logMessage(warn);
+        QMessageBox::warning(this, tr("警告"), warn);
+        return;
+    }
+
+    const QStringList filters{ QStringLiteral("*.png"),  QStringLiteral("*.jpg"),
+                               QStringLiteral("*.jpeg"), QStringLiteral("*.bmp"),
+                               QStringLiteral("*.gif"),  QStringLiteral("*.tif"),
+                               QStringLiteral("*.tiff") };
+
+    QFileInfoList allImages = reportDir.entryInfoList(filters, QDir::Files,
+                                                      QDir::Name | QDir::IgnoreCase);
+    QFileInfoList usableImages;
+    for (const QFileInfo& info : allImages)
+    {
+        if (contentTypeForExtension(info.suffix()).isEmpty())
+            continue;
+        usableImages << info;
+    }
+
+    if (usableImages.isEmpty())
+    {
+        const QString warn = tr("REPORT 目录中未找到可用图片，请先运行计算。");
+        emit logMessage(warn);
+        QMessageBox::information(this, tr("提示"), warn);
+        return;
+    }
+
+    const QString suggestedName = QStringLiteral("SimulationReport_%1.pptx")
+                                      .arg(QDateTime::currentDateTime()
+                                               .toString(QStringLiteral("yyyyMMdd_HHmmss")));
+    const QString defaultPath = reportDir.filePath(suggestedName);
+    QString outputPath = QFileDialog::getSaveFileName(this, tr("保存报告"), defaultPath,
+                                                     tr("PowerPoint 文件 (*.pptx)"));
+    if (outputPath.isEmpty())
+        return;
+    if (!outputPath.endsWith(QStringLiteral(".pptx"), Qt::CaseInsensitive))
+        outputPath.append(QStringLiteral(".pptx"));
+
+    QString error;
+    if (!generateReportPptx(outputPath, usableImages, &error))
+    {
+        if (error.isEmpty())
+            error = tr("生成报告失败。");
+        emit logMessage(error);
+        QMessageBox::warning(this, tr("警告"), error);
+        return;
+    }
+
+    const QString msg = tr("报告已生成：%1").arg(QDir::toNativeSeparators(outputPath));
+    emit logMessage(msg);
+    QMessageBox::information(this, tr("提示"), msg);
+}
+
 void JsonPageBuilder::onCalculateButtonClicked()
 {
     if (m_process)
@@ -1397,4 +1849,136 @@ void JsonPageBuilder::ensureProgressDialog()
     dialog->setAutoReset(false);
     dialog->setMinimumDuration(0);
     m_progressDialog = dialog;
+}
+
+QString JsonPageBuilder::reportDirectoryPath() const
+{
+    QDir baseDir;
+    if (!m_modelDirectory.isEmpty())
+        baseDir = QDir(m_modelDirectory);
+    else
+        baseDir = QFileInfo(m_jsonPath).dir();
+
+    if (!baseDir.exists())
+        return QString();
+    return QDir::cleanPath(baseDir.filePath(QStringLiteral("REPORT")));
+}
+
+bool JsonPageBuilder::generateReportPptx(const QString& targetPath,
+                                         const QFileInfoList& images,
+                                         QString* errorMessage) const
+{
+    if (images.isEmpty())
+    {
+        if (errorMessage)
+            *errorMessage = tr("缺少用于生成报告的图片。");
+        return false;
+    }
+
+    QFileInfo outInfo(targetPath);
+    QDir parentDir = outInfo.dir();
+    if (!parentDir.exists() && !parentDir.mkpath(QStringLiteral(".")))
+    {
+        if (errorMessage)
+            *errorMessage = tr("无法创建输出目录：%1")
+                                .arg(QDir::toNativeSeparators(parentDir.absolutePath()));
+        return false;
+    }
+
+    if (QFile::exists(targetPath))
+        QFile::remove(targetPath);
+
+    QZipWriter writer(targetPath);
+    if (writer.status() != QZipWriter::NoError)
+    {
+        if (errorMessage)
+            *errorMessage = tr("无法创建报告文件：%1")
+                                .arg(QDir::toNativeSeparators(targetPath));
+        return false;
+    }
+
+    const QStringList directories{
+        QStringLiteral("_rels"),
+        QStringLiteral("docProps"),
+        QStringLiteral("ppt"),
+        QStringLiteral("ppt/_rels"),
+        QStringLiteral("ppt/slides"),
+        QStringLiteral("ppt/slides/_rels"),
+        QStringLiteral("ppt/media"),
+        QStringLiteral("ppt/slideLayouts"),
+        QStringLiteral("ppt/slideLayouts/_rels"),
+        QStringLiteral("ppt/slideMasters"),
+        QStringLiteral("ppt/slideMasters/_rels"),
+        QStringLiteral("ppt/theme")
+    };
+
+    for (const QString& dir : directories)
+        writer.addDirectory(dir);
+
+    const int slideCount = images.size();
+    const QDateTime nowUtc = QDateTime::currentDateTimeUtc();
+
+    writer.addFile(QStringLiteral("_rels/.rels"), rootRelsXml().toUtf8());
+    writer.addFile(QStringLiteral("docProps/core.xml"), coreXml(nowUtc).toUtf8());
+    writer.addFile(QStringLiteral("docProps/app.xml"), appXml(slideCount).toUtf8());
+    writer.addFile(QStringLiteral("ppt/presentation.xml"), presentationXml(slideCount).toUtf8());
+    writer.addFile(QStringLiteral("ppt/_rels/presentation.xml.rels"),
+                   presentationRelsXml(slideCount).toUtf8());
+    writer.addFile(QStringLiteral("ppt/slideMasters/slideMaster1.xml"),
+                   slideMasterXml().toUtf8());
+    writer.addFile(QStringLiteral("ppt/slideMasters/_rels/slideMaster1.xml.rels"),
+                   slideMasterRelsXml().toUtf8());
+    writer.addFile(QStringLiteral("ppt/slideLayouts/slideLayout1.xml"),
+                   slideLayoutXml().toUtf8());
+    writer.addFile(QStringLiteral("ppt/slideLayouts/_rels/slideLayout1.xml.rels"),
+                   slideLayoutRelsXml().toUtf8());
+    writer.addFile(QStringLiteral("ppt/theme/theme1.xml"), themeXml().toUtf8());
+
+    QSet<QString> usedExtensions;
+    for (int i = 0; i < images.size(); ++i)
+    {
+        const QFileInfo info = images.at(i);
+        const QString ext = info.suffix().toLower();
+        const QString contentType = contentTypeForExtension(ext);
+        if (contentType.isEmpty())
+            continue;
+        usedExtensions.insert(ext);
+
+        const int slideIndex = i + 1;
+        const QString slidePath = QStringLiteral("ppt/slides/slide%1.xml").arg(slideIndex);
+        writer.addFile(slidePath, slideXml(slideIndex).toUtf8());
+
+        const QString relPath =
+            QStringLiteral("ppt/slides/_rels/slide%1.xml.rels").arg(slideIndex);
+        const QString mediaFileName =
+            QStringLiteral("image%1.%2").arg(slideIndex).arg(ext);
+        writer.addFile(relPath, slideRelsXml(mediaFileName).toUtf8());
+
+        QFile img(info.absoluteFilePath());
+        if (!img.open(QIODevice::ReadOnly))
+        {
+            if (errorMessage)
+                *errorMessage = tr("无法读取图片：%1")
+                                    .arg(QDir::toNativeSeparators(info.absoluteFilePath()));
+            writer.close();
+            QFile::remove(targetPath);
+            return false;
+        }
+        writer.addFile(QStringLiteral("ppt/media/%1").arg(mediaFileName), img.readAll());
+    }
+
+    writer.addFile(QStringLiteral("[Content_Types].xml"),
+                   contentTypesXml(slideCount, usedExtensions).toUtf8());
+
+    writer.close();
+    if (writer.status() != QZipWriter::NoError)
+    {
+        if (errorMessage)
+            *errorMessage = tr("写入报告文件失败：%1")
+                                .arg(QDir::toNativeSeparators(targetPath));
+        QFile::remove(targetPath);
+        return false;
+    }
+
+    return true;
 }
