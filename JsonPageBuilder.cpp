@@ -158,9 +158,9 @@ QString defaultTextStyleXml()
 {
     static const char kXml[] = R"(
   <p:defaultTextStyle>
-    <a:defPPr><a:defRPr/></a:defPPr>
+    <a:defPPr><a:defRPr lang="zh-CN"/></a:defPPr>
     <a:lvl1pPr marL="0" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
-      <a:defRPr sz="1800" kern="1200">
+      <a:defRPr sz="1800" kern="1200" lang="zh-CN">
         <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
         <a:latin typeface="+mn-lt"/>
         <a:ea typeface="+mn-ea"/>
@@ -168,7 +168,7 @@ QString defaultTextStyleXml()
       </a:defRPr>
     </a:lvl1pPr>
     <a:lvl2pPr marL="457200" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
-      <a:defRPr sz="1800" kern="1200">
+      <a:defRPr sz="1800" kern="1200" lang="zh-CN">
         <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
         <a:latin typeface="+mn-lt"/>
         <a:ea typeface="+mn-ea"/>
@@ -176,7 +176,7 @@ QString defaultTextStyleXml()
       </a:defRPr>
     </a:lvl2pPr>
     <a:lvl3pPr marL="914400" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
-      <a:defRPr sz="1800" kern="1200">
+      <a:defRPr sz="1800" kern="1200" lang="zh-CN">
         <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
         <a:latin typeface="+mn-lt"/>
         <a:ea typeface="+mn-ea"/>
@@ -184,7 +184,7 @@ QString defaultTextStyleXml()
       </a:defRPr>
     </a:lvl3pPr>
     <a:lvl4pPr marL="1371600" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
-      <a:defRPr sz="1800" kern="1200">
+      <a:defRPr sz="1800" kern="1200" lang="zh-CN">
         <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
         <a:latin typeface="+mn-lt"/>
         <a:ea typeface="+mn-ea"/>
@@ -192,7 +192,7 @@ QString defaultTextStyleXml()
       </a:defRPr>
     </a:lvl4pPr>
     <a:lvl5pPr marL="1828800" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
-      <a:defRPr sz="1800" kern="1200">
+      <a:defRPr sz="1800" kern="1200" lang="zh-CN">
         <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
         <a:latin typeface="+mn-lt"/>
         <a:ea typeface="+mn-ea"/>
@@ -200,7 +200,7 @@ QString defaultTextStyleXml()
       </a:defRPr>
     </a:lvl5pPr>
     <a:lvl6pPr marL="2286000" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
-      <a:defRPr sz="1800" kern="1200">
+      <a:defRPr sz="1800" kern="1200" lang="zh-CN">
         <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
         <a:latin typeface="+mn-lt"/>
         <a:ea typeface="+mn-ea"/>
@@ -208,7 +208,7 @@ QString defaultTextStyleXml()
       </a:defRPr>
     </a:lvl6pPr>
     <a:lvl7pPr marL="2743200" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
-      <a:defRPr sz="1800" kern="1200">
+      <a:defRPr sz="1800" kern="1200" lang="zh-CN">
         <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
         <a:latin typeface="+mn-lt"/>
         <a:ea typeface="+mn-ea"/>
@@ -216,7 +216,7 @@ QString defaultTextStyleXml()
       </a:defRPr>
     </a:lvl7pPr>
     <a:lvl8pPr marL="3200400" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
-      <a:defRPr sz="1800" kern="1200">
+      <a:defRPr sz="1800" kern="1200" lang="zh-CN">
         <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
         <a:latin typeface="+mn-lt"/>
         <a:ea typeface="+mn-ea"/>
@@ -224,7 +224,7 @@ QString defaultTextStyleXml()
       </a:defRPr>
     </a:lvl8pPr>
     <a:lvl9pPr marL="3657600" algn="l" defTabSz="457200" rtl="0" eaLnBrk="1" latinLnBrk="0" hangingPunct="1">
-      <a:defRPr sz="1800" kern="1200">
+      <a:defRPr sz="1800" kern="1200" lang="zh-CN">
         <a:solidFill><a:schemeClr val="tx1"/></a:solidFill>
         <a:latin typeface="+mn-lt"/>
         <a:ea typeface="+mn-ea"/>
@@ -254,7 +254,7 @@ QString presentationXml(int slideCount)
 
     return QStringLiteral(
         R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+<p:presentation xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" saveSubsetFonts="1" autoCompressPictures="0">
   <p:sldMasterIdLst><p:sldMasterId id="2147483648" r:id="rId1"/></p:sldMasterIdLst>
   %1
   <p:sldSz cx="9144000" cy="6858000" type="screen4x3"/>
@@ -305,15 +305,52 @@ QString presentationRelsXml(int slideCount)
 QString presPropsXml()
 {
     static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:presentationPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main"/>)";
+<p:presentationPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
+  <p:extLst>
+    <p:ext uri="{E76CE94A-603C-4142-B9EB-6D1370010A27}">
+      <p14:discardImageEditData xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="0"/>
+    </p:ext>
+    <p:ext uri="{D31A062A-798A-4329-ABDD-BBA856620510}">
+      <p14:defaultImageDpi xmlns:p14="http://schemas.microsoft.com/office/powerpoint/2010/main" val="0"/>
+    </p:ext>
+  </p:extLst>
+</p:presentationPr>)";
     return QString::fromUtf8(kXml);
 }
 
 QString viewPropsXml()
 {
     static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<p:viewPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main">
-  <p:normalViewPr/>
+<p:viewPr xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships" xmlns:p="http://schemas.openxmlformats.org/presentationml/2006/main" lastView="sldThumbnailView">
+  <p:normalViewPr>
+    <p:restoredLeft sz="15620"/>
+    <p:restoredTop sz="94660"/>
+  </p:normalViewPr>
+  <p:slideViewPr>
+    <p:cSldViewPr snapToGrid="0" snapToObjects="1">
+      <p:cViewPr varScale="1">
+        <p:scale>
+          <a:sx n="124" d="100"/>
+          <a:sy n="124" d="100"/>
+        </p:scale>
+        <p:origin x="-1512" y="-112"/>
+      </p:cViewPr>
+      <p:guideLst>
+        <p:guide orient="horz" pos="2160"/>
+        <p:guide pos="2880"/>
+      </p:guideLst>
+    </p:cSldViewPr>
+  </p:slideViewPr>
+  <p:notesTextViewPr>
+    <p:cViewPr>
+      <p:scale>
+        <a:sx n="100" d="100"/>
+        <a:sy n="100" d="100"/>
+      </p:scale>
+      <p:origin x="0" y="0"/>
+    </p:cViewPr>
+  </p:notesTextViewPr>
+  <p:gridSpacing cx="76200" cy="76200"/>
 </p:viewPr>)";
     return QString::fromUtf8(kXml);
 }
@@ -321,7 +358,7 @@ QString viewPropsXml()
 QString tableStylesXml()
 {
     static const char kXml[] = R"(<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main"/>)";
+<a:tblStyleLst xmlns:a="http://schemas.openxmlformats.org/drawingml/2006/main" def="{5C22544A-7EE6-4342-B048-85BDC9FD1C3A}"/>)";
     return QString::fromUtf8(kXml);
 }
 
