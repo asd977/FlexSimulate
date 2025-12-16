@@ -45,6 +45,7 @@ private slots:
     void handleProcessOutput();
     void handleProcessFinished(int exitCode, QProcess::ExitStatus status);
     void handleProcessError(QProcess::ProcessError error);
+    void pollAbaqusLog();
 
 private:
     struct MetalModelInfo;
@@ -85,6 +86,7 @@ private:
     bool generateReportPptx(const QString& targetPath,
                             const QFileInfoList& images,
                             QString* errorMessage) const;
+    void onStopButtonClicked();
 
 private:
     // metal section 中每个模型的控件集合
@@ -143,4 +145,11 @@ private:
     // 状态 & 对话框
     QString          m_calculationTimestamp;
     QProgressDialog* m_progressDialog = nullptr;
+
+    // 实时日志相关
+    QTimer* m_logTimer = nullptr;
+    QString m_logFilePath;
+    qint64  m_logFilePos = 0;  // 已读取到的位置
+    QString m_jobName;
+    QString detectJobNameFromEndBat(const QDir &workingDir) const;
 };

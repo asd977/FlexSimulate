@@ -27,6 +27,8 @@
 #include <QSet>
 #include <QSignalBlocker>
 #include <QFileDialog>
+#include <QElapsedTimer>
+#include <QTimer>
 
 #include <QtGui/private/qzipwriter_p.h>
 
@@ -364,6 +366,11 @@ JsonPageBuilder::JsonPageBuilder(const QString& jsonPath, QWidget* parent)
         sections = QJsonArray{};
     }
     buildUiFromJson(sections);
+
+    m_logTimer = new QTimer(this);
+    m_logTimer->setInterval(1000); // 每秒读一次
+        connect(m_logTimer, &QTimer::timeout,
+                this, &JsonPageBuilder::pollAbaqusLog);
 }
 
 void JsonPageBuilder::setAvailableMaterials(const QVector<MaterialPreset>& materials)
@@ -403,7 +410,7 @@ void JsonPageBuilder::buildUiFromJson(const QJsonArray& sections)
         const QString mattype      = sec.value(QString("mattype")).toString();
         const QJsonArray dataList  = sec.value(QString("data")).toArray();
 
-        // ★★ 关键：先在 m_metalSections 中占一个位置，再通过引用来用它 ★★
+        // 先在 m_metalSections 中占一个位置，再通过引用来用
         m_metalSections.push_back(MetalSectionControls{});
         MetalSectionControls& metalCtrl = m_metalSections.last();
 
@@ -1118,6 +1125,9 @@ bool JsonPageBuilder::loadJson(const QString& path, QJsonArray& outSections)
 
 bool JsonPageBuilder::saveJson(const QString& path)
 {
+    QElapsedTimer startTimer;
+    startTimer.start();          // 记录启动初始时间点
+
     QJsonArray sections;
     if (!loadJson(path, sections))
         return false;
@@ -1230,6 +1240,18 @@ bool JsonPageBuilder::saveJson(const QString& path)
     f.write(doc.toJson(QJsonDocument::Indented));
     f.close();
     qInfo("成功修改 json 内容");
+
+
+    qint64 ms = startTimer.elapsed();
+
+    qDebug() << "Startup time =" << ms << "ms";
+    QFile file("export_time.log");
+    if (file.open(QIODevice::Append | QIODevice::Text)) {
+        QTextStream out(&file);
+        out << QDateTime::currentDateTime().toString("yyyy-MM-dd hh:mm:ss.zzz")
+            << " : " << ms << " ms\n";
+    }
+
     return true;
 }
 
@@ -1431,9 +1453,44 @@ void JsonPageBuilder::onCalculateButtonClicked()
     connect(m_process, &QProcess::errorOccurred,
             this, &JsonPageBuilder::handleProcessError);
 
+    // --- 启动计算前，准备日志监控 ---
+    // --- 启动计算前，准备日志监控 ---
+    if (m_logTimer)
+        m_logTimer->stop();   // 先停一下，避免上一次残留
+
+    m_jobName.clear();
+    m_logFilePath.clear();
+    m_logFilePos = 0;
+
+    // 根据 end.bat 解析出 jobName（P2350_PY）
+    m_jobName = detectJobNameFromEndBat(workingDir);
+
+    if (!m_jobName.isEmpty()) {
+        // 1. 构造本次应当使用的 .sta 文件路径
+        const QString staPath = workingDir.absoluteFilePath(m_jobName + ".sta");
+
+        // 2. 如果上一次的 .sta 还在，先删掉（防止新一轮解析混进旧内容）
+        if (QFileInfo::exists(staPath)) {
+            QFile::remove(staPath);   // 建议做好权限和失败检查，这里先简单处理
+            emit logMessage(tr("已删除上一次计算的状态文件：%1")
+                                .arg(QDir::toNativeSeparators(staPath)));
+        }
+
+        // 3. 记录下来，供定时器轮询使用
+        m_logFilePath = staPath;
+        m_logFilePos = 0;
+    }
+
+    // 最后再启动轮询定时器
+    if (m_logTimer)
+        m_logTimer->start();
+
+
     m_process->start(QString("cmd"),
                      QStringList() << QString("/c")
                                    << QDir::toNativeSeparators(m_batPath));
+
+
 }
 
 void JsonPageBuilder::handleProcessOutput()
@@ -1452,6 +1509,9 @@ void JsonPageBuilder::handleProcessOutput()
 
 void JsonPageBuilder::handleProcessFinished(int exitCode, QProcess::ExitStatus status)
 {
+    if (m_logTimer)
+            m_logTimer->stop();
+
     handleProcessOutput();
     QString failureReason;
     if (status != QProcess::NormalExit && m_process)
@@ -1461,6 +1521,9 @@ void JsonPageBuilder::handleProcessFinished(int exitCode, QProcess::ExitStatus s
 
 void JsonPageBuilder::handleProcessError(QProcess::ProcessError error)
 {
+    if (m_logTimer)
+            m_logTimer->stop();
+
     if (!m_process)
         return;
 
@@ -1472,6 +1535,50 @@ void JsonPageBuilder::handleProcessError(QProcess::ProcessError error)
         finalizeCalculation(-1, false, failure);
     }
 }
+
+void JsonPageBuilder::pollAbaqusLog()
+{
+    // 1. 如果我们不知道 jobName 或 log 文件路径，就不用干活
+    if (m_logFilePath.isEmpty()) {
+        if (!m_jobName.isEmpty() && !m_pendingWorkingDirectory.isEmpty()) {
+            QDir dir(m_pendingWorkingDirectory);
+            m_logFilePath = dir.absoluteFilePath(m_jobName + ".sta");
+            m_logFilePos = 0;
+        } else {
+            return;
+        }
+    }
+
+    // 2. .sta 还没生成：这是 Abaqus 的正常情况，直接 return，等下一次
+    if (!QFileInfo::exists(m_logFilePath)) {
+        // 不要报警，很多时候要跑一会儿才有 .sta
+        return;
+    }
+
+    QFile f(m_logFilePath);
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+        // 可能被 Abaqus 独占锁住，下一轮再尝试
+        return;
+    }
+
+    // 3. 如果文件大小变小了，说明 job 重启了，从头再读
+    if (f.size() < m_logFilePos) {
+        m_logFilePos = 0;
+    }
+
+    if (!f.seek(m_logFilePos))
+        return;
+
+    QByteArray data = f.readAll();
+    if (data.isEmpty())
+        return;
+
+    m_logFilePos = f.pos();
+
+    const QString newText = QString::fromLocal8Bit(data);
+    emit logMessage(newText);
+}
+
 
 void JsonPageBuilder::finalizeCalculation(int exitCode, bool finishedSuccessfully,
                                           const QString& failureReason)
@@ -1655,15 +1762,28 @@ void JsonPageBuilder::ensureProgressDialog()
     if (m_progressDialog)
         return;
 
-    auto* dialog = new QProgressDialog(tr("正在计算，请稍候..."), QString(), 0, 0, this);
+    auto* dialog = new QProgressDialog(
+        tr("正在计算，请稍候..."),
+        tr("停止计算"),      // 按钮文字：停止计算
+        0, 0,
+        this);
+
     dialog->setWindowModality(Qt::WindowModal);
     dialog->setWindowTitle(tr("正在计算"));
-    dialog->setCancelButton(nullptr);
+    // 有取消按钮就不要再把它设为 nullptr 了
+    // dialog->setCancelButton(nullptr);
+
     dialog->setAutoClose(false);
     dialog->setAutoReset(false);
     dialog->setMinimumDuration(0);
+
+    // 关键：把 QProgressDialog 的 canceled() 信号，接到你自己的“停止计算”槽函数
+    connect(dialog, &QProgressDialog::canceled,
+            this, &JsonPageBuilder::onStopButtonClicked);
+
     m_progressDialog = dialog;
 }
+
 
 QString JsonPageBuilder::reportDirectoryPath() const
 {
@@ -1808,3 +1928,61 @@ bool JsonPageBuilder::generateReportPptx(const QString& targetPath,
     return true;
 }
 
+void JsonPageBuilder::onStopButtonClicked()
+{
+    // 没有正在运行的计算
+    if (!m_process)
+        return;
+
+    // 1. 找到工作目录
+    QDir workingDir;
+    if (!m_pendingWorkingDirectory.isEmpty())
+        workingDir.setPath(m_pendingWorkingDirectory);
+    else if (!m_modelDirectory.isEmpty())
+        workingDir.setPath(m_modelDirectory);
+    else
+        workingDir.setPath(m_process->workingDirectory());
+
+    // 2. 找 end.bat
+    const QString endBatPath = workingDir.absoluteFilePath(QStringLiteral("end.bat"));
+    if (QFileInfo::exists(endBatPath)) {
+        // 用一个短命的进程去执行 end.bat
+        QProcess::startDetached(QStringLiteral("cmd"),
+                                QStringList() << QStringLiteral("/c")
+                                              << QDir::toNativeSeparators(endBatPath),
+                                workingDir.absolutePath());
+    } else {
+        // 如果 end.bat 不存在，可以考虑直接暴力 kill Job，
+        // 但推荐至少给个提示
+        emit logMessage(tr("未找到 end.bat，尝试直接终止计算进程。"));
+    }
+
+    // 3. 终止当前的控制进程（运行 calculate.bat 的那个 cmd）
+    if (m_process->state() == QProcess::Running) {
+        m_process->terminate();  // 优雅终止
+        // 防止一直卡着，几秒后还没退出就 kill
+        QTimer::singleShot(5000, m_process, &QProcess::kill);
+    }
+
+    // UI 状态在 handleProcessFinished / handleProcessError 里统一收尾即可
+}
+
+QString JsonPageBuilder::detectJobNameFromEndBat(const QDir &workingDir) const
+{
+    const QString endBatPath = workingDir.absoluteFilePath(QStringLiteral("end.bat"));
+    QFile f(endBatPath);
+    if (!f.open(QIODevice::ReadOnly | QIODevice::Text))
+        return QString();
+
+    const QString content = QString::fromLocal8Bit(f.readAll());
+
+    // abaqus terminate job=P2350_PY
+    QRegularExpression re(
+        R"(abaqus\s+terminate\s+job\s*=\s*([^\s\r\n]+))",
+        QRegularExpression::CaseInsensitiveOption);
+    QRegularExpressionMatch m = re.match(content);
+    if (!m.hasMatch())
+        return QString();
+
+    return m.captured(1); // 比如 P2350_PY
+}

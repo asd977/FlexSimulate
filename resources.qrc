@@ -16,4 +16,14 @@
         <file>icons/rotate_left.svg</file>
         <file>icons/rotate_right.svg</file>
     </qresource>
+    <qresource prefix="/">
+        <file>icons/perspective.png</file>
+        <file>icons/view_back.png</file>
+        <file>icons/view_bottom.png</file>
+        <file>icons/view_front.png</file>
+        <file>icons/view_left.png</file>
+        <file>icons/view_right.png</file>
+        <file>icons/view_top.png</file>
+        <file>icons/autofit.png</file>
+    </qresource>
 </RCC>

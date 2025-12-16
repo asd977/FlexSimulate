@@ -94,6 +94,7 @@
 #include <vtkSTLReader.h>
 #include <QSettings>
 #include <QDialogButtonBox>
+#include <QToolBar>
 
 namespace
 {
@@ -104,6 +105,111 @@ const QUrl kMaterialsPageUrl(QString("https://api7.gacrnd.com:9443/gmds/material
 const QUrl kMaterialsDetailUrl(QString("https://api7.gacrnd.com:9443/gmds/material-gygc-material-ds/custom/api/material-base-info/queryMaterialProperties"));
 const int kMaterialsPageSize = 50;
 const char kMaterialsConnectionName[] = "materials_connection";
+
+bool generateAbaqusBatFiles(const QString &destDir,
+                            bool showError,
+                            QWidget *parentForMsgBox)
+{
+    // 1. 只在 destDir 根目录下查找 .py 文件（不递归子目录）
+    QString pyFilePath;
+    {
+        QDir dir(destDir);
+        QStringList pyFiles = dir.entryList(QStringList() << "*.py",
+                                            QDir::Files | QDir::NoSymLinks);
+        if (!pyFiles.isEmpty()) {
+            // 这里默认用第一个 .py 文件
+            pyFilePath = dir.filePath(pyFiles.first());
+        }
+    }
+
+    if (pyFilePath.isEmpty()) {
+        if (showError) {
+            QMessageBox::warning(parentForMsgBox,
+                                 QObject::tr("导入模型"),
+                                 QObject::tr("在模型目录 %1 中未找到任何 .py 文件（仅在根目录中查找）。")
+                                     .arg(QDir::toNativeSeparators(destDir)));
+        }
+        return false;
+    }
+
+    QFileInfo pyInfo(pyFilePath);
+    const QString pyFileName = pyInfo.fileName(); // 带 .py 的文件名
+
+    // 2. 读取 .py 内容，解析 mdb.Job(name='XXX', ...) 里的 XXX
+    QString jobName;
+    {
+        QFile f(pyFilePath);
+        if (!f.open(QIODevice::ReadOnly | QIODevice::Text)) {
+            if (showError) {
+                QMessageBox::warning(parentForMsgBox,
+                                     QObject::tr("导入模型"),
+                                     QObject::tr("无法读取 Python 文件：%1")
+                                         .arg(QDir::toNativeSeparators(pyFilePath)));
+            }
+            return false;
+        }
+
+        const QString content = QString::fromUtf8(f.readAll());
+
+        // 正则：mdb.Job(name='P2350_PY', 或 mdb.Job(name = 'P2350_PY',
+        QRegularExpression re(
+            R"(mdb\.Job\s*\(\s*name\s*=\s*'([^']+)')");
+        QRegularExpressionMatch match = re.match(content);
+        if (!match.hasMatch()) {
+            if (showError) {
+                QMessageBox::warning(parentForMsgBox,
+                                     QObject::tr("导入模型"),
+                                     QObject::tr("在 Python 文件 %1 中未找到 mdb.Job(name='...') 语句。")
+                                         .arg(QDir::toNativeSeparators(pyFilePath)));
+            }
+            return false;
+        }
+
+        jobName = match.captured(1); // 比如 P2350_PY
+    }
+
+    // 3. 写 calculate.bat
+    {
+        const QString calcBatPath = QDir(destDir).filePath("calculate.bat");
+        QFile calcBat(calcBatPath);
+        if (!calcBat.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+            if (showError) {
+                QMessageBox::warning(parentForMsgBox,
+                                     QObject::tr("导入模型"),
+                                     QObject::tr("无法创建文件：%1")
+                                         .arg(QDir::toNativeSeparators(calcBatPath)));
+            }
+            return false;
+        }
+
+        QTextStream out(&calcBat);
+        out << "C:\\SIMULIA\\Abaqus\\Commands\\abaqus cae noGUI="
+            << pyFileName
+            << "\r\n";
+        calcBat.close();
+    }
+
+    // 4. 写 end.bat：abaqus terminate job=P2350_PY
+    {
+        const QString endBatPath = QDir(destDir).filePath("end.bat");
+        QFile endBat(endBatPath);
+        if (!endBat.open(QIODevice::WriteOnly | QIODevice::Text | QIODevice::Truncate)) {
+            if (showError) {
+                QMessageBox::warning(parentForMsgBox,
+                                     QObject::tr("导入模型"),
+                                     QObject::tr("无法创建文件：%1")
+                                         .arg(QDir::toNativeSeparators(endBatPath)));
+            }
+            return false;
+        }
+
+        QTextStream out(&endBat);
+        out << "abaqus terminate job=" << jobName << "\r\n";
+        endBat.close();
+    }
+
+    return true;
+}
 
 class ResizeWatcher : public QObject
 {
@@ -388,8 +494,80 @@ void MainWindow::setupUiHelpers()
         ui->materialPropertiesTable->verticalHeader()->setVisible(false);
     }
 
+    QToolBar *m_toolBar = new QToolBar(ui->vtkWidget);
+    m_toolBar->setOrientation(Qt::Vertical);
+    m_toolBar->setIconSize(QSize(30, 30));
+    m_toolBar->setAllowedAreas(Qt::LeftToolBarArea);
+
+    m_fitView = new QAction(QIcon(":/icons/autofit.png"), tr("FitView"), m_toolBar);
+    m_XplusView = new QAction(QIcon(":/icons/view_right.png"), tr("X+"), m_toolBar);
+    m_XminView = new QAction(QIcon(":/icons/view_left.png"), tr("X-"), m_toolBar);
+    m_YplusView = new QAction(QIcon(":/icons/view_top.png"), tr("Y+"), m_toolBar);
+    m_YminView = new QAction(QIcon(":/icons/view_bottom.png"), tr("Y-"), m_toolBar);
+    m_ZplusView = new QAction(QIcon(":/icons/view_front.png"), tr("Z+"), m_toolBar);
+    m_ZminView = new QAction(QIcon(":/icons/view_back.png"), tr("Z-"), m_toolBar);
+    m_perspective = new QAction(QIcon(":/icons/perspective.png"), tr("Perspective"), m_toolBar);
+
+
+    connect(m_fitView, &QAction::triggered, this, [=]() {this->setView(ViewType::FitView); m_renderer->Render(); });
+    connect(m_XplusView, &QAction::triggered, this, [=]() {this->setView(ViewType::XPlusView); m_renderer->Render(); });
+    connect(m_XminView, &QAction::triggered, this, [=]() {this->setView(ViewType::XMinusView); m_renderer->Render(); });
+    connect(m_YplusView, &QAction::triggered, this, [=]() {this->setView(ViewType::YPlusView); m_renderer->Render(); });
+    connect(m_YminView, &QAction::triggered, this, [=]() {this->setView(ViewType::YMinusView); m_renderer->Render(); });
+    connect(m_ZplusView, &QAction::triggered, this, [=]() {this->setView(ViewType::ZPlusView); m_renderer->Render(); });
+    connect(m_ZminView, &QAction::triggered, this, [=]() {this->setView(ViewType::ZMinusView); m_renderer->Render(); });
+
+    m_toolBar->addActions(this->getViewActions());
+
     updateModelImagePreview(nullptr);
 }
+
+QList<QAction *> MainWindow::getViewActions() const
+{
+    return { m_fitView, m_XplusView, m_XminView, m_YplusView, m_YminView, m_ZplusView, m_ZminView , m_perspective };
+}
+
+void MainWindow::setView(ViewType type)
+{
+    switch (type)
+    {
+    case ViewType::FitView:
+        fitView(); break;
+    case ViewType::XPlusView:
+        setViewValue(-1, 0, 0, 0, 0, 1, 0, 0, 0);
+        break;
+    case ViewType::XMinusView:
+        setViewValue(1, 0, 0, 0, 0, 1, 0, 0, 0);
+        break;
+    case ViewType::YPlusView:
+        setViewValue(0, -1, 0, 0, 0, 1, 0, 0, 0);
+        break;
+    case ViewType::YMinusView:
+        setViewValue(0, 1, 0, 0, 0, 1, 0, 0, 0);
+        break;
+    case ViewType::ZPlusView:
+        setViewValue(0, 0, -1, 0, 1, 0, 0, 0, 0);
+        break;
+    case ViewType::ZMinusView:
+        setViewValue(0, 0, 1, 0, 1, 0, 0, 0, 0);
+        break;
+    }
+}
+
+void MainWindow::fitView()
+{
+    m_renderer->ResetCamera();
+}
+
+void MainWindow::setViewValue(double x1, double x2, double x3, double y1, double y2, double y3, double z1, double z2, double z3)
+{
+    vtkCamera* camera = m_renderer->GetActiveCamera();
+    camera->SetViewUp(y1, y2, y3);
+    camera->SetPosition(z1, z2, z3);
+    camera->SetFocalPoint(x1, x2, x3);
+    m_renderer->ResetCamera();
+}
+
 
 void MainWindow::setupConnections()
 {
@@ -2116,36 +2294,6 @@ void MainWindow::on_loadModelButton_clicked()
 {
     QString modelPath = ui->modelPathLineEdit->text();
     displayResultFile(modelPath);
-}
-
-void MainWindow::on_viewXYButton_clicked()
-{
-    applyCameraView(QVector3D(0.0f, 0.0f, 1.0f), QVector3D(0.0f, 1.0f, 0.0f));
-}
-
-void MainWindow::on_viewYZButton_clicked()
-{
-    applyCameraView(QVector3D(1.0f, 0.0f, 0.0f), QVector3D(0.0f, 0.0f, 1.0f));
-}
-
-void MainWindow::on_viewXZButton_clicked()
-{
-    applyCameraView(QVector3D(0.0f, 1.0f, 0.0f), QVector3D(0.0f, 0.0f, 1.0f));
-}
-
-void MainWindow::on_viewIsoButton_clicked()
-{
-    applyCameraView(QVector3D(1.0f, 1.0f, 1.0f), QVector3D(0.0f, 0.0f, 1.0f));
-}
-
-void MainWindow::on_rotateLeftButton_clicked()
-{
-    rotateCameraAroundFocal(-30.0);
-}
-
-void MainWindow::on_rotateRightButton_clicked()
-{
-    rotateCameraAroundFocal(30.0);
 }
 
 void MainWindow::handleTreeSelectionChanged(QTreeWidgetItem* current, QTreeWidgetItem*)
@@ -5030,9 +5178,12 @@ QStringList MainWindow::importModelsIntoLibraryEntry(SchemeLibraryEntry& entry,
                 continue;
             }
 
+            generateAbaqusBatFiles(destPath, showError, this);
+
             added << QDir::cleanPath(destPath);
             continue;
         }
+
 
         const QVector<ModelRecord> nested =
             scanSchemeFolder(canonicalSrc.isEmpty() ? src.absolutePath() : canonicalSrc);
@@ -5069,6 +5220,8 @@ QStringList MainWindow::importModelsIntoLibraryEntry(SchemeLibraryEntry& entry,
                 continue;
             }
 
+            generateAbaqusBatFiles(destPath, showError, this);
+
             added << QDir::cleanPath(destPath);
         }
     }
@@ -5079,9 +5232,23 @@ QStringList MainWindow::importModelsIntoLibraryEntry(SchemeLibraryEntry& entry,
 bool MainWindow::isModelFolder(const QDir& dir, QString* jsonPath, QString* batPath) const
 {
     QDir copy(dir);
+
+    // === 1. 新规则：根目录下必须至少有一个 .py 文件 ===
+    const QStringList pys = copy.entryList(QStringList() << "*.py",
+                                           QDir::Files | QDir::NoDotAndDotDot);
+    if (pys.isEmpty())
+    {
+        // 没有 .py 就不是模型目录
+        return false;
+    }
+
+    // 如果你以后想拿到 .py 路径，也可以在这里顺便返回一个：
+    // 比如改第三个参数含义，但现在先保持接口不变，就不动它了。
+
+    // === 2. 兼容旧逻辑：如果有 para.json / calculate.bat 就顺便返回路径（可选） ===
+    QString paraFile;
     const QStringList jsons = copy.entryList(QStringList() << "*.json",
                                              QDir::Files | QDir::NoDotAndDotDot);
-    QString paraFile;
     for (const QString& file : jsons)
     {
         if (file.compare(QString("para.json"), Qt::CaseInsensitive) == 0)
@@ -5090,12 +5257,10 @@ bool MainWindow::isModelFolder(const QDir& dir, QString* jsonPath, QString* batP
             break;
         }
     }
-    if (paraFile.isEmpty())
-        return false;
 
+    QString calcFile;
     const QStringList bats = copy.entryList(QStringList() << "*.bat",
                                             QDir::Files | QDir::NoDotAndDotDot);
-    QString calcFile;
     for (const QString& file : bats)
     {
         if (file.compare(QString("calculate.bat"), Qt::CaseInsensitive) == 0)
@@ -5104,15 +5269,18 @@ bool MainWindow::isModelFolder(const QDir& dir, QString* jsonPath, QString* batP
             break;
         }
     }
-    if (calcFile.isEmpty())
-        return false;
 
-    if (jsonPath)
+    // 这些都只是“有就填，没有就留空”，不会影响返回值
+    if (jsonPath && !paraFile.isEmpty())
         *jsonPath = copy.absoluteFilePath(paraFile);
-    if (batPath)
+
+    if (batPath && !calcFile.isEmpty())
         *batPath = copy.absoluteFilePath(calcFile);
+
+    // === 3. 只要有 .py，就认定为合法模型目录 ===
     return true;
 }
+
 
 QVector<MainWindow::ModelRecord> MainWindow::scanSchemeFolder(const QString& schemeDir) const
 {

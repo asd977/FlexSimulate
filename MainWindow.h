@@ -36,6 +36,17 @@ class vtkAxesActor;
 class vtkOrientationMarkerWidget;
 class QListWidgetItem;
 
+enum class ViewType
+{
+    FitView = 0,
+    XPlusView,
+    XMinusView,
+    YPlusView,
+    YMinusView,
+    ZPlusView,
+    ZMinusView,
+};
+
 class MainWindow : public QMainWindow
 {
     Q_OBJECT
@@ -65,12 +76,6 @@ private slots:
     void handleSyncMaterialsRequest();
     void handleMaterialsSelectionChanged(QListWidgetItem* current,
                                          QListWidgetItem* previous);
-    void on_viewXYButton_clicked();
-    void on_viewYZButton_clicked();
-    void on_viewXZButton_clicked();
-    void on_viewIsoButton_clicked();
-    void on_rotateLeftButton_clicked();
-    void on_rotateRightButton_clicked();
 
 private:
     struct ModelRecord {
@@ -334,4 +339,17 @@ private:
     QPushButton* m_materialsSettingsSyncButton = nullptr;
     QString m_materialsStatusMessage;
     QString m_activeMaterialKey;
+
+    QAction* m_fitView{ nullptr };
+    QAction* m_XplusView{ nullptr };
+    QAction* m_XminView{ nullptr };
+    QAction* m_YplusView{ nullptr };
+    QAction* m_YminView{ nullptr };
+    QAction* m_ZplusView{ nullptr };
+    QAction* m_ZminView{ nullptr };
+    QAction* m_perspective{ nullptr };
+    QList<QAction *> getViewActions() const;
+    void setView(ViewType type);
+    void fitView();
+    void setViewValue(double x1, double x2, double x3, double y1, double y2, double y3, double z1, double z2, double z3);
 };

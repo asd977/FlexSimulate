@@ -55,3 +55,6 @@ msvc {
 }
 
 RC_ICONS = icons\app_logo.ico
+
+DISTFILES += \
+    icons/autofit.png
