@@ -11,6 +11,7 @@
 #include <QGraphicsDropShadowEffect>
 #include <QColor>
 #include <QIcon>
+#include <QPainter>
 
 SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
     : QFrame(parent), m_id(id)
@@ -82,7 +83,7 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
     m_imageLabel = new QLabel(this);
     m_imageLabel->setObjectName("imageLabel");
     m_imageLabel->setMinimumSize(220,160);
-    m_imageLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_imageLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
     m_imageLabel->setAlignment(Qt::AlignCenter);
     m_imageLabel->setWordWrap(true);
     m_imageLabel->setText(tr("暂无封面"));
@@ -172,6 +173,14 @@ void SchemeCardWidget::mouseDoubleClickEvent(QMouseEvent* ev)
 void SchemeCardWidget::resizeEvent(QResizeEvent* ev)
 {
     QFrame::resizeEvent(ev);
+    if (m_imageLabel) {
+        const int labelWidth = m_imageLabel->width();
+        if (labelWidth > 0) {
+            const qreal aspect = 220.0 / 160.0;
+            const int targetHeight = qMax(160, qRound(labelWidth / aspect));
+            m_imageLabel->setFixedHeight(targetHeight);
+        }
+    }
     updateThumbnailDisplay();
 }
 
@@ -194,10 +203,20 @@ void SchemeCardWidget::updateThumbnailDisplay()
 
     const qreal ratio = devicePixelRatioF();
     const QSize targetSize = (QSizeF(labelSize) * ratio).toSize();
-    QPixmap scaled = m_thumbnail.scaled(targetSize, Qt::KeepAspectRatio,
-                                        Qt::SmoothTransformation);
-    scaled.setDevicePixelRatio(ratio);
-    m_imageLabel->setPixmap(scaled);
+    QPixmap canvas(targetSize);
+    canvas.setDevicePixelRatio(ratio);
+    canvas.fill(Qt::transparent);
+
+    const QPixmap scaled = m_thumbnail.scaled(targetSize, Qt::KeepAspectRatio,
+                                              Qt::SmoothTransformation);
+    QPainter painter(&canvas);
+    painter.setRenderHint(QPainter::SmoothPixmapTransform, true);
+    const QPoint topLeft((targetSize.width() - scaled.width()) / 2,
+                         (targetSize.height() - scaled.height()) / 2);
+    painter.drawPixmap(topLeft, scaled);
+    painter.end();
+
+    m_imageLabel->setPixmap(canvas);
 }
 
 
