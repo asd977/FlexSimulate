@@ -81,8 +81,8 @@ SchemeCardWidget::SchemeCardWidget(const QString& id, QWidget* parent)
 
     m_imageLabel = new QLabel(this);
     m_imageLabel->setObjectName("imageLabel");
-    m_imageLabel->setMinimumSize(220,160);
-    m_imageLabel->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Expanding);
+    m_imageLabel->setFixedSize(220,160);
+    m_imageLabel->setSizePolicy(QSizePolicy::Fixed, QSizePolicy::Fixed);
     m_imageLabel->setAlignment(Qt::AlignCenter);
     m_imageLabel->setWordWrap(true);
     m_imageLabel->setText(tr("暂无封面"));
