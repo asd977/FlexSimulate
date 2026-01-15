@@ -13,33 +13,72 @@
   <property name="windowTitle">
    <string>总成库</string>
   </property>
+  <property name="styleSheet">
+   <string notr="true">QWidget#SchemeGalleryWidget {
+    background-color: transparent;
+    color: #1f2933;
+    font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    font-size: 14px;
+}
+
+QLabel#titleLabel {
+    font-size: 18px;
+    font-weight: 600;
+    color: #111827;
+}
+
+QPushButton#newSchemeButton {
+    background-color: #10b981;
+    color: #ffffff;
+    border-radius: 8px;
+    padding: 6px 16px;
+    font-weight: 500;
+}
+
+QPushButton#newSchemeButton:hover {
+    background-color: #059669;
+}
+
+QPushButton#newSchemeButton:pressed {
+    background-color: #047857;
+}
+
+QScrollArea {
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    background-color: #ffffff;
+}
+
+QScrollArea QWidget {
+    background-color: transparent;
+}
+
+</string>
+  </property>
   <layout class="QVBoxLayout" name="verticalLayout_root">
    <property name="spacing">
-    <number>8</number>
+    <number>12</number>
    </property>
    <property name="leftMargin">
-    <number>8</number>
+    <number>16</number>
    </property>
    <property name="topMargin">
-    <number>8</number>
+    <number>16</number>
    </property>
    <property name="rightMargin">
-    <number>8</number>
+    <number>16</number>
    </property>
    <property name="bottomMargin">
-    <number>8</number>
+    <number>16</number>
    </property>
    <item>
     <layout class="QHBoxLayout" name="toolbarLayout">
      <item>
-      <widget class="QLabel" name="titleLabel">
-       <property name="styleSheet">
-        <string notr="true">font-size:16px; font-weight:600;</string>
-       </property>
-       <property name="text">
-        <string>总成库</string>
-       </property>
-      </widget>
+     <widget class="QLabel" name="titleLabel">
+      <property name="text">
+       <string>总成库</string>
+      </property>
+     </widget>
      </item>
      <item>
       <spacer name="toolbarSpacer">
@@ -95,19 +134,19 @@
       </property>
       <layout class="QGridLayout" name="gridLayout">
        <property name="leftMargin">
-        <number>8</number>
+        <number>16</number>
        </property>
        <property name="topMargin">
-        <number>8</number>
+        <number>16</number>
        </property>
        <property name="rightMargin">
-        <number>8</number>
+        <number>16</number>
        </property>
        <property name="bottomMargin">
-        <number>8</number>
+        <number>16</number>
        </property>
        <property name="spacing">
-        <number>16</number>
+        <number>20</number>
        </property>
       </layout>
      </widget>
